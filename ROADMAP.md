@@ -4,8 +4,8 @@ Living document. Phases are strategic milestones; the todo list at the bottom tr
 
 ## Phases
 
-1. **Engine spike** — **in progress**. Scaffold Vite + TypeScript + Phaser 3 + Matter.js. Minimal playable loop: draggable stopper, orbiting saw blade, falling 3×3 pinata blocks, red death line, cash counter. Goal is to validate the engine choice end-to-end (write code → Vite HMR → Chrome) before committing to the full port.
-2. **Core loop parity** — pending. Full Pinata Grinder core loop: real Pinata composite bodies with per-block grid, per-square HP, colored variants, confetti on weapon kill, $1 death-line fallback, Economy singleton equivalent.
+1. **Engine spike** — **done (2026-04-15)**. Vite + TypeScript + Phaser 3 + Matter.js scaffold with draggable stopper, orbiting saw blade (dynamic sensor + kinematic orbit), 3×3 loose pinata spawner, red death line, cash HUD, debug mode (`?debug=1` → Matter wireframes + FPS + saw-hit counter). Verified end-to-end in Chrome. Engine choice confirmed viable.
+2. **Core loop parity — round asteroids** — **in progress**. Port Asteroid Grinder v2's `CircularShapeGenerator` to TS, replace rectangular pinata spawner with welded-chunk asteroid bodies, per-chunk HP, saw damage routes to a chunk → fracture via connected-components when chunks die. Pure-logic files are in `src/game/` (shape, rng, circularShapeGenerator, connectedComponents, palette). `Asteroid` class with welded-chunk construction + detach-on-death is written but NOT YET wired into `GameScene.ts`. **Next session picks up here.**
 3. **Weapons** — pending. Port all four Pinata Grinder weapon types:
    - Saw Blade (physical contact damage)
    - Laser (beam + continuous energy damage)
@@ -21,14 +21,19 @@ Living document. Phases are strategic milestones; the todo list at the bottom tr
 10. **Code review** — pending. Fresh reviewer agent, findings, fixes. (Required phase per global conventions.)
 11. **Final verification & remote deploy** — pending. Full typecheck + build, live validation in Chrome, push to a new GitHub repo, optional GH Pages setup.
 
-## Current todos (Phase 1 — Engine spike)
+## Current todos (Phase 2 — Core loop parity, round asteroids)
 
-- [x] Scaffold `package.json`, `tsconfig.json`, `vite.config.ts`, `index.html`, `src/main.ts`, `src/scenes/GameScene.ts`.
-- [x] Write spike scene: draggable stopper, orbiting saw, pinata spawner, death line, cash HUD.
-- [x] Procedural textures for block / stopper / saw (no art assets yet).
-- [ ] `npm install` and confirm the dev server runs.
-- [ ] Open in Chrome via DevTools MCP and verify the gameplay loop is fun to watch.
-- [ ] Matt eyeball gate — does Phaser feel right?
+- [x] Port `ChunkCell`, `ChunkShape`, `AsteroidShape`, `cellKey`, `canonicalEdge` to `src/game/shape.ts`.
+- [x] Port mulberry32 `SeededRng` to `src/game/rng.ts`.
+- [x] Port `CircularShapeGenerator` (seed + grow + triangle-adjacency-aware placement) to `src/game/circularShapeGenerator.ts`.
+- [x] Port `ConnectedComponents` BFS to `src/game/connectedComponents.ts`.
+- [x] `src/game/palette.ts` — party colors.
+- [x] `src/game/asteroid.ts` — `Asteroid` class: construct from an `AsteroidShape` + world position, build a Matter.Image per chunk, weld adjacent chunks with two rigid constraints per shared edge, `damageChunkByImage` reduces HP and calls `detachChunk` on death (severs all welds touching the cell).
+- [ ] Create a texture preload in `GameScene` for `chunk-square`, `chunk-tri-NE/NW/SE/SW` (procedural shapes).
+- [ ] Write `src/game/asteroidSpawner.ts` — timer-based spawner that generates a fresh shape per spawn (random seed, random chunk count ~9–14, random triangle probability, random color).
+- [ ] Rewrite `GameScene.ts` to use `AsteroidSpawner` instead of the loose pinata spawner: replace per-frame `blocks` set with `chunkImages` registry, route saw contact to `asteroid.damageChunkByImage`, death-line collection iterates chunks.
+- [ ] Verify in Chrome: asteroids fall as cohesive rocks, saw chops chunks off, fractured chunks spin free and get collected.
+- [ ] Vitest set up + basic tests for `CircularShapeGenerator` (connected, correct count) and `connectedComponents` (splits work).
 
 ## Backlog (future work)
 
