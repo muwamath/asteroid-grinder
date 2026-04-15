@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+    <link rel="icon" href="data:," />
+    <title>Asteroid Grinder</title>
+    <style>
+      html, body {
+        margin: 0;
+        padding: 0;
+        background: #0b0b14;
+        color: #eee;
+        font-family: ui-monospace, Menlo, Consolas, monospace;
+        overflow: hidden;
+      }
+      #game {
+        display: flex;
+        justify-content: center;
+        align-items: flex-start;
+        padding: 16px;
+      }
+      canvas {
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+        border-radius: 4px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="game"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
