@@ -46,6 +46,7 @@ export class GameScene extends Phaser.Scene {
   private spawnedChunks = 0;
 
   private unsubscribeUpgrade: (() => void) | null = null;
+  private collisionHandler: ((event: Phaser.Physics.Matter.Events.CollisionStartEvent) => void) | null = null;
 
   constructor() {
     super('game');
@@ -59,7 +60,8 @@ export class GameScene extends Phaser.Scene {
   }
 
   create(): void {
-    gameplayState.reset();
+    // Use resetData (not reset) so UIScene's listeners survive a scene restart.
+    gameplayState.resetData();
     this.effectiveParams = applyUpgrades(gameplayState.levels());
 
     const { width, height } = this.scale;
@@ -82,6 +84,11 @@ export class GameScene extends Phaser.Scene {
     this.events.once('shutdown', () => {
       this.unsubscribeUpgrade?.();
       this.unsubscribeUpgrade = null;
+      if (this.collisionHandler) {
+        this.matter.world.off('collisionstart', this.collisionHandler);
+        this.matter.world.off('collisionactive', this.collisionHandler);
+        this.collisionHandler = null;
+      }
     });
 
     this.scene.launch('ui');
@@ -250,13 +257,13 @@ export class GameScene extends Phaser.Scene {
   }
 
   private wireCollisions(): void {
-    const handler = (event: Phaser.Physics.Matter.Events.CollisionStartEvent): void => {
+    this.collisionHandler = (event: Phaser.Physics.Matter.Events.CollisionStartEvent): void => {
       for (const pair of event.pairs) {
         this.handleContact(pair.bodyA, pair.bodyB);
       }
     };
-    this.matter.world.on('collisionstart', handler);
-    this.matter.world.on('collisionactive', handler);
+    this.matter.world.on('collisionstart', this.collisionHandler);
+    this.matter.world.on('collisionactive', this.collisionHandler);
   }
 
   // ── upgrades ──────────────────────────────────────────────────────────

@@ -52,9 +52,16 @@ class GameplayState {
     };
   }
 
-  reset(): void {
+  // Clears game data but leaves listeners intact. Use this when restarting
+  // GameScene while UIScene (or any other long-lived listener) is still subscribed.
+  resetData(): void {
     this._cash = 0;
     this._levels.clear();
+  }
+
+  // Full reset including listeners. Used by tests for isolation between cases.
+  reset(): void {
+    this.resetData();
     this.listeners.cashChanged.clear();
     this.listeners.upgradeLevelChanged.clear();
   }
