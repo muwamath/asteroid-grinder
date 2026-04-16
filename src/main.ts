@@ -56,8 +56,8 @@ game.registry.set('pendingSnapshot', snapshot);
 game.registry.set('offlineAward', offlineAward);
 game.registry.set('offlineElapsedMs', Math.min(offlineElapsedMs, OFFLINE_CAP_MS));
 
-if (debug) {
-  const w = window as unknown as { __GAME__: unknown; __STATE__: unknown };
-  w.__GAME__ = game;
-  w.__STATE__ = gameplayState;
-}
+// Always expose for console tinkering. The overlay itself is still key-toggled
+// (backtick ` in-game, or options-menu button); these handles are harmless idle.
+const w = window as unknown as { __GAME__: unknown; __STATE__: unknown };
+w.__GAME__ = game;
+w.__STATE__ = gameplayState;

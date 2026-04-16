@@ -50,6 +50,7 @@ export class GameScene extends Phaser.Scene {
 
   private debugMode = false;
   private debugText: Phaser.GameObjects.Text | null = null;
+  private debugKey: Phaser.Input.Keyboard.Key | null = null;
   private weaponHits = 0;
   private killedBySaw = 0;
   private collectedAlive = 0;
@@ -297,13 +298,14 @@ export class GameScene extends Phaser.Scene {
       const bodies = world.bodies.length;
       let liveChunkCount = 0;
       for (const a of this.liveAsteroids) liveChunkCount += a.chunks.size;
+      const rate = this.rateTracker.rate();
       this.debugText.setText(
         [
           `FPS ${fps}  ·  bodies ${bodies}  ·  asteroids ${this.liveAsteroids.length}  ·  live ${liveChunkCount}  ·  dead ${this.deadChunks.size}`,
           `spawned ${this.spawnedCount} asteroids · ${this.spawnedChunks} chunks`,
           `hits ${this.weaponHits}  ·  killed ${this.killedBySaw}`,
           `collected dead ${this.collectedDead}  ·  collected alive ${this.collectedAlive}`,
-          `cash $${gameplayState.cash} (saw $${this.cashFromSaw} + line $${this.cashFromLine})`,
+          `cash $${gameplayState.cash} (saw $${this.cashFromSaw} + line $${this.cashFromLine})  ·  rate $${rate.toFixed(2)}/s`,
           `weapons ${this.weaponInstances.length}  ·  dmg ${this.effectiveParams.sawDamage}  ·  spawn ${this.effectiveParams.spawnIntervalMs}ms`,
         ].join('\n'),
       );
@@ -536,14 +538,30 @@ export class GameScene extends Phaser.Scene {
   }
 
   private buildHud(_width: number): void {
-    if (this.debugMode) {
-      this.debugText = this.add.text(14, this.scale.height - 92, '', {
-        font: '11px ui-monospace',
-        color: '#6cf',
-        backgroundColor: '#0008',
-        padding: { x: 6, y: 4 },
-      });
+    // Always build the overlay text — visibility is gated on debugMode so
+    // the options-menu toggle + backtick hotkey can flip it at runtime.
+    this.debugText = this.add.text(14, this.scale.height - 108, '', {
+      font: '11px ui-monospace',
+      color: '#6cf',
+      backgroundColor: '#0008',
+      padding: { x: 6, y: 4 },
+    });
+    this.debugText.setVisible(this.debugMode);
+    this.debugText.setDepth(900);
+
+    if (this.input.keyboard) {
+      this.debugKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.BACKTICK);
+      this.debugKey.on('down', () => this.toggleDebugOverlay());
     }
+  }
+
+  toggleDebugOverlay(): void {
+    this.debugMode = !this.debugMode;
+    this.debugText?.setVisible(this.debugMode);
+  }
+
+  get debugEnabled(): boolean {
+    return this.debugMode;
   }
 
   private wireCollisions(): void {
