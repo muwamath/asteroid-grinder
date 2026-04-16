@@ -4,10 +4,12 @@ import { CHUNK_PIXEL_SIZE } from '../game/asteroid';
 import { AsteroidSpawner } from '../game/asteroidSpawner';
 import { gameplayState } from '../game/gameplayState';
 import { BASE_PARAMS, applyUpgrades, type EffectiveGameplayParams } from '../game/upgradeApplier';
+import { Laser } from '../game/laser';
 import { WEAPON_TYPES } from '../game/weaponCatalog';
 
 const ARBOR_RADIUS = 20;
 const SAW_HIT_COOLDOWN_MS = 120;
+const LASER_TURRET_SIZE = ARBOR_RADIUS * 2;
 
 // Hard barrier enforcement — pushes alive chunks out of weapon collision
 // zones every frame so pile pressure can't defeat the physics solver.
@@ -26,6 +28,8 @@ interface WeaponInstance {
   sprite: Phaser.Physics.Matter.Image;
   orbitAngle: number;
   blades: Phaser.Physics.Matter.Image[];
+  laser?: Laser;
+  beamGfx?: Phaser.GameObjects.Graphics;
 }
 
 export class GameScene extends Phaser.Scene {
@@ -68,6 +72,7 @@ export class GameScene extends Phaser.Scene {
     this.makeChunkTextures();
     this.makeArborTexture();
     this.makeSawBladeTexture(BASE_PARAMS.bladeRadius);
+    this.makeLaserTexture();
   }
 
   create(): void {
@@ -123,6 +128,7 @@ export class GameScene extends Phaser.Scene {
       }
       for (const inst of this.weaponInstances) {
         for (const blade of inst.blades) blade.destroy();
+        inst.beamGfx?.destroy();
         inst.sprite.destroy();
       }
       this.weaponInstances = [];
@@ -145,6 +151,12 @@ export class GameScene extends Phaser.Scene {
           blade.setPosition(sx, sy);
           blade.setRotation(blade.rotation + delta * this.effectiveParams.bladeSpinSpeed);
         }
+      }
+    }
+
+    for (const inst of this.weaponInstances) {
+      if (inst.type === 'laser' && inst.laser) {
+        this.updateLaser(inst, delta);
       }
     }
 
@@ -200,7 +212,7 @@ export class GameScene extends Phaser.Scene {
 
   private spawnWeaponInstance(typeId: string, x: number, y: number): WeaponInstance {
     const id = `${typeId}-${this.nextInstanceId++}`;
-    const texKey = typeId === 'saw' ? 'arbor' : typeId;
+    const texKey = typeId === 'saw' ? 'arbor' : typeId === 'laser' ? 'laser-turret' : typeId;
 
     const sprite = this.matter.add.image(x, y, texKey);
     sprite.setCircle(ARBOR_RADIUS);
@@ -224,6 +236,11 @@ export class GameScene extends Phaser.Scene {
 
     if (typeId === 'saw') {
       this.rebuildBladesForInstance(instance, this.effectiveParams.bladeCount, this.effectiveParams.bladeRadius);
+    }
+    if (typeId === 'laser') {
+      instance.laser = new Laser(this.effectiveParams.laserCooldown);
+      instance.beamGfx = this.add.graphics();
+      instance.beamGfx.setDepth(2);
     }
 
     return instance;
@@ -353,6 +370,7 @@ export class GameScene extends Phaser.Scene {
       const idx = Math.floor(Math.random() * currentInstances.length);
       const victim = currentInstances[idx];
       for (const blade of victim.blades) blade.destroy();
+      victim.beamGfx?.destroy();
       victim.sprite.destroy();
       this.weaponInstances = this.weaponInstances.filter((i) => i !== victim);
     }
@@ -515,6 +533,42 @@ export class GameScene extends Phaser.Scene {
         body.velocity.x - vDot * nx,
         body.velocity.y - vDot * ny,
       );
+    }
+  }
+
+  private updateLaser(inst: WeaponInstance, delta: number): void {
+    const laser = inst.laser!;
+    const params = {
+      aimSpeed: this.effectiveParams.laserAimSpeed,
+      range: this.effectiveParams.laserRange,
+      damage: this.effectiveParams.laserDamage,
+      cooldown: this.effectiveParams.laserCooldown,
+    };
+
+    const dmg = laser.update(delta, inst.sprite.x, inst.sprite.y, this.chunkImages, params);
+
+    // Rotate the sprite to match aim direction.
+    // Texture barrel is at top (y=0), which is -PI/2 in screen coords.
+    inst.sprite.setRotation(laser.aimAngle + Math.PI / 2);
+
+    // Draw beam.
+    const gfx = inst.beamGfx!;
+    gfx.clear();
+
+    if (laser.firing && laser.target && laser.target.active) {
+      const emit = laser.emitPoint(inst.sprite.x, inst.sprite.y, ARBOR_RADIUS);
+      gfx.lineStyle(2, 0xff3333, 0.8);
+      gfx.beginPath();
+      gfx.moveTo(emit.x, emit.y);
+      gfx.lineTo(laser.target.x, laser.target.y);
+      gfx.strokePath();
+
+      if (dmg > 0) {
+        const asteroid = laser.target.getData('asteroid') as Asteroid | undefined;
+        if (asteroid) {
+          asteroid.damageChunkByImage(laser.target, dmg);
+        }
+      }
     }
   }
 
@@ -681,6 +735,21 @@ export class GameScene extends Phaser.Scene {
     g.fillCircle(cx, cy, 2.5);
 
     g.generateTexture('saw-blade', d, d);
+    g.destroy();
+  }
+
+  private makeLaserTexture(): void {
+    const s = LASER_TURRET_SIZE;
+    const g = this.make.graphics({ x: 0, y: 0 }, false);
+    g.fillStyle(0x442222);
+    g.fillRect(0, 0, s, s);
+    // Bright barrel edge (top = firing direction before rotation)
+    g.fillStyle(0xff3333);
+    g.fillRect(0, 0, s, 4);
+    // Border
+    g.lineStyle(1, 0x663333);
+    g.strokeRect(0.5, 0.5, s - 1, s - 1);
+    g.generateTexture('laser-turret', s, s);
     g.destroy();
   }
 }
