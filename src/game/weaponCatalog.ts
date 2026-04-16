@@ -84,7 +84,7 @@ export const WEAPON_TYPES: readonly WeaponTypeDef[] = [
     name: 'Laser',
     icon: 'laser',
     locked: false,
-    startCount: 1,
+    startCount: 0,
     upgrades: [
       {
         id: 'laser.aimSpeed',
@@ -129,7 +129,7 @@ export const WEAPON_TYPES: readonly WeaponTypeDef[] = [
     name: 'Missile',
     icon: 'missile',
     locked: false,
-    startCount: 1,
+    startCount: 0,
     upgrades: [
       {
         id: 'missile.fireRate',
@@ -183,7 +183,7 @@ export const WEAPON_TYPES: readonly WeaponTypeDef[] = [
     name: 'B. Hole',
     icon: 'blackhole',
     locked: false,
-    startCount: 1,
+    startCount: 0,
     upgrades: [
       {
         id: 'blackhole.pullRange',

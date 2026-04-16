@@ -28,9 +28,13 @@ describe('weaponCatalog', () => {
     expect(ids).toEqual(['chute', 'asteroids']);
   });
 
-  it('every weapon type starts with count 1', () => {
+  it('grinder and saw start at 1; other weapons start at 0', () => {
     for (const w of WEAPON_TYPES) {
-      expect(w.startCount).toBe(1);
+      if (w.id === 'grinder' || w.id === 'saw') {
+        expect(w.startCount).toBe(1);
+      } else {
+        expect(w.startCount).toBe(0);
+      }
     }
   });
 
