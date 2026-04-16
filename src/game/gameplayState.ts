@@ -3,14 +3,17 @@ type Listener<A extends unknown[]> = (...args: A) => void;
 interface Events {
   cashChanged: [cash: number, delta: number];
   upgradeLevelChanged: [id: string, level: number];
+  weaponCountChanged: [id: string, count: number];
 }
 
 class GameplayState {
   private _cash = 0;
   private readonly _levels = new Map<string, number>();
+  private readonly _weaponCounts = new Map<string, number>();
   private readonly listeners: { [K in keyof Events]: Set<Listener<Events[K]>> } = {
     cashChanged: new Set(),
     upgradeLevelChanged: new Set(),
+    weaponCountChanged: new Set(),
   };
 
   get cash(): number {
@@ -40,6 +43,31 @@ class GameplayState {
     return out;
   }
 
+  initWeaponCounts(counts: Record<string, number>): void {
+    this._weaponCounts.clear();
+    for (const [id, count] of Object.entries(counts)) {
+      this._weaponCounts.set(id, count);
+    }
+  }
+
+  weaponCount(id: string): number {
+    return this._weaponCounts.get(id) ?? 0;
+  }
+
+  buyWeapon(id: string): void {
+    const current = this.weaponCount(id);
+    this._weaponCounts.set(id, current + 1);
+    this.emit('weaponCountChanged', id, current + 1);
+  }
+
+  sellWeapon(id: string): boolean {
+    const current = this.weaponCount(id);
+    if (current <= 1) return false;
+    this._weaponCounts.set(id, current - 1);
+    this.emit('weaponCountChanged', id, current - 1);
+    return true;
+  }
+
   setLevel(id: string, level: number): void {
     this._levels.set(id, level);
     this.emit('upgradeLevelChanged', id, level);
@@ -57,6 +85,7 @@ class GameplayState {
   resetData(): void {
     this._cash = 0;
     this._levels.clear();
+    this._weaponCounts.clear();
   }
 
   // Full reset including listeners. Used by tests for isolation between cases.
@@ -64,6 +93,7 @@ class GameplayState {
     this.resetData();
     this.listeners.cashChanged.clear();
     this.listeners.upgradeLevelChanged.clear();
+    this.listeners.weaponCountChanged.clear();
   }
 
   private emit<E extends keyof Events>(event: E, ...args: Events[E]): void {

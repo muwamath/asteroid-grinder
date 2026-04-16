@@ -120,4 +120,34 @@ describe('gameplayState', () => {
     gameplayState.addCash(1);
     expect(count).toBe(1);
   });
+
+  it('tracks weapon counts with initWeaponCounts', () => {
+    gameplayState.reset();
+    gameplayState.initWeaponCounts({ grinder: 1, saw: 1 });
+    expect(gameplayState.weaponCount('grinder')).toBe(1);
+    expect(gameplayState.weaponCount('saw')).toBe(1);
+    expect(gameplayState.weaponCount('laser')).toBe(0);
+  });
+
+  it('buyWeapon increments count and emits weaponCountChanged', () => {
+    gameplayState.reset();
+    gameplayState.initWeaponCounts({ saw: 1 });
+    const events: Array<[string, number]> = [];
+    gameplayState.on('weaponCountChanged', (id, count) => events.push([id, count]));
+    gameplayState.buyWeapon('saw');
+    expect(gameplayState.weaponCount('saw')).toBe(2);
+    expect(events).toEqual([['saw', 2]]);
+  });
+
+  it('sellWeapon decrements count but not below 1', () => {
+    gameplayState.reset();
+    gameplayState.initWeaponCounts({ saw: 2 });
+    const events: Array<[string, number]> = [];
+    gameplayState.on('weaponCountChanged', (id, count) => events.push([id, count]));
+    expect(gameplayState.sellWeapon('saw')).toBe(true);
+    expect(gameplayState.weaponCount('saw')).toBe(1);
+    expect(gameplayState.sellWeapon('saw')).toBe(false);
+    expect(gameplayState.weaponCount('saw')).toBe(1);
+    expect(events).toEqual([['saw', 1]]);
+  });
 });
