@@ -6,11 +6,11 @@ Phaser 3 + Matter.js + TypeScript + Vite. 1280×720 (16:9) with auto-scaling.
 
 ## Status
 
-**Phase 8 — Menu & HUD (MVP), done (2026-04-16).** Options modal (gear button top-right or ESC) with Save Now, Show/Hide Debug Overlay, and Restart Game (confirm dialog). Debug overlay toggles at runtime via backtick (`) and shows FPS, body count, asteroid/chunk totals, cash breakdown, cash/sec EMA rate, and effective weapon params. `window.__GAME__` + `window.__STATE__` are always exposed for devtools poking (no longer gated on `?debug=1`). Manual save writes an instant snapshot and flashes a "Saved" toast. Restart clears `localStorage` and hard-reloads. Shop styling deferred to the art pass. 107 vitest tests.
+**Phase 10 — MVP shipped (2026-04-16).** Full `tsc --noEmit` + `vite build` clean, 111 vitest tests green, production `dist/` validated live in Chrome (asteroid grinding loop, cash accrual, save/load roundtrip across reload, zero console errors).
 
-Previous phases: Phase 7 (save & offline — autosave, welcome-back, EMA rate tracker, per-instance weapon positions); Phase 6.5 (compound-body asteroid rewrite — one Matter body per live connected component, native broadphase pile handling); Phase 6 (asteroid overhaul — 9-tier material ladder, Quality + Fall Speed upgrades); Phase 5 (weapons — Saw, Laser, Missile, Black Hole behind `WeaponBehavior`); Phase 4 (weapon shop + multi-instance); Phase 3 (economy + upgrades); Phase 2 (round asteroids + fracture); Phase 1 (engine spike).
+Previous phases: Phase 9 (code review — arbor texture guard + save-state numeric validation); Phase 8 (menu & HUD — options modal, debug overlay, restart); Phase 7 (save & offline — autosave, welcome-back, EMA rate tracker); Phase 6.5 (compound-body asteroid rewrite — one Matter body per live connected component); Phase 6 (asteroid overhaul — 9-tier material ladder, Quality + Fall Speed upgrades); Phase 5 (weapons — Saw, Laser, Missile, Black Hole behind `WeaponBehavior`); Phase 4 (weapon shop + multi-instance); Phase 3 (economy + upgrades); Phase 2 (round asteroids + fracture); Phase 1 (engine spike).
 
-Next up: Phase 9 (code review) → Phase 10 (final verification + remote deploy, MVP ships) → Phase 11 (art & audio pass, post-MVP). See [ROADMAP.md](ROADMAP.md).
+Next up: Phase 11 (art & audio pass, post-MVP). See [ROADMAP.md](ROADMAP.md).
 
 ## Run locally
 
