@@ -9,12 +9,9 @@ export function cellKey(x: number, y: number): CellKey {
   return `${x},${y}`;
 }
 
-export type ChunkShape = 'square' | 'triNE' | 'triNW' | 'triSE' | 'triSW';
-
-/** A single chunk within a cell. A cell may hold 1 square or 1–2 triangles. */
+/** A single chunk within a cell. Squares-only after Phase 6. */
 export interface ChunkEntry {
-  readonly shape: ChunkShape;
-  readonly chunkId: string; // unique within the asteroid, e.g. "0,0:0"
+  readonly chunkId: string;
   readonly cell: ChunkCell;
 }
 
@@ -22,18 +19,12 @@ export function makeChunkId(key: CellKey, index: number): string {
   return `${key}:${index}`;
 }
 
-/** Maps of complementary triangle pairs that can share a cell. */
-export const TRIANGLE_COMPLEMENT: Partial<Record<ChunkShape, ChunkShape>> = {
-  triNE: 'triSW',
-  triSW: 'triNE',
-  triNW: 'triSE',
-  triSE: 'triNW',
-};
-
 export interface AsteroidShape {
   readonly cells: readonly ChunkCell[];
   readonly chunksByCell: ReadonlyMap<CellKey, readonly ChunkEntry[]>;
-  readonly adjacency: ReadonlyMap<string, ReadonlySet<string>>; // keyed by chunkId
+  readonly adjacency: ReadonlyMap<string, ReadonlySet<string>>;
+  /** ChunkId of the centroid (seed) chunk, reserved for future core mechanic. */
+  readonly coreChunkId: string;
 }
 
 export function canonicalEdge(a: string, b: string): string {
