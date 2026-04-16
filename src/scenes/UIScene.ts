@@ -7,6 +7,7 @@ import {
   type CategoryDef,
 } from '../game/weaponCatalog';
 import { costAtLevel, isMaxed, type UpgradeDef } from '../game/upgradeCatalog';
+import type { GameScene } from './GameScene';
 
 const BAR_X = 8;
 const BAR_Y = 44;
@@ -21,6 +22,9 @@ export class UIScene extends Phaser.Scene {
   private activePanel: SubPanel | null = null;
   private selectedId: string | null = null;
   private unsubs: Array<() => void> = [];
+  private optionsModal: OptionsModal | null = null;
+  private saveToast: Phaser.GameObjects.Text | null = null;
+  private saveToastTween: Phaser.Tweens.Tween | null = null;
 
   constructor() {
     super('ui');
@@ -35,6 +39,7 @@ export class UIScene extends Phaser.Scene {
     });
 
     this.buildWeaponBar();
+    this.buildOptionsGear();
 
     this.unsubs.push(
       gameplayState.on('cashChanged', (cash) => {
@@ -181,6 +186,105 @@ export class UIScene extends Phaser.Scene {
       this.barButtons.push(btn);
       y += BAR_BUTTON_SIZE + BAR_GAP;
     }
+  }
+
+  // ── options gear + modal ────────────────────────────────────────────────
+
+  private buildOptionsGear(): void {
+    const { width } = this.scale;
+    const btnSize = 34;
+    const x = width - btnSize - 10;
+    const y = 10;
+
+    const bg = this.add
+      .rectangle(x, y, btnSize, btnSize, 0x202030)
+      .setOrigin(0, 0)
+      .setStrokeStyle(1, 0x4a4a5c)
+      .setInteractive({ useHandCursor: true })
+      .setDepth(500);
+    const label = this.add
+      .text(x + btnSize / 2, y + btnSize / 2, '⚙', {
+        font: 'bold 20px ui-monospace',
+        color: '#c0c0d8',
+      })
+      .setOrigin(0.5)
+      .setDepth(501);
+
+    bg.on('pointerover', () => bg.setFillStyle(0x2a2a40));
+    bg.on('pointerout', () => bg.setFillStyle(0x202030));
+    bg.on('pointerdown', () => this.openOptions());
+
+    if (this.input.keyboard) {
+      const escKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
+      escKey.on('down', () => {
+        if (this.optionsModal) this.closeOptions();
+        else this.openOptions();
+      });
+    }
+
+    // Keep a handle in case we need to re-layout later.
+    void label;
+  }
+
+  openOptions(): void {
+    if (this.optionsModal) return;
+    this.optionsModal = new OptionsModal(this);
+  }
+
+  closeOptions(): void {
+    this.optionsModal?.destroy();
+    this.optionsModal = null;
+  }
+
+  doManualSave(): void {
+    const gs = this.scene.get('game') as GameScene;
+    gs.snapshotNow();
+    this.flashSaveToast();
+  }
+
+  doRestart(): void {
+    const gs = this.scene.get('game') as GameScene;
+    gs.restartGame();
+  }
+
+  doToggleDebug(): void {
+    const gs = this.scene.get('game') as GameScene;
+    gs.toggleDebugOverlay();
+  }
+
+  getDebugEnabled(): boolean {
+    const gs = this.scene.get('game') as GameScene;
+    return gs.debugEnabled;
+  }
+
+  private flashSaveToast(): void {
+    if (this.saveToastTween) {
+      this.saveToastTween.stop();
+      this.saveToastTween = null;
+    }
+    if (!this.saveToast) {
+      this.saveToast = this.add
+        .text(this.scale.width - 10, 52, 'Saved', {
+          font: 'bold 14px ui-monospace',
+          color: '#b0ffa8',
+          backgroundColor: '#00000080',
+          padding: { x: 8, y: 4 },
+        })
+        .setOrigin(1, 0)
+        .setDepth(600);
+    }
+    this.saveToast.setVisible(true).setAlpha(1);
+    this.saveToastTween = this.tweens.add({
+      targets: this.saveToast,
+      alpha: 0,
+      duration: 1200,
+      delay: 600,
+      ease: 'Quad.in',
+      onComplete: () => {
+        this.saveToast?.setVisible(false);
+        this.saveToastTween = null;
+      },
+    });
   }
 
   private togglePanel(id: string, def: WeaponTypeDef | CategoryDef, isWeapon: boolean): void {
@@ -564,5 +668,197 @@ class UpgradeButton {
     if (gameplayState.trySpend(cost)) {
       gameplayState.setLevel(this.def.id, level + 1);
     }
+  }
+}
+
+// ── OptionsModal ─────────────────────────────────────────────────────────
+
+class OptionsModal {
+  private readonly objects: Phaser.GameObjects.GameObject[] = [];
+  private confirmLayer: Phaser.GameObjects.GameObject[] | null = null;
+
+  constructor(private readonly scene: UIScene) {
+    const { width, height } = scene.scale;
+    const backdrop = scene.add
+      .rectangle(0, 0, width, height, 0x000000, 0.55)
+      .setOrigin(0, 0)
+      .setInteractive()
+      .setDepth(800);
+    backdrop.on('pointerdown', () => scene.closeOptions());
+    this.objects.push(backdrop);
+
+    const panelW = 360;
+    const panelH = 300;
+    const panelX = width / 2;
+    const panelY = height / 2;
+    const panel = scene.add
+      .rectangle(panelX, panelY, panelW, panelH, 0x1f1f30)
+      .setStrokeStyle(2, 0xffffff, 0.3)
+      .setDepth(801)
+      .setInteractive();
+    // Swallow clicks on the panel itself (don't bubble to backdrop).
+    panel.on('pointerdown', (_: unknown, __: unknown, ___: unknown, ev: Phaser.Types.Input.EventData) => {
+      ev.stopPropagation();
+    });
+    this.objects.push(panel);
+
+    const title = scene.add
+      .text(panelX, panelY - panelH / 2 + 22, 'Options', {
+        font: 'bold 20px ui-monospace',
+        color: '#ffd166',
+      })
+      .setOrigin(0.5)
+      .setDepth(802);
+    this.objects.push(title);
+
+    const btnW = 220;
+    const btnH = 40;
+    const gap = 12;
+    const firstY = panelY - 50;
+
+    this.addButton(panelX, firstY, btnW, btnH, 'Save Now', '#b0ffa8', () => {
+      scene.doManualSave();
+    });
+    this.addButton(panelX, firstY + (btnH + gap), btnW, btnH, () => {
+      return scene.getDebugEnabled() ? 'Hide Debug Overlay' : 'Show Debug Overlay';
+    }, '#a0c0e0', () => {
+      scene.doToggleDebug();
+      // Re-render to update button label.
+      scene.closeOptions();
+      scene.openOptions();
+    });
+    this.addButton(panelX, firstY + 2 * (btnH + gap), btnW, btnH, 'Restart Game', '#ffa0a0', () => {
+      this.showRestartConfirm();
+    });
+    this.addButton(panelX, firstY + 3 * (btnH + gap), btnW, btnH, 'Close', '#c0c0d8', () => {
+      scene.closeOptions();
+    });
+  }
+
+  private addButton(
+    cx: number, cy: number, w: number, h: number,
+    label: string | (() => string),
+    color: string,
+    onClick: () => void,
+  ): void {
+    const bg = this.scene.add
+      .rectangle(cx, cy, w, h, 0x2a2a3c)
+      .setStrokeStyle(1, 0x4a4a5c)
+      .setInteractive({ useHandCursor: true })
+      .setDepth(802);
+    const text = this.scene.add
+      .text(cx, cy, typeof label === 'function' ? label() : label, {
+        font: 'bold 14px ui-monospace',
+        color,
+      })
+      .setOrigin(0.5)
+      .setDepth(803);
+
+    bg.on('pointerover', () => bg.setFillStyle(0x353550));
+    bg.on('pointerout', () => bg.setFillStyle(0x2a2a3c));
+    bg.on('pointerdown', (_: unknown, __: unknown, ___: unknown, ev: Phaser.Types.Input.EventData) => {
+      ev.stopPropagation();
+      onClick();
+    });
+
+    this.objects.push(bg, text);
+  }
+
+  private showRestartConfirm(): void {
+    if (this.confirmLayer) return;
+    const { width, height } = this.scene.scale;
+    const layer: Phaser.GameObjects.GameObject[] = [];
+
+    const shade = this.scene.add
+      .rectangle(0, 0, width, height, 0x000000, 0.4)
+      .setOrigin(0, 0)
+      .setInteractive()
+      .setDepth(900);
+    shade.on('pointerdown', (_: unknown, __: unknown, ___: unknown, ev: Phaser.Types.Input.EventData) => {
+      ev.stopPropagation();
+    });
+    layer.push(shade);
+
+    const panelW = 380;
+    const panelH = 180;
+    const panel = this.scene.add
+      .rectangle(width / 2, height / 2, panelW, panelH, 0x1f1f30)
+      .setStrokeStyle(2, 0xff6666, 0.5)
+      .setDepth(901);
+    layer.push(panel);
+
+    const title = this.scene.add
+      .text(width / 2, height / 2 - 50, 'Restart game?', {
+        font: 'bold 18px ui-monospace',
+        color: '#ff9090',
+      })
+      .setOrigin(0.5)
+      .setDepth(902);
+    layer.push(title);
+
+    const body = this.scene.add
+      .text(
+        width / 2,
+        height / 2 - 18,
+        'This clears your save and starts fresh.',
+        {
+          font: '13px ui-monospace',
+          color: '#c0c0d0',
+          align: 'center',
+        },
+      )
+      .setOrigin(0.5)
+      .setDepth(902);
+    layer.push(body);
+
+    const cancelBg = this.scene.add
+      .rectangle(width / 2 - 85, height / 2 + 40, 140, 36, 0x2a2a3c)
+      .setStrokeStyle(1, 0x4a4a5c)
+      .setInteractive({ useHandCursor: true })
+      .setDepth(902);
+    const cancelText = this.scene.add
+      .text(width / 2 - 85, height / 2 + 40, 'Cancel', {
+        font: 'bold 13px ui-monospace',
+        color: '#c0c0d8',
+      })
+      .setOrigin(0.5)
+      .setDepth(903);
+    cancelBg.on('pointerdown', (_: unknown, __: unknown, ___: unknown, ev: Phaser.Types.Input.EventData) => {
+      ev.stopPropagation();
+      this.dismissConfirm();
+    });
+    layer.push(cancelBg, cancelText);
+
+    const confirmBg = this.scene.add
+      .rectangle(width / 2 + 85, height / 2 + 40, 140, 36, 0x402020)
+      .setStrokeStyle(1, 0x803030)
+      .setInteractive({ useHandCursor: true })
+      .setDepth(902);
+    const confirmText = this.scene.add
+      .text(width / 2 + 85, height / 2 + 40, 'Restart', {
+        font: 'bold 13px ui-monospace',
+        color: '#ffa0a0',
+      })
+      .setOrigin(0.5)
+      .setDepth(903);
+    confirmBg.on('pointerdown', (_: unknown, __: unknown, ___: unknown, ev: Phaser.Types.Input.EventData) => {
+      ev.stopPropagation();
+      this.scene.doRestart();
+    });
+    layer.push(confirmBg, confirmText);
+
+    this.confirmLayer = layer;
+  }
+
+  private dismissConfirm(): void {
+    if (!this.confirmLayer) return;
+    for (const o of this.confirmLayer) o.destroy();
+    this.confirmLayer = null;
+  }
+
+  destroy(): void {
+    this.dismissConfirm();
+    for (const o of this.objects) o.destroy();
+    this.objects.length = 0;
   }
 }

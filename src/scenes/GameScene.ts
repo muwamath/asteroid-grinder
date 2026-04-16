@@ -5,7 +5,7 @@ import { gameplayState } from '../game/gameplayState';
 import { BASE_PARAMS, applyUpgrades, type EffectiveGameplayParams } from '../game/upgradeApplier';
 import { WEAPON_TYPES } from '../game/weaponCatalog';
 import { CashRateTracker } from '../game/cashRate';
-import { saveToLocalStorage, type SaveStateV1 } from '../game/saveState';
+import { saveToLocalStorage, clearSave, type SaveStateV1 } from '../game/saveState';
 import { type WeaponBehavior, createBehavior, allBehaviorPrototypes } from '../game/weapons';
 import { MATERIALS, type Material, textureKeyFor } from '../game/materials';
 import type { ChunkTarget } from '../game/chunkTarget';
@@ -446,7 +446,22 @@ export class GameScene extends Phaser.Scene {
     return instance;
   }
 
-  private snapshotNow(): void {
+  // Clear the persisted save and hard-reload. Detach the beforeunload handler
+  // first so snapshotNow() doesn't immediately re-write the slot we just cleared.
+  restartGame(): void {
+    if (this.beforeUnloadHandler) {
+      window.removeEventListener('beforeunload', this.beforeUnloadHandler);
+      this.beforeUnloadHandler = null;
+    }
+    if (this.autosaveTimer) {
+      this.autosaveTimer.remove(false);
+      this.autosaveTimer = null;
+    }
+    clearSave();
+    window.location.reload();
+  }
+
+  snapshotNow(): void {
     const weaponIds = WEAPON_TYPES.filter((w) => !w.locked).map((w) => w.id);
     const weaponCounts: Record<string, number> = {};
     for (const id of weaponIds) weaponCounts[id] = gameplayState.weaponCount(id);
