@@ -4,16 +4,19 @@ interface Events {
   cashChanged: [cash: number, delta: number];
   upgradeLevelChanged: [id: string, level: number];
   weaponCountChanged: [id: string, count: number];
+  sawDirectionChanged: [clockwise: boolean];
 }
 
 class GameplayState {
   private _cash = 0;
   private readonly _levels = new Map<string, number>();
   private readonly _weaponCounts = new Map<string, number>();
+  private _sawClockwise = true;
   private readonly listeners: { [K in keyof Events]: Set<Listener<Events[K]>> } = {
     cashChanged: new Set(),
     upgradeLevelChanged: new Set(),
     weaponCountChanged: new Set(),
+    sawDirectionChanged: new Set(),
   };
 
   get cash(): number {
@@ -68,6 +71,15 @@ class GameplayState {
     return true;
   }
 
+  get sawClockwise(): boolean {
+    return this._sawClockwise;
+  }
+
+  setSawClockwise(cw: boolean): void {
+    this._sawClockwise = cw;
+    this.emit('sawDirectionChanged', cw);
+  }
+
   setLevel(id: string, level: number): void {
     this._levels.set(id, level);
     this.emit('upgradeLevelChanged', id, level);
@@ -86,6 +98,7 @@ class GameplayState {
     this._cash = 0;
     this._levels.clear();
     this._weaponCounts.clear();
+    this._sawClockwise = true;
   }
 
   // Full reset including listeners. Used by tests for isolation between cases.
@@ -94,6 +107,7 @@ class GameplayState {
     this.listeners.cashChanged.clear();
     this.listeners.upgradeLevelChanged.clear();
     this.listeners.weaponCountChanged.clear();
+    this.listeners.sawDirectionChanged.clear();
   }
 
   private emit<E extends keyof Events>(event: E, ...args: Events[E]): void {

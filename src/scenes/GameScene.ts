@@ -7,7 +7,8 @@ import { BASE_PARAMS, applyUpgrades, type EffectiveGameplayParams } from '../gam
 import { WEAPON_TYPES } from '../game/weaponCatalog';
 
 const STOPPER_RADIUS = 32;
-const SAW_ORBIT_RADIUS = 56;
+const SAW_HUB_RADIUS = 16;
+const SAW_ORBIT_RADIUS = SAW_HUB_RADIUS + 18; // hub edge + blade radius
 const SAW_ORBIT_RAD_PER_SEC = 4;
 const SAW_RADIUS = 18;
 const SAW_HIT_COOLDOWN_MS = 120;
@@ -65,7 +66,8 @@ export class GameScene extends Phaser.Scene {
   preload(): void {
     this.makeChunkTextures();
     this.makeStopperTexture();
-    this.makeSawTexture();
+    this.makeSawHubTexture();
+    this.makeSawBladeTexture();
   }
 
   create(): void {
@@ -133,7 +135,8 @@ export class GameScene extends Phaser.Scene {
   update(_time: number, delta: number): void {
     for (const inst of this.weaponInstances) {
       if (inst.type === 'saw' && inst.blades.length > 0) {
-        inst.orbitAngle += (SAW_ORBIT_RAD_PER_SEC * delta) / 1000;
+        const dir = gameplayState.sawClockwise ? 1 : -1;
+        inst.orbitAngle += dir * (SAW_ORBIT_RAD_PER_SEC * delta) / 1000;
         const bladeCount = inst.blades.length;
         for (let i = 0; i < bladeCount; i++) {
           const phase = inst.orbitAngle + (i * Math.PI * 2) / bladeCount;
@@ -197,10 +200,11 @@ export class GameScene extends Phaser.Scene {
 
   private spawnWeaponInstance(typeId: string, x: number, y: number): WeaponInstance {
     const id = `${typeId}-${this.nextInstanceId++}`;
-    const texKey = typeId === 'grinder' ? 'stopper' : typeId;
+    const texKey = typeId === 'grinder' ? 'stopper' : typeId === 'saw' ? 'saw-hub' : typeId;
+    const collisionRadius = typeId === 'saw' ? SAW_HUB_RADIUS : STOPPER_RADIUS;
 
     const sprite = this.matter.add.image(x, y, texKey);
-    sprite.setCircle(STOPPER_RADIUS);
+    sprite.setCircle(collisionRadius);
     sprite.setStatic(true);
     sprite.setFriction(0.2);
     sprite.setInteractive({ draggable: true });
@@ -229,7 +233,7 @@ export class GameScene extends Phaser.Scene {
     for (const blade of instance.blades) blade.destroy();
     instance.blades = [];
     for (let i = 0; i < count; i++) {
-      const blade = this.matter.add.image(0, 0, 'saw');
+      const blade = this.matter.add.image(0, 0, 'saw-blade');
       blade.setCircle(SAW_RADIUS);
       blade.setSensor(true);
       blade.setIgnoreGravity(true);
@@ -248,7 +252,7 @@ export class GameScene extends Phaser.Scene {
         if (!inst) return;
         const halfW = this.scale.width / 2;
         const halfChannel = this.effectiveParams.channelHalfWidth;
-        const radius = STOPPER_RADIUS;
+        const radius = inst.type === 'saw' ? SAW_HUB_RADIUS : STOPPER_RADIUS;
         const minX = halfW - halfChannel + radius + 4;
         const maxX = halfW + halfChannel - radius - 4;
         const cx = Phaser.Math.Clamp(dragX, minX, maxX);
@@ -293,11 +297,10 @@ export class GameScene extends Phaser.Scene {
 
     // If any weapons are outside the new channel, pull them in.
     const halfW = this.scale.width / 2;
-    const minX = halfW - halfWidth + STOPPER_RADIUS + 4;
-    const maxX = halfW + halfWidth - STOPPER_RADIUS - 4;
     for (const inst of this.weaponInstances) {
+      const r = inst.type === 'saw' ? SAW_HUB_RADIUS : STOPPER_RADIUS;
       inst.sprite.setPosition(
-        Phaser.Math.Clamp(inst.sprite.x, minX, maxX),
+        Phaser.Math.Clamp(inst.sprite.x, halfW - halfWidth + r + 4, halfW + halfWidth - r - 4),
         inst.sprite.y,
       );
     }
@@ -567,24 +570,68 @@ export class GameScene extends Phaser.Scene {
     g.destroy();
   }
 
-  private makeSawTexture(): void {
-    const d = SAW_RADIUS * 2 + 4;
-    const r = SAW_RADIUS;
+  private makeSawHubTexture(): void {
+    const d = SAW_HUB_RADIUS * 2 + 4;
     const cx = d / 2;
     const cy = d / 2;
+    const r = SAW_HUB_RADIUS;
     const g = this.make.graphics({ x: 0, y: 0 }, false);
-    g.fillStyle(0xdddde8);
+
+    // Body
+    g.fillStyle(0x5a5a70);
     g.fillCircle(cx, cy, r);
-    g.fillStyle(0x555566);
-    g.fillCircle(cx, cy, r / 4);
-    for (let i = 0; i < 8; i++) {
-      const a = (i / 8) * Math.PI * 2;
-      const x = cx + Math.cos(a) * (r - 2);
-      const y = cy + Math.sin(a) * (r - 2);
-      g.fillStyle(0xffffff);
-      g.fillCircle(x, y, 2.5);
+
+    // Outline
+    g.lineStyle(2, 0x8a8aa0);
+    g.strokeCircle(cx, cy, r - 1);
+
+    // 4 radial spokes
+    g.lineStyle(1.5, 0x8a8aa0);
+    for (let i = 0; i < 4; i++) {
+      const a = (i / 4) * Math.PI * 2;
+      g.beginPath();
+      g.moveTo(cx, cy);
+      g.lineTo(cx + Math.cos(a) * (r - 2), cy + Math.sin(a) * (r - 2));
+      g.strokePath();
     }
-    g.generateTexture('saw', d, d);
+
+    // Center axle dot
+    g.fillStyle(0x3a3a4c);
+    g.fillCircle(cx, cy, 3);
+
+    g.generateTexture('saw-hub', d, d);
+    g.destroy();
+  }
+
+  private makeSawBladeTexture(): void {
+    const d = SAW_RADIUS * 2 + 4;
+    const cx = d / 2;
+    const cy = d / 2;
+    const r = SAW_RADIUS;
+    const g = this.make.graphics({ x: 0, y: 0 }, false);
+
+    // 4-quadrant pinwheel: opposite quadrants same color
+    const colors = [0xdddde8, 0x555566];
+    for (let i = 0; i < 4; i++) {
+      const startAngle = (i * Math.PI) / 2;
+      const endAngle = ((i + 1) * Math.PI) / 2;
+      g.fillStyle(colors[i % 2]);
+      g.beginPath();
+      g.moveTo(cx, cy);
+      g.arc(cx, cy, r, startAngle, endAngle, false);
+      g.closePath();
+      g.fillPath();
+    }
+
+    // Outer ring stroke
+    g.lineStyle(1, 0x888898);
+    g.strokeCircle(cx, cy, r);
+
+    // Center mounting hole
+    g.fillStyle(0x3a3a4c);
+    g.fillCircle(cx, cy, 2.5);
+
+    g.generateTexture('saw-blade', d, d);
     g.destroy();
   }
 }

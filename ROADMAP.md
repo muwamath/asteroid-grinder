@@ -33,7 +33,7 @@ Living document. Phases are strategic milestones; the todo list at the bottom tr
 - **Grinder visual overhaul.** Replace the plain circle with spinning saw teeth / conveyor-belt feel. Comes after weapons.
 - Additional weapons beyond the four in Phase 5 (Tesla Coil, Freeze Ray, Flak Cannon, Gravity Well, Rail Gun, Drone Swarm — from the Unity project's `TODO.md`).
 - **Background pass.** The arena currently sits on a flat `#1a1a28` canvas. Needs a proper background: stars, nebula gradient, parallax layers, or a subtle animated field. Should read as "space" without distracting from the gameplay. Defer until art pass unless flagged earlier.
-- Prestige / meta loop (no design yet).
+- **Prestige / meta loop.** Prestige triggers after collecting enough "cores" (new resource). Resets progress but unlocks random pathways, new zones where weapons can go, and deeper meta-progression. Need to design a compelling reason to prestige (what do you gain that makes resetting feel worth it?).
 - Mobile/portrait mode.
 - Achievements, cosmetics.
 
