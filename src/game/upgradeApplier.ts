@@ -9,6 +9,10 @@ export interface EffectiveGameplayParams {
   readonly bladeSpinSpeed: number;
   readonly orbitSpeed: number;
   readonly bladeRadius: number;
+  readonly laserAimSpeed: number;
+  readonly laserRange: number;
+  readonly laserDamage: number;
+  readonly laserCooldown: number;
 }
 
 // Level-0 defaults. Each upgrade adds to these via applyUpgrades.
@@ -23,6 +27,10 @@ export const BASE_PARAMS: EffectiveGameplayParams = {
   bladeSpinSpeed: 0.005,
   orbitSpeed: 1,
   bladeRadius: 6,
+  laserAimSpeed: 30,
+  laserRange: 60,
+  laserDamage: 1,
+  laserCooldown: 2,
 };
 
 // Per-level deltas. Tuning scaffolding — adjust after playtesting.
@@ -36,6 +44,11 @@ const ASTEROID_SIZE_PER_LEVEL = 2;
 const BLADE_SPIN_SPEED_PER_LEVEL = 0.005;
 const ORBIT_SPEED_PER_LEVEL = 0.6;
 const BLADE_RADIUS_PER_LEVEL = 2;
+const LASER_AIM_SPEED_PER_LEVEL = 16.5;
+const LASER_RANGE_PER_LEVEL = 20;
+const LASER_DAMAGE_PER_LEVEL = 0.5;
+const LASER_COOLDOWN_PER_LEVEL = 0.095;
+const LASER_MIN_COOLDOWN = 0.1;
 
 export function applyUpgrades(
   levels: Readonly<Record<string, number>>,
@@ -57,5 +70,12 @@ export function applyUpgrades(
     bladeSpinSpeed: BASE_PARAMS.bladeSpinSpeed + lv('saw.spinSpeed') * BLADE_SPIN_SPEED_PER_LEVEL,
     orbitSpeed: BASE_PARAMS.orbitSpeed + lv('saw.orbitSpeed') * ORBIT_SPEED_PER_LEVEL,
     bladeRadius: BASE_PARAMS.bladeRadius + lv('saw.bladeSize') * BLADE_RADIUS_PER_LEVEL,
+    laserAimSpeed: BASE_PARAMS.laserAimSpeed + lv('laser.aimSpeed') * LASER_AIM_SPEED_PER_LEVEL,
+    laserRange: BASE_PARAMS.laserRange + lv('laser.range') * LASER_RANGE_PER_LEVEL,
+    laserDamage: BASE_PARAMS.laserDamage + lv('laser.damage') * LASER_DAMAGE_PER_LEVEL,
+    laserCooldown: Math.max(
+      LASER_MIN_COOLDOWN,
+      BASE_PARAMS.laserCooldown - lv('laser.cooldown') * LASER_COOLDOWN_PER_LEVEL,
+    ),
   };
 }

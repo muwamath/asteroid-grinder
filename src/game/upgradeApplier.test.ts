@@ -53,6 +53,27 @@ describe('applyUpgrades', () => {
     expect(applyUpgrades({ 'saw.bladeSize': 3 }).bladeRadius).toBe(6 + 3 * 2);
   });
 
+  it('increases laserAimSpeed per level', () => {
+    expect(applyUpgrades({}).laserAimSpeed).toBe(30);
+    expect(applyUpgrades({ 'laser.aimSpeed': 4 }).laserAimSpeed).toBeCloseTo(30 + 4 * 16.5);
+  });
+
+  it('increases laserRange per level', () => {
+    expect(applyUpgrades({}).laserRange).toBe(60);
+    expect(applyUpgrades({ 'laser.range': 5 }).laserRange).toBe(60 + 5 * 20);
+  });
+
+  it('increases laserDamage per level', () => {
+    expect(applyUpgrades({}).laserDamage).toBe(1);
+    expect(applyUpgrades({ 'laser.damage': 6 }).laserDamage).toBeCloseTo(1 + 6 * 0.5);
+  });
+
+  it('decreases laserCooldown per level with floor', () => {
+    expect(applyUpgrades({}).laserCooldown).toBe(2);
+    expect(applyUpgrades({ 'laser.cooldown': 5 }).laserCooldown).toBeCloseTo(2 - 5 * 0.095);
+    expect(applyUpgrades({ 'laser.cooldown': 99 }).laserCooldown).toBe(0.1);
+  });
+
   it('combines multiple upgrades independently', () => {
     const e = applyUpgrades({ 'saw.damage': 2, 'saw.bladeCount': 1, 'asteroids.chunkHp': 1 });
     expect(e.sawDamage).toBe(3);
