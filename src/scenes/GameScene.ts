@@ -6,9 +6,8 @@ import { gameplayState } from '../game/gameplayState';
 import { BASE_PARAMS, applyUpgrades, type EffectiveGameplayParams } from '../game/upgradeApplier';
 import { WEAPON_TYPES } from '../game/weaponCatalog';
 
-const STOPPER_RADIUS = 32;
-const SAW_HUB_RADIUS = 16;
-const SAW_BLADE_RADIUS = 28;
+const ARBOR_RADIUS = 32;
+const SAW_BLADE_RADIUS = 18;
 const SAW_ORBIT_RAD_PER_SEC = 4;
 const SAW_HIT_COOLDOWN_MS = 120;
 
@@ -64,8 +63,7 @@ export class GameScene extends Phaser.Scene {
 
   preload(): void {
     this.makeChunkTextures();
-    this.makeStopperTexture();
-    this.makeSawHubTexture();
+    this.makeArborTexture();
     this.makeSawBladeTexture();
   }
 
@@ -135,11 +133,16 @@ export class GameScene extends Phaser.Scene {
     for (const inst of this.weaponInstances) {
       if (inst.type === 'saw' && inst.blades.length > 0) {
         const dir = gameplayState.sawClockwise ? 1 : -1;
-        const spinRate = dir * SAW_ORBIT_RAD_PER_SEC * delta / 1000;
-        for (const blade of inst.blades) {
-          blade.setPosition(inst.sprite.x, inst.sprite.y);
+        inst.orbitAngle += dir * (SAW_ORBIT_RAD_PER_SEC * delta) / 1000;
+        const bladeCount = inst.blades.length;
+        for (let i = 0; i < bladeCount; i++) {
+          const phase = inst.orbitAngle + (i * Math.PI * 2) / bladeCount;
+          const sx = inst.sprite.x + Math.cos(phase) * ARBOR_RADIUS;
+          const sy = inst.sprite.y + Math.sin(phase) * ARBOR_RADIUS;
+          const blade = inst.blades[i];
+          blade.setPosition(sx, sy);
           blade.setVelocity(0, 0);
-          blade.setRotation(blade.rotation + spinRate);
+          blade.setRotation(blade.rotation + delta * 0.02);
         }
       }
     }
@@ -194,18 +197,16 @@ export class GameScene extends Phaser.Scene {
 
   private spawnWeaponInstance(typeId: string, x: number, y: number): WeaponInstance {
     const id = `${typeId}-${this.nextInstanceId++}`;
-    const texKey = typeId === 'grinder' ? 'stopper' : typeId === 'saw' ? 'saw-hub' : typeId;
-    const collisionRadius = typeId === 'saw' ? SAW_HUB_RADIUS : STOPPER_RADIUS;
+    const texKey = (typeId === 'grinder' || typeId === 'saw') ? 'arbor' : typeId;
 
     const sprite = this.matter.add.image(x, y, texKey);
-    sprite.setCircle(collisionRadius);
+    sprite.setCircle(ARBOR_RADIUS);
     sprite.setStatic(true);
     sprite.setFriction(0.2);
     sprite.setInteractive({ draggable: true });
     this.input.setDraggable(sprite);
     sprite.setData('kind', typeId);
     sprite.setData('instanceId', id);
-    if (typeId === 'saw') sprite.setDepth(1); // hub renders above blades
 
     const instance: WeaponInstance = {
       id,
@@ -234,7 +235,6 @@ export class GameScene extends Phaser.Scene {
       blade.setIgnoreGravity(true);
       blade.setFrictionAir(0);
       blade.setMass(0.001);
-      blade.setDepth(-1); // render under the hub
       blade.setData('kind', 'saw');
       instance.blades.push(blade);
     }
@@ -248,7 +248,7 @@ export class GameScene extends Phaser.Scene {
         if (!inst) return;
         const halfW = this.scale.width / 2;
         const halfChannel = this.effectiveParams.channelHalfWidth;
-        const radius = inst.type === 'saw' ? SAW_HUB_RADIUS : STOPPER_RADIUS;
+        const radius = ARBOR_RADIUS;
         const minX = halfW - halfChannel + radius + 4;
         const maxX = halfW + halfChannel - radius - 4;
         const cx = Phaser.Math.Clamp(dragX, minX, maxX);
@@ -294,9 +294,8 @@ export class GameScene extends Phaser.Scene {
     // If any weapons are outside the new channel, pull them in.
     const halfW = this.scale.width / 2;
     for (const inst of this.weaponInstances) {
-      const r = inst.type === 'saw' ? SAW_HUB_RADIUS : STOPPER_RADIUS;
       inst.sprite.setPosition(
-        Phaser.Math.Clamp(inst.sprite.x, halfW - halfWidth + r + 4, halfW + halfWidth - r - 4),
+        Phaser.Math.Clamp(inst.sprite.x, halfW - halfWidth + ARBOR_RADIUS + 4, halfW + halfWidth - ARBOR_RADIUS - 4),
         inst.sprite.y,
       );
     }
@@ -553,49 +552,16 @@ export class GameScene extends Phaser.Scene {
     ]);
   }
 
-  private makeStopperTexture(): void {
-    const d = STOPPER_RADIUS * 2;
+  private makeArborTexture(): void {
+    const d = ARBOR_RADIUS * 2;
     const g = this.make.graphics({ x: 0, y: 0 }, false);
     g.fillStyle(0x8a8aa0);
-    g.fillCircle(STOPPER_RADIUS, STOPPER_RADIUS, STOPPER_RADIUS);
+    g.fillCircle(ARBOR_RADIUS, ARBOR_RADIUS, ARBOR_RADIUS);
     g.lineStyle(2, 0xc8c8dc);
-    g.strokeCircle(STOPPER_RADIUS, STOPPER_RADIUS, STOPPER_RADIUS - 1);
+    g.strokeCircle(ARBOR_RADIUS, ARBOR_RADIUS, ARBOR_RADIUS - 1);
     g.fillStyle(0x5a5a70);
-    g.fillCircle(STOPPER_RADIUS, STOPPER_RADIUS, 4);
-    g.generateTexture('stopper', d, d);
-    g.destroy();
-  }
-
-  private makeSawHubTexture(): void {
-    const d = SAW_HUB_RADIUS * 2 + 4;
-    const cx = d / 2;
-    const cy = d / 2;
-    const r = SAW_HUB_RADIUS;
-    const g = this.make.graphics({ x: 0, y: 0 }, false);
-
-    // Body
-    g.fillStyle(0x5a5a70);
-    g.fillCircle(cx, cy, r);
-
-    // Outline
-    g.lineStyle(2, 0x8a8aa0);
-    g.strokeCircle(cx, cy, r - 1);
-
-    // 4 radial spokes
-    g.lineStyle(1.5, 0x8a8aa0);
-    for (let i = 0; i < 4; i++) {
-      const a = (i / 4) * Math.PI * 2;
-      g.beginPath();
-      g.moveTo(cx, cy);
-      g.lineTo(cx + Math.cos(a) * (r - 2), cy + Math.sin(a) * (r - 2));
-      g.strokePath();
-    }
-
-    // Center axle dot
-    g.fillStyle(0x3a3a4c);
-    g.fillCircle(cx, cy, 3);
-
-    g.generateTexture('saw-hub', d, d);
+    g.fillCircle(ARBOR_RADIUS, ARBOR_RADIUS, 4);
+    g.generateTexture('arbor', d, d);
     g.destroy();
   }
 

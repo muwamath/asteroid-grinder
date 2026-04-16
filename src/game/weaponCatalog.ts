@@ -20,7 +20,7 @@ export const WEAPON_TYPES: readonly WeaponTypeDef[] = [
   {
     id: 'grinder',
     name: 'Grinder',
-    icon: 'stopper',
+    icon: 'arbor',
     locked: false,
     startCount: 1,
     upgrades: [
