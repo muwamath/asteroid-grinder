@@ -4,19 +4,15 @@ import { CHUNK_PIXEL_SIZE } from '../game/asteroid';
 import { AsteroidSpawner } from '../game/asteroidSpawner';
 import { gameplayState } from '../game/gameplayState';
 import { BASE_PARAMS, applyUpgrades, type EffectiveGameplayParams } from '../game/upgradeApplier';
-import { BlackHole } from '../game/blackhole';
-import { Laser } from '../game/laser';
-import { MissileLauncher, MissileProjectile } from '../game/missile';
 import { WEAPON_TYPES } from '../game/weaponCatalog';
+import { type WeaponBehavior, createBehavior, allBehaviorPrototypes } from '../game/weapons';
 
 const ARBOR_RADIUS = 20;
-const TURRET_RADIUS = 10;  // laser + missile turrets: 1/4 area of saw arbor
-const SAW_HIT_COOLDOWN_MS = 120;
 
 // Hard barrier enforcement — pushes alive chunks out of weapon collision
 // zones every frame so pile pressure can't defeat the physics solver.
 const CHUNK_HALF = CHUNK_PIXEL_SIZE * 0.5;
-const BARRIER_BUFFER = 1;  // px buffer so chunks don't re-enter immediately
+const BARRIER_BUFFER = 1;
 
 const SPAWN_Y = -80;
 const DEATH_LINE_Y = 652;
@@ -28,14 +24,7 @@ interface WeaponInstance {
   id: string;
   type: string;
   sprite: Phaser.Physics.Matter.Image;
-  orbitAngle: number;
-  blades: Phaser.Physics.Matter.Image[];
-  bodyRadius: number;
-  laser?: Laser;
-  beamGfx?: Phaser.GameObjects.Graphics;
-  missileLauncher?: MissileLauncher;
-  blackhole?: BlackHole;
-  rangeGfx?: Phaser.GameObjects.Arc;
+  behavior: WeaponBehavior;
 }
 
 export class GameScene extends Phaser.Scene {
@@ -44,8 +33,6 @@ export class GameScene extends Phaser.Scene {
 
   private spawner!: AsteroidSpawner;
   private chunkImages = new Set<Phaser.Physics.Matter.Image>();
-  private lastHitAt = new WeakMap<Phaser.Physics.Matter.Image, number>();
-  private missiles: Array<{ proj: MissileProjectile; image: Phaser.GameObjects.Rectangle }> = [];
 
   private effectiveParams: EffectiveGameplayParams = BASE_PARAMS;
   private spawnTimer: Phaser.Time.TimerEvent | null = null;
@@ -77,15 +64,13 @@ export class GameScene extends Phaser.Scene {
 
   preload(): void {
     this.makeChunkTextures();
-    this.makeArborTexture();
-    this.makeSawBladeTexture(BASE_PARAMS.bladeRadius);
-    this.makeLaserTexture();
-    this.makeMissileTexture();
-    this.makeBlackholeTexture();
+    // Let each weapon behavior generate its own textures.
+    for (const proto of allBehaviorPrototypes()) {
+      proto.createTextures(this);
+    }
   }
 
   create(): void {
-    // Use resetData (not reset) so UIScene's listeners survive a scene restart.
     gameplayState.resetData();
     this.effectiveParams = applyUpgrades(gameplayState.levels());
 
@@ -140,53 +125,19 @@ export class GameScene extends Phaser.Scene {
         this.dragHandler = null;
       }
       for (const inst of this.weaponInstances) {
-        for (const blade of inst.blades) blade.destroy();
-        inst.beamGfx?.destroy();
-        inst.rangeGfx?.destroy();
+        inst.behavior.destroy();
         inst.sprite.destroy();
       }
       this.weaponInstances = [];
-      for (const m of this.missiles) m.image.destroy();
-      this.missiles = [];
     });
 
     this.scene.launch('ui');
   }
 
   update(_time: number, delta: number): void {
+    // Update all weapons generically.
     for (const inst of this.weaponInstances) {
-      if (inst.type === 'saw' && inst.blades.length > 0) {
-        const dir = gameplayState.sawClockwise ? 1 : -1;
-        inst.orbitAngle += dir * (this.effectiveParams.orbitSpeed * delta) / 1000;
-        const bladeCount = inst.blades.length;
-        for (let i = 0; i < bladeCount; i++) {
-          const phase = inst.orbitAngle + (i * Math.PI * 2) / bladeCount;
-          const sx = inst.sprite.x + Math.cos(phase) * ARBOR_RADIUS;
-          const sy = inst.sprite.y + Math.sin(phase) * ARBOR_RADIUS;
-          const blade = inst.blades[i];
-          blade.setPosition(sx, sy);
-          blade.setRotation(blade.rotation + delta * this.effectiveParams.bladeSpinSpeed);
-        }
-      }
-    }
-
-    for (const inst of this.weaponInstances) {
-      if (inst.type === 'laser' && inst.laser) {
-        this.updateLaser(inst, delta);
-      }
-    }
-
-    for (const inst of this.weaponInstances) {
-      if (inst.type === 'missile' && inst.missileLauncher) {
-        this.updateMissileLauncher(inst, delta);
-      }
-    }
-    this.updateMissileProjectiles(delta);
-
-    for (const inst of this.weaponInstances) {
-      if (inst.type === 'blackhole' && inst.blackhole) {
-        this.updateBlackHole(inst, delta);
-      }
+      inst.behavior.update(this, inst.sprite, delta, this.chunkImages, this.effectiveParams);
     }
 
     this.enforceWeaponBarriers();
@@ -224,8 +175,6 @@ export class GameScene extends Phaser.Scene {
   // ── build ──────────────────────────────────────────────────────────────
 
   private buildArena(width: number, height: number): void {
-    // Outer side walls — catch-all so nothing leaves the canvas. No ceiling;
-    // asteroids spawn offscreen above and fall in naturally.
     const wallT = 20;
     this.matter.add.rectangle(-wallT / 2, height / 2, wallT, height * 2, { isStatic: true });
     this.matter.add.rectangle(width + wallT / 2, height / 2, wallT, height * 2, { isStatic: true });
@@ -239,17 +188,13 @@ export class GameScene extends Phaser.Scene {
       .setOrigin(1, 1);
   }
 
-  private spawnWeaponInstance(typeId: string, x: number, y: number): WeaponInstance {
-    const id = `${typeId}-${this.nextInstanceId++}`;
-    const texKey = typeId === 'saw' ? 'arbor'
-      : typeId === 'laser' ? 'laser-turret'
-      : typeId === 'missile' ? 'missile-turret'
-      : typeId === 'blackhole' ? 'blackhole-turret'
-      : typeId;
+  private spawnWeaponInstance(typeId: string, x: number, y: number): WeaponInstance | null {
+    const behavior = createBehavior(typeId);
+    if (!behavior) return null;
 
-    const sprite = this.matter.add.image(x, y, texKey);
-    const bodyRadius = (typeId === 'laser' || typeId === 'missile' || typeId === 'blackhole') ? TURRET_RADIUS : ARBOR_RADIUS;
-    sprite.setCircle(bodyRadius);
+    const id = `${typeId}-${this.nextInstanceId++}`;
+    const sprite = this.matter.add.image(x, y, behavior.textureKey);
+    sprite.setCircle(behavior.bodyRadius);
     sprite.setStatic(true);
     sprite.setDepth(1);
     sprite.setFriction(0.2);
@@ -258,53 +203,11 @@ export class GameScene extends Phaser.Scene {
     sprite.setData('kind', 'arbor');
     sprite.setData('instanceId', id);
 
-    const instance: WeaponInstance = {
-      id,
-      type: typeId,
-      sprite,
-      bodyRadius,
-      orbitAngle: 0,
-      blades: [],
-    };
-
+    const instance: WeaponInstance = { id, type: typeId, sprite, behavior };
     this.weaponInstances.push(instance);
 
-    if (typeId === 'saw') {
-      this.rebuildBladesForInstance(instance, this.effectiveParams.bladeCount, this.effectiveParams.bladeRadius);
-    }
-    if (typeId === 'laser') {
-      instance.laser = new Laser(this.effectiveParams.laserCooldown);
-      instance.beamGfx = this.add.graphics();
-      instance.beamGfx.setDepth(2);
-    }
-    if (typeId === 'missile') {
-      instance.missileLauncher = new MissileLauncher(this.effectiveParams.missileFireInterval);
-    }
-    if (typeId === 'blackhole') {
-      instance.blackhole = new BlackHole();
-      instance.rangeGfx = this.add.circle(x, y, this.effectiveParams.blackholePullRange, 0x6611aa, 0.06);
-      instance.rangeGfx.setStrokeStyle(1, 0x6611aa, 0.15);
-      instance.rangeGfx.setDepth(0);
-    }
-
+    behavior.init(this, sprite, this.effectiveParams);
     return instance;
-  }
-
-  private rebuildBladesForInstance(instance: WeaponInstance, count: number, radius: number): void {
-    for (const blade of instance.blades) blade.destroy();
-    instance.blades = [];
-    const displaySize = radius * 2 + 4;
-    for (let i = 0; i < count; i++) {
-      const blade = this.matter.add.image(0, 0, 'saw-blade');
-      blade.setDisplaySize(displaySize, displaySize);
-      blade.setCircle(radius);
-      blade.setStatic(true);
-      blade.setIgnoreGravity(true);
-      blade.setFrictionAir(0);
-      blade.setDepth(0);
-      blade.setData('kind', 'saw');
-      instance.blades.push(blade);
-    }
   }
 
   private wireDrag(): void {
@@ -315,7 +218,7 @@ export class GameScene extends Phaser.Scene {
         if (!inst) return;
         const halfW = this.scale.width / 2;
         const halfChannel = this.effectiveParams.channelHalfWidth;
-        const r = inst.bodyRadius;
+        const r = inst.behavior.bodyRadius;
         const minX = halfW - halfChannel + r + 4;
         const maxX = halfW + halfChannel - r - 4;
         const cx = Phaser.Math.Clamp(dragX, minX, maxX);
@@ -338,18 +241,10 @@ export class GameScene extends Phaser.Scene {
     const rightWallX = width / 2 + halfWidth + CHANNEL_WALL_THICKNESS / 2;
 
     this.channelLeftBody = this.matter.add.rectangle(
-      leftWallX,
-      channelMidY,
-      CHANNEL_WALL_THICKNESS,
-      channelHeight,
-      { isStatic: true },
+      leftWallX, channelMidY, CHANNEL_WALL_THICKNESS, channelHeight, { isStatic: true },
     );
     this.channelRightBody = this.matter.add.rectangle(
-      rightWallX,
-      channelMidY,
-      CHANNEL_WALL_THICKNESS,
-      channelHeight,
-      { isStatic: true },
+      rightWallX, channelMidY, CHANNEL_WALL_THICKNESS, channelHeight, { isStatic: true },
     );
     this.channelLeftVisual = this.add
       .rectangle(leftWallX, channelMidY, CHANNEL_WALL_THICKNESS, channelHeight, 0x3a3a4c)
@@ -358,11 +253,11 @@ export class GameScene extends Phaser.Scene {
       .rectangle(rightWallX, channelMidY, CHANNEL_WALL_THICKNESS, channelHeight, 0x3a3a4c)
       .setOrigin(0.5);
 
-    // If any weapons are outside the new channel, pull them in.
     const halfW = this.scale.width / 2;
     for (const inst of this.weaponInstances) {
+      const r = inst.behavior.bodyRadius;
       inst.sprite.setPosition(
-        Phaser.Math.Clamp(inst.sprite.x, halfW - halfWidth + inst.bodyRadius + 4, halfW + halfWidth - inst.bodyRadius - 4),
+        Phaser.Math.Clamp(inst.sprite.x, halfW - halfWidth + r + 4, halfW + halfWidth - r - 4),
         inst.sprite.y,
       );
     }
@@ -403,19 +298,15 @@ export class GameScene extends Phaser.Scene {
   private onWeaponCountChanged(typeId: string, newCount: number): void {
     const currentInstances = this.weaponInstances.filter((i) => i.type === typeId);
     if (newCount > currentInstances.length) {
-      // Buy — spawn at random position in channel.
       const halfW = this.scale.width / 2;
       const halfChannel = this.effectiveParams.channelHalfWidth;
       const rx = halfW + (Math.random() - 0.5) * halfChannel;
       const ry = CHANNEL_TOP_Y + 100 + Math.random() * (DEATH_LINE_Y - CHANNEL_TOP_Y - 200);
       this.spawnWeaponInstance(typeId, rx, ry);
     } else if (newCount < currentInstances.length) {
-      // Sell — remove a random instance of this type.
       const idx = Math.floor(Math.random() * currentInstances.length);
       const victim = currentInstances[idx];
-      for (const blade of victim.blades) blade.destroy();
-      victim.beamGfx?.destroy();
-      victim.rangeGfx?.destroy();
+      victim.behavior.destroy();
       victim.sprite.destroy();
       this.weaponInstances = this.weaponInstances.filter((i) => i !== victim);
     }
@@ -427,16 +318,8 @@ export class GameScene extends Phaser.Scene {
     const prev = this.effectiveParams;
     this.effectiveParams = applyUpgrades(gameplayState.levels());
 
-    if (this.effectiveParams.bladeCount !== prev.bladeCount ||
-        this.effectiveParams.bladeRadius !== prev.bladeRadius) {
-      if (this.effectiveParams.bladeRadius !== prev.bladeRadius) {
-        this.makeSawBladeTexture(this.effectiveParams.bladeRadius);
-      }
-      for (const inst of this.weaponInstances) {
-        if (inst.type === 'saw') {
-          this.rebuildBladesForInstance(inst, this.effectiveParams.bladeCount, this.effectiveParams.bladeRadius);
-        }
-      }
+    for (const inst of this.weaponInstances) {
+      inst.behavior.onUpgrade(this, inst.sprite, prev, this.effectiveParams);
     }
     if (this.effectiveParams.channelHalfWidth !== prev.channelHalfWidth) {
       this.rebuildChannelWalls(this.effectiveParams.channelHalfWidth);
@@ -478,45 +361,26 @@ export class GameScene extends Phaser.Scene {
     }
 
     if (!chunk || !blade) return;
-    if (chunk.getData('dead')) return;
 
-    const now = this.time.now;
-    const last = this.lastHitAt.get(chunk) ?? -Infinity;
-    if (now - last < SAW_HIT_COOLDOWN_MS) return;
-    this.lastHitAt.set(chunk, now);
-
-    const asteroid = chunk.getData('asteroid') as Asteroid | undefined;
-    if (!asteroid) return;
-
-    const result = asteroid.damageChunkByImage(chunk, this.effectiveParams.sawDamage);
-    this.weaponHits++;
-    this.spawnSpark(chunk.x, chunk.y);
-
-    if (result.killed) {
-      this.killedBySaw++;
-    }
-
-    // Tangential impulse — spinning blade pushes chunks along its surface.
-    const dx = chunk.x - blade.x;
-    const dy = chunk.y - blade.y;
-    const dist = Math.sqrt(dx * dx + dy * dy);
-    if (dist > 0.1) {
-      const dir = gameplayState.sawClockwise ? 1 : -1;
-      const tx = (-dy / dist) * dir;
-      const ty = (dx / dist) * dir;
-      const strength = this.effectiveParams.bladeSpinSpeed * this.effectiveParams.bladeRadius;
-      chunk.applyForce(new Phaser.Math.Vector2(tx * strength, ty * strength));
+    // Delegate to the saw behavior that owns these blades.
+    for (const inst of this.weaponInstances) {
+      if (inst.behavior.handleCollision) {
+        const result = inst.behavior.handleCollision(chunk, blade, this.effectiveParams, this);
+        if (result.hit) {
+          this.weaponHits++;
+          if (result.killed) this.killedBySaw++;
+        }
+        break;
+      }
     }
   }
 
-  /** Push alive chunks out of weapon collision zones AND channel walls so
-   *  pile pressure can never defeat the Matter solver. Dead chunks are
-   *  ignored so they can slip through to the death line. */
+  /** Push alive chunks out of weapon collision zones AND channel walls. */
   private enforceWeaponBarriers(): void {
     const halfW = this.scale.width / 2;
     const halfCh = this.effectiveParams.channelHalfWidth;
-    const wallLeft = halfW - halfCh;    // inner edge of left wall
-    const wallRight = halfW + halfCh;   // inner edge of right wall
+    const wallLeft = halfW - halfCh;
+    const wallRight = halfW + halfCh;
 
     for (const chunk of this.chunkImages) {
       if (!chunk.active || chunk.getData('dead')) continue;
@@ -534,14 +398,15 @@ export class GameScene extends Phaser.Scene {
         if (body.velocity.x > 0) chunk.setVelocityX(0);
       }
 
-      // ── weapon bodies (blackhole excluded — it pulls chunks in) ──
+      // ── weapon bodies ──
       for (const inst of this.weaponInstances) {
-        if (inst.type === 'blackhole') continue;
+        if (!inst.behavior.blocksChunks) continue;
         this.pushOutOfCircle(chunk, inst.sprite.x, inst.sprite.y,
-          inst.bodyRadius + CHUNK_HALF + BARRIER_BUFFER);
-        for (const blade of inst.blades) {
-          this.pushOutOfCircle(chunk, blade.x, blade.y,
-            this.effectiveParams.bladeRadius + CHUNK_HALF + BARRIER_BUFFER);
+          inst.behavior.bodyRadius + CHUNK_HALF + BARRIER_BUFFER);
+        // Extra barrier bodies (e.g. saw blades).
+        const extras = inst.behavior.getBarrierBodies?.() ?? [];
+        for (const b of extras) {
+          this.pushOutOfCircle(chunk, b.x, b.y, b.radius + CHUNK_HALF + BARRIER_BUFFER);
         }
       }
     }
@@ -560,7 +425,6 @@ export class GameScene extends Phaser.Scene {
 
     const dist = Math.sqrt(distSq);
     if (dist < 0.1) {
-      // Chunk dead-center — push straight up.
       chunk.setPosition(cx, cy - minDist);
       chunk.setVelocityY(0);
       return;
@@ -571,7 +435,6 @@ export class GameScene extends Phaser.Scene {
     const overlap = minDist - dist;
     chunk.setPosition(chunk.x + nx * overlap, chunk.y + ny * overlap);
 
-    // Zero the inward velocity component so the chunk doesn't re-enter.
     const body = chunk.body as MatterJS.BodyType;
     const vDot = body.velocity.x * nx + body.velocity.y * ny;
     if (vDot < 0) {
@@ -579,127 +442,6 @@ export class GameScene extends Phaser.Scene {
         body.velocity.x - vDot * nx,
         body.velocity.y - vDot * ny,
       );
-    }
-  }
-
-  private updateLaser(inst: WeaponInstance, delta: number): void {
-    const laser = inst.laser!;
-    const params = {
-      aimSpeed: this.effectiveParams.laserAimSpeed,
-      range: this.effectiveParams.laserRange,
-      damage: this.effectiveParams.laserDamage,
-      cooldown: this.effectiveParams.laserCooldown,
-    };
-
-    const dmg = laser.update(delta, inst.sprite.x, inst.sprite.y, this.chunkImages, params);
-
-    // Rotate the sprite to match aim direction.
-    // Texture barrel is at top (y=0), which is -PI/2 in screen coords.
-    inst.sprite.setRotation(laser.aimAngle + Math.PI / 2);
-
-    // Draw beam.
-    const gfx = inst.beamGfx!;
-    gfx.clear();
-
-    if (laser.firing && laser.target && laser.target.active) {
-      const emit = laser.emitPoint(inst.sprite.x, inst.sprite.y, inst.bodyRadius);
-      gfx.lineStyle(2, 0xff3333, 0.8);
-      gfx.beginPath();
-      gfx.moveTo(emit.x, emit.y);
-      gfx.lineTo(laser.target.x, laser.target.y);
-      gfx.strokePath();
-
-      if (dmg > 0) {
-        const asteroid = laser.target.getData('asteroid') as Asteroid | undefined;
-        if (asteroid) {
-          asteroid.damageChunkByImage(laser.target, dmg);
-        }
-      }
-    }
-  }
-
-  private updateMissileLauncher(inst: WeaponInstance, delta: number): void {
-    const launcher = inst.missileLauncher!;
-    const params = {
-      fireInterval: this.effectiveParams.missileFireInterval,
-      damage: this.effectiveParams.missileDamage,
-      blastRadius: this.effectiveParams.missileBlastRadius,
-      speed: this.effectiveParams.missileSpeed,
-      homing: this.effectiveParams.missileHoming,
-    };
-
-    const fireCmd = launcher.update(delta, inst.sprite.x, inst.sprite.y, this.chunkImages, params);
-    inst.sprite.setRotation(launcher.aimAngle + Math.PI / 2);
-
-    if (fireCmd) {
-      const emit = launcher.emitPoint(inst.sprite.x, inst.sprite.y, inst.bodyRadius);
-      const proj = new MissileProjectile(
-        emit.x, emit.y,
-        fireCmd.dirX, fireCmd.dirY,
-        params.speed, params.damage, params.blastRadius, params.homing,
-        fireCmd.target,
-      );
-      const image = this.add.rectangle(emit.x, emit.y, 8, 4, 0x33ff33);
-      image.setDepth(3);
-      this.missiles.push({ proj, image });
-    }
-  }
-
-  private updateMissileProjectiles(delta: number): void {
-    const halfW = this.scale.width / 2;
-    const halfCh = this.effectiveParams.channelHalfWidth;
-    const channelLeft = halfW - halfCh;
-    const channelRight = halfW + halfCh;
-
-    for (let i = this.missiles.length - 1; i >= 0; i--) {
-      const m = this.missiles[i];
-      const detonation = m.proj.update(delta, this.chunkImages, channelLeft, channelRight, DEATH_LINE_Y);
-
-      if (detonation) {
-        const r2 = m.proj.blastRadius * m.proj.blastRadius;
-        for (const chunk of this.chunkImages) {
-          if (!chunk.active || chunk.getData('dead')) continue;
-          const dx = chunk.x - detonation.x;
-          const dy = chunk.y - detonation.y;
-          if (dx * dx + dy * dy <= r2) {
-            const asteroid = chunk.getData('asteroid') as Asteroid | undefined;
-            if (asteroid) {
-              asteroid.damageChunkByImage(chunk, m.proj.damage);
-            }
-          }
-        }
-        const flash = this.add.circle(detonation.x, detonation.y, m.proj.blastRadius, 0xff8833, 0.4);
-        this.tweens.add({
-          targets: flash,
-          alpha: 0,
-          scale: 1.5,
-          duration: 200,
-          onComplete: () => flash.destroy(),
-        });
-
-        m.image.destroy();
-        this.missiles.splice(i, 1);
-      } else {
-        m.image.setPosition(m.proj.x, m.proj.y);
-        m.image.setRotation(Math.atan2(m.proj.dirY, m.proj.dirX));
-      }
-    }
-  }
-
-  private updateBlackHole(inst: WeaponInstance, delta: number): void {
-    const bh = inst.blackhole!;
-    bh.update(delta, inst.sprite.x, inst.sprite.y, this.chunkImages, {
-      pullRange: this.effectiveParams.blackholePullRange,
-      pullForce: this.effectiveParams.blackholePullForce,
-      coreSize: this.effectiveParams.blackholeCoreSize,
-      coreDamage: this.effectiveParams.blackholeCoreDamage,
-      maxTargets: this.effectiveParams.blackholeMaxTargets,
-    });
-
-    // Keep range indicator centered and sized.
-    if (inst.rangeGfx) {
-      inst.rangeGfx.setPosition(inst.sprite.x, inst.sprite.y);
-      inst.rangeGfx.setRadius(this.effectiveParams.blackholePullRange);
     }
   }
 
@@ -730,40 +472,18 @@ export class GameScene extends Phaser.Scene {
 
   // ── juice ──────────────────────────────────────────────────────────────
 
-  private spawnSpark(x: number, y: number): void {
-    for (let i = 0; i < 3; i++) {
-      const s = this.add.circle(x, y, 2, 0xffd166);
-      const vx = (Math.random() - 0.5) * 80;
-      const vy = (Math.random() - 0.5) * 80 - 20;
-      this.tweens.add({
-        targets: s,
-        x: x + vx,
-        y: y + vy,
-        alpha: 0,
-        duration: 280,
-        onComplete: () => s.destroy(),
-      });
-    }
-  }
-
   private spawnConfetti(x: number, y: number): void {
     for (let i = 0; i < 10; i++) {
       const c = this.add.rectangle(
-        x,
-        y,
-        3 + Math.random() * 2,
-        3 + Math.random() * 2,
+        x, y,
+        3 + Math.random() * 2, 3 + Math.random() * 2,
         Phaser.Display.Color.RandomRGB().color,
       );
       const vx = (Math.random() - 0.5) * 260;
       const vy = -80 - Math.random() * 140;
       this.tweens.add({
-        targets: c,
-        x: x + vx,
-        y: y + vy + 180,
-        alpha: 0,
-        angle: Math.random() * 360,
-        duration: 680,
+        targets: c, x: x + vx, y: y + vy + 180, alpha: 0,
+        angle: Math.random() * 360, duration: 680,
         onComplete: () => c.destroy(),
       });
     }
@@ -799,112 +519,9 @@ export class GameScene extends Phaser.Scene {
       g.destroy();
     };
 
-    tri('chunk-tri-NE', [
-      [0, 0],
-      [size, 0],
-      [size, size],
-    ]);
-    tri('chunk-tri-NW', [
-      [0, 0],
-      [size, 0],
-      [0, size],
-    ]);
-    tri('chunk-tri-SE', [
-      [size, 0],
-      [size, size],
-      [0, size],
-    ]);
-    tri('chunk-tri-SW', [
-      [0, 0],
-      [0, size],
-      [size, size],
-    ]);
-  }
-
-  private makeArborTexture(): void {
-    const d = ARBOR_RADIUS * 2;
-    const g = this.make.graphics({ x: 0, y: 0 }, false);
-    g.fillStyle(0x8a8aa0);
-    g.fillCircle(ARBOR_RADIUS, ARBOR_RADIUS, ARBOR_RADIUS);
-    g.lineStyle(2, 0xc8c8dc);
-    g.strokeCircle(ARBOR_RADIUS, ARBOR_RADIUS, ARBOR_RADIUS - 1);
-    g.fillStyle(0x5a5a70);
-    g.fillCircle(ARBOR_RADIUS, ARBOR_RADIUS, 4);
-    g.generateTexture('arbor', d, d);
-    g.destroy();
-  }
-
-  private makeSawBladeTexture(radius: number): void {
-    if (this.textures.exists('saw-blade')) {
-      this.textures.remove('saw-blade');
-    }
-    const d = radius * 2 + 4;
-    const cx = d / 2;
-    const cy = d / 2;
-    const r = radius;
-    const g = this.make.graphics({ x: 0, y: 0 }, false);
-
-    // 4-quadrant pinwheel: opposite quadrants same color
-    const colors = [0xdddde8, 0x555566];
-    for (let i = 0; i < 4; i++) {
-      const startAngle = (i * Math.PI) / 2;
-      const endAngle = ((i + 1) * Math.PI) / 2;
-      g.fillStyle(colors[i % 2]);
-      g.beginPath();
-      g.moveTo(cx, cy);
-      g.arc(cx, cy, r, startAngle, endAngle, false);
-      g.closePath();
-      g.fillPath();
-    }
-
-    // Outer ring stroke
-    g.lineStyle(1, 0x888898);
-    g.strokeCircle(cx, cy, r);
-
-    // Center mounting hole
-    g.fillStyle(0x3a3a4c);
-    g.fillCircle(cx, cy, 2.5);
-
-    g.generateTexture('saw-blade', d, d);
-    g.destroy();
-  }
-
-  private makeLaserTexture(): void {
-    const s = TURRET_RADIUS * 2;
-    const g = this.make.graphics({ x: 0, y: 0 }, false);
-    g.fillStyle(0x442222);
-    g.fillRect(0, 0, s, s);
-    // Bright barrel edge (top = firing direction before rotation)
-    g.fillStyle(0xff3333);
-    g.fillRect(0, 0, s, 4);
-    // Border
-    g.lineStyle(1, 0x663333);
-    g.strokeRect(0.5, 0.5, s - 1, s - 1);
-    g.generateTexture('laser-turret', s, s);
-    g.destroy();
-  }
-
-  private makeMissileTexture(): void {
-    const s = TURRET_RADIUS * 2;
-    const g = this.make.graphics({ x: 0, y: 0 }, false);
-    g.fillStyle(0x224422);
-    g.fillRect(0, 0, s, s);
-    g.fillStyle(0x33ff33);
-    g.fillRect(0, 0, s, 4);
-    g.lineStyle(1, 0x336633);
-    g.strokeRect(0.5, 0.5, s - 1, s - 1);
-    g.generateTexture('missile-turret', s, s);
-    g.destroy();
-  }
-
-  private makeBlackholeTexture(): void {
-    const d = TURRET_RADIUS * 2;
-    const g = this.make.graphics({ x: 0, y: 0 }, false);
-    g.fillStyle(0x260540);
-    g.fillCircle(TURRET_RADIUS, TURRET_RADIUS, TURRET_RADIUS);
-    g.lineStyle(1, 0x6611aa);
-    g.strokeCircle(TURRET_RADIUS, TURRET_RADIUS, TURRET_RADIUS - 1);
-    g.generateTexture('blackhole-turret', d, d);
-    g.destroy();
+    tri('chunk-tri-NE', [[0, 0], [size, 0], [size, size]]);
+    tri('chunk-tri-NW', [[0, 0], [size, 0], [0, size]]);
+    tri('chunk-tri-SE', [[size, 0], [size, size], [0, size]]);
+    tri('chunk-tri-SW', [[0, 0], [0, size], [size, size]]);
   }
 }
