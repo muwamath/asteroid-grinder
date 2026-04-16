@@ -78,7 +78,7 @@ export class Asteroid {
         image.setMass(0.25);
         image.setFriction(0.1);
         image.setFrictionAir(0.005);
-        image.setBounce(0.05);
+        image.setBounce(0);
         (image.body as unknown as { slop: number }).slop = 0.005;
         image.setData('kind', 'chunk');
         image.setData('asteroid', this);
