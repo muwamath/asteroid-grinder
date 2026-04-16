@@ -6,6 +6,9 @@ export interface EffectiveGameplayParams {
   readonly maxHpPerChunk: number;
   readonly minChunks: number;
   readonly maxChunks: number;
+  readonly bladeSpinSpeed: number;
+  readonly orbitSpeed: number;
+  readonly bladeRadius: number;
 }
 
 // Level-0 defaults. Each upgrade adds to these via applyUpgrades.
@@ -17,6 +20,9 @@ export const BASE_PARAMS: EffectiveGameplayParams = {
   maxHpPerChunk: 3,
   minChunks: 9,
   maxChunks: 14,
+  bladeSpinSpeed: 0.005,
+  orbitSpeed: 1,
+  bladeRadius: 6,
 };
 
 // Per-level deltas. Tuning scaffolding — adjust after playtesting.
@@ -27,6 +33,9 @@ const DROP_RATE_MS_PER_LEVEL = 130;
 const DROP_RATE_MIN_MS = 300;
 const CHUNK_HP_PER_LEVEL = 1;
 const ASTEROID_SIZE_PER_LEVEL = 2;
+const BLADE_SPIN_SPEED_PER_LEVEL = 0.005;
+const ORBIT_SPEED_PER_LEVEL = 0.6;
+const BLADE_RADIUS_PER_LEVEL = 2;
 
 export function applyUpgrades(
   levels: Readonly<Record<string, number>>,
@@ -45,5 +54,8 @@ export function applyUpgrades(
     maxHpPerChunk: BASE_PARAMS.maxHpPerChunk + lv('asteroids.chunkHp') * CHUNK_HP_PER_LEVEL,
     minChunks: BASE_PARAMS.minChunks + lv('asteroids.asteroidSize') * ASTEROID_SIZE_PER_LEVEL,
     maxChunks: BASE_PARAMS.maxChunks + lv('asteroids.asteroidSize') * ASTEROID_SIZE_PER_LEVEL,
+    bladeSpinSpeed: BASE_PARAMS.bladeSpinSpeed + lv('saw.spinSpeed') * BLADE_SPIN_SPEED_PER_LEVEL,
+    orbitSpeed: BASE_PARAMS.orbitSpeed + lv('saw.orbitSpeed') * ORBIT_SPEED_PER_LEVEL,
+    bladeRadius: BASE_PARAMS.bladeRadius + lv('saw.bladeSize') * BLADE_RADIUS_PER_LEVEL,
   };
 }
