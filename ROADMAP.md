@@ -30,7 +30,7 @@ Living document. Phases are strategic milestones; the todo list at the bottom tr
 
 ## Current todos (Phase 5 — Weapons)
 
-- [ ] Create `Weapon` interface / base abstraction that Grinder and Saw refactor onto
+- [x] **Weapon abstraction refactor.** — **done (2026-04-16)**. `WeaponBehavior` interface with `createTextures`, `init`, `update`, `onUpgrade`, `destroy`. Four implementations: `SawBehavior`, `LaserBehavior`, `MissileBehavior`, `BlackholeBehavior`. GameScene is now weapon-agnostic — adding a new weapon = one file + catalog entry.
 
 ## Backlog (future work)
 
