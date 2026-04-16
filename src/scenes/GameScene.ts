@@ -516,6 +516,18 @@ export class GameScene extends Phaser.Scene {
   // ── gameplay ───────────────────────────────────────────────────────────
 
   private spawnAsteroid(): void {
+    // Spawn gate: don't push a new asteroid in if the top of the channel is
+    // already clogged. Keeps the pile from spilling above the channel when
+    // the saw can't keep up with incoming flow (e.g. max Drop Rate + weak
+    // damage). Skipped spawns are silently lost — gameplay incentive to buy
+    // more / stronger weapons.
+    const spawnGateY = CHANNEL_TOP_Y + 40;
+    for (const ast of this.liveAsteroids) {
+      for (const chunk of ast.chunks.values()) {
+        if (chunk.bodyPart.position.y < spawnGateY) return;
+      }
+    }
+
     const halfW = this.scale.width / 2;
     const jitter = (Math.random() - 0.5) * (this.effectiveParams.channelHalfWidth * 0.6);
     const asteroid = this.spawner.spawnOne(halfW + jitter, SPAWN_Y, {
