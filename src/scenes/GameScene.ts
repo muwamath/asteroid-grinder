@@ -248,7 +248,7 @@ export class GameScene extends Phaser.Scene {
       : typeId;
 
     const sprite = this.matter.add.image(x, y, texKey);
-    const bodyRadius = (typeId === 'laser' || typeId === 'missile') ? TURRET_RADIUS : ARBOR_RADIUS;
+    const bodyRadius = (typeId === 'laser' || typeId === 'missile' || typeId === 'blackhole') ? TURRET_RADIUS : ARBOR_RADIUS;
     sprite.setCircle(bodyRadius);
     sprite.setStatic(true);
     sprite.setDepth(1);
@@ -534,8 +534,9 @@ export class GameScene extends Phaser.Scene {
         if (body.velocity.x > 0) chunk.setVelocityX(0);
       }
 
-      // ── weapon bodies ──
+      // ── weapon bodies (blackhole excluded — it pulls chunks in) ──
       for (const inst of this.weaponInstances) {
+        if (inst.type === 'blackhole') continue;
         this.pushOutOfCircle(chunk, inst.sprite.x, inst.sprite.y,
           inst.bodyRadius + CHUNK_HALF + BARRIER_BUFFER);
         for (const blade of inst.blades) {
