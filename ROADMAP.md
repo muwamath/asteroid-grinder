@@ -41,3 +41,44 @@ Living document. Phases are strategic milestones; the todo list at the bottom tr
 - Prestige / meta loop (no design yet).
 - Mobile/portrait mode.
 - Achievements, cosmetics.
+
+---
+
+## 📦 Post-port reference: Unity prototype roadmap (review AFTER Phase 2 ports the game)
+
+The Unity prototype at `/Users/matt/dev/muwamath/Asteroid Grinder/` shipped through Phase 5 before being abandoned in favor of this Phaser port. Its roadmap is preserved verbatim below as a design reference — **do not merge these items into the phase list until the core loop is ported and running in Phaser**. Some items are already subsumed by the Phaser phase list above; others are genuine future work (tuning notes, paired-triangle refactor, menu polish) worth porting over once the basic game is playable.
+
+**How to use this section:** after Phase 2 is complete and asteroids fall / fracture / grind in Phaser, walk this list top-to-bottom, decide which items apply to the Phaser version, and either fold them into the main phase list or discard. Then delete this section.
+
+### Phases (Unity prototype)
+
+1. **Foundations** — done (2026-04-14). Local WebGL release build → `scripts/deploy.sh` → `gh-pages`. Edit Mode (2/2) + Play Mode (3/3) tests green. Empty arena scene with DropZone walls, Grinder trigger line at the floor, and left panel placeholder.
+2. **Chunk & asteroid core** — done (2026-04-14). Chunk entity (square + triangle types in code, square-only generation), connection graph with BFS connected-component tracking, fracture-into-N-rigid-bodies on chunk destruction, time-based spawner dropping asteroids into the arena. 17 EditMode + 12 PlayMode tests green.
+3. **Spinning Saw** — done (2026-04-15). Circular hub + orbiting/spinning triangular blade at the pinched waist of a new hourglass DropZone. Blade "chews" chunks via `OnCollisionStay2D` (no knockback), emits throttled yellow spark bursts on contact. AsteroidSpawner tuned to gravityScale 0.3, spawn width narrowed to 4. 24 EditMode + 14 PlayMode tests green.
+4. **Economy & Grinder** — done (2026-04-15). Grinder at the floor pays out cash on chunk entry ($1 per live chunk, `max(1, MaxHp × multiplier)` per dead chunk). `GameplayState` singleton ledger with `CashChanged` event. Left-panel screen-space Canvas (TextMeshPro) shows running cash and an interactive "+1 Blade" upgrade button ($10, cap 6). 41 EditMode + 28 PlayMode tests green.
+5. **Upgrade trees** — done (2026-04-15). 10-upgrade tree across 3 categories (Saw: Blade Count / Damage / Spin / Orbit / Size; Environment: Grinder DoT / Arena Width; Asteroid: Drop Rate / Chunk HP / Asteroid Size). `UpgradeCatalog` + `UpgradeState` + `UpgradeApplier` pure-C# data model with exponential `CostFormula`. Category drill-down UI. Vertical-walled arena (no more hourglass). Grinder reworked to damage-over-time with velocity-clamp block. `CircularShapeGenerator` produces roughly-round asteroid silhouettes with mixed square/triangle chunks. Random asteroid spin on spawn. Dev starting cash $5000 until debug overlay lands. 75 EditMode + 35 PlayMode tests green.
+6. **Save & offline** — not reached in Unity. Autosave, offline progression, welcome-back popup.
+7. **Debug overlay** — not reached. Stats, inspector, controls, visual overlays, event log. Includes toggle to zero out starting-cash dev cheat.
+8. **Art pass** — not reached. Chunk sprites, particles, palette, background.
+9. **Audio pass** — not reached. Lo-fi loop, chunky SFX.
+
+### Unity-era backlog (tuning notes worth keeping)
+
+#### Asteroid & arena tuning
+- **General asteroid improvements — including "larger sooner" on the upgrade curve.** The Unity `AsteroidSize` upgrade started at 4 chunks/level 0 and added 2 per level. Matt wants asteroids to grow MORE and FASTER early in the curve so the game feels meaty quickly. Tune `BaseAsteroidChunkCount` and the per-level multiplier. Consider a non-linear curve (e.g. Fibonacci-like).
+- **Chunk containment — stop chunks from flying out of the arena.** Dead chunks from high-velocity saw hits sometimes escape through the top of the arena or over the walls. Options: raise walls, add a ceiling collider at spawn height, clamp chunk velocity on death, or give chunks drag post-death. Diagnose in play first.
+- **Paired triangles — two triangles in the same cell.** Unity `CircularShapeGenerator` allowed at most one shape per cell (Square or one of 4 Triangle rotations), so a triangle's hypotenuse never connects to anything. Matt wants two triangles (e.g. NE + SW halves) to share one cell with an internal diagonal split. Requires refactoring `AsteroidShape` from `Dictionary<ChunkCell, ChunkShape>` to a tile-indexed list so multiple chunks can share a cell coordinate. Touches generator, factory, fracture, tests. ~300-line refactor.
+- **Wall expansion should be much slower.** Arena Width upgrade widened by 1 unit per level (2 → 10 over 8 levels). Matt wants the progression earned — widen by smaller increments (e.g. 0.25 per level, extend the cap), or scale cost much more aggressively.
+
+#### Saw tree
+- **Buy and pick saw shape.** Saw is locked to one blade silhouette (triangular). Add a "Shape Library" purchase that unlocks alternatives (circular, bladed, star, crescent) and a selector UI. Needs a new `SawShape` concept (sprite + collider profile per shape) plus a "currently equipped" setter on the saw hub and UI for selection.
+
+#### Menu/UX
+- **Visual overhaul of the menu system** — Unity left-panel Canvas was a functional MVP (cash readout + category rail + sub-panel). Needs proper visual design: typography, spacing, panel framing, hover/press feedback, category icon art.
+- **Live-demo category icons** — instead of glyph placeholders (★ ■ ●), render each category's hero entity into the button itself (e.g. a miniature spinning saw inside the Saw icon). Defer to art pass.
+- **Grinder sprite / visual polish.** Unity grinder was a flat light-blue bar — needs teeth, rotation animation, chew-effect particles, conveyor-belt feel.
+
+#### Polish backlog (art pass)
+- Triangle chunks need a more distinctive visual beyond a flat procedural 32×32 right-triangle sprite.
+- Spark bursts: swap procedural 1×1 white sprite for a small star/plus glyph, tint warmer toward centre.
+- Saw hub + blade: procedural 64×64 sprites look slightly chunky at large zoom — bump to 128 or ship proper sprite assets.

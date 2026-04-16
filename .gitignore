@@ -6,3 +6,9 @@ dist/
 .env
 .env.local
 .env.*.local
+
+# Claude Code / tooling scratch (per-user, private)
+.claude/settings.local.json
+.claude/scheduled_tasks.lock
+.remember/
+.superpowers/
