@@ -67,9 +67,15 @@ describe('weaponCatalog + upgradeCatalog', () => {
     expect(findUpgrade('nope')).toBeUndefined();
   });
 
-  it('costAtLevel grows with growth rate', () => {
-    const def = findUpgrade('saw.damage')!;
-    expect(costAtLevel(def, 0)).toBe(def.baseCost);
+  it('costAtLevel grows exponentially with growth rate', () => {
+    // Use a synthetic def since placeholder economy has growthRate=1.
+    const def = { baseCost: 20, growthRate: 1.5, maxLevel: 10 } as Parameters<typeof costAtLevel>[0];
+    const c0 = costAtLevel(def, 0);
+    const c1 = costAtLevel(def, 1);
+    const c2 = costAtLevel(def, 2);
+    expect(c0).toBe(20);
+    expect(c1).toBeGreaterThan(c0);
+    expect(c2).toBeGreaterThan(c1);
   });
 
   it('isMaxed flips at the cap', () => {

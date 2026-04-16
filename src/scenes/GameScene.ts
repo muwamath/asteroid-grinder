@@ -44,7 +44,7 @@ export class GameScene extends Phaser.Scene {
 
   private debugMode = false;
   private debugText: Phaser.GameObjects.Text | null = null;
-  private sawHits = 0;
+  private weaponHits = 0;
   private killedBySaw = 0;
   private collectedAlive = 0;
   private collectedDead = 0;
@@ -55,6 +55,7 @@ export class GameScene extends Phaser.Scene {
 
   private unsubs: Array<() => void> = [];
   private collisionHandler: ((event: Phaser.Physics.Matter.Events.CollisionStartEvent) => void) | null = null;
+  private dragHandler: ((pointer: Phaser.Input.Pointer, obj: Phaser.GameObjects.GameObject, dragX: number, dragY: number) => void) | null = null;
 
   constructor() {
     super('game');
@@ -115,6 +116,10 @@ export class GameScene extends Phaser.Scene {
         this.matter.world.off('collisionactive', this.collisionHandler);
         this.collisionHandler = null;
       }
+      if (this.dragHandler) {
+        this.input.off(Phaser.Input.Events.DRAG, this.dragHandler);
+        this.dragHandler = null;
+      }
       for (const inst of this.weaponInstances) {
         for (const blade of inst.blades) blade.destroy();
         inst.sprite.destroy();
@@ -163,7 +168,7 @@ export class GameScene extends Phaser.Scene {
         [
           `FPS ${fps}  ·  bodies ${bodies}  ·  live chunks ${this.chunkImages.size}`,
           `spawned ${this.spawnedCount} asteroids · ${this.spawnedChunks} chunks`,
-          `saw hits ${this.sawHits}  ·  killed by saw ${this.killedBySaw}`,
+          `hits ${this.weaponHits}  ·  killed ${this.killedBySaw}`,
           `collected dead ${this.collectedDead}  ·  collected alive ${this.collectedAlive}`,
           `cash ledger $${gameplayState.cash} (saw $${this.cashFromSaw} + line $${this.cashFromLine})`,
           `weapons ${this.weaponInstances.length}  ·  dmg ${this.effectiveParams.sawDamage}  ·  spawn ${this.effectiveParams.spawnIntervalMs}ms`,
@@ -236,9 +241,9 @@ export class GameScene extends Phaser.Scene {
   }
 
   private wireDrag(): void {
-    this.input.on(
-      Phaser.Input.Events.DRAG,
-      (_pointer: Phaser.Input.Pointer, obj: Phaser.GameObjects.GameObject, dragX: number, dragY: number) => {
+    this.dragHandler = (
+      _pointer: Phaser.Input.Pointer, obj: Phaser.GameObjects.GameObject, dragX: number, dragY: number,
+    ) => {
         const inst = this.weaponInstances.find((w) => w.sprite === obj);
         if (!inst) return;
         const halfW = this.scale.width / 2;
@@ -249,8 +254,8 @@ export class GameScene extends Phaser.Scene {
         const cx = Phaser.Math.Clamp(dragX, minX, maxX);
         const cy = Phaser.Math.Clamp(dragY, CHANNEL_TOP_Y + radius + 4, DEATH_LINE_Y - radius - 4);
         inst.sprite.setPosition(cx, cy);
-      },
-    );
+    };
+    this.input.on(Phaser.Input.Events.DRAG, this.dragHandler);
   }
 
   private rebuildChannelWalls(halfWidth: number): void {
@@ -423,7 +428,7 @@ export class GameScene extends Phaser.Scene {
       : (1 + gameplayState.levelOf('grinder.damage'));
 
     const result = asteroid.damageChunkByImage(chunk, damage);
-    this.sawHits++;
+    this.weaponHits++;
     this.spawnSpark(chunk.x, chunk.y);
 
     if (result.killed) {
