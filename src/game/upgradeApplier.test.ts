@@ -139,7 +139,7 @@ describe('applyUpgrades', () => {
     const e = applyUpgrades({ 'saw.damage': 2, 'saw.bladeCount': 1, 'asteroids.chunkHp': 1 });
     expect(e.sawDamage).toBe(3);
     expect(e.bladeCount).toBe(2);
-    expect(e.maxHpPerChunk).toBe(4);
+    expect(e.maxHpPerChunk).toBe(2);
     expect(e.channelHalfWidth).toBe(BASE_PARAMS.channelHalfWidth);
   });
 });

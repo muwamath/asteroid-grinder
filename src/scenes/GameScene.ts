@@ -328,6 +328,20 @@ export class GameScene extends Phaser.Scene {
     if (this.effectiveParams.spawnIntervalMs !== prev.spawnIntervalMs) {
       this.rebuildSpawnTimer(this.effectiveParams.spawnIntervalMs);
     }
+    if (this.effectiveParams.fallSpeedMultiplier !== prev.fallSpeedMultiplier) {
+      this.refreshAllAsteroidsFallSpeed(this.effectiveParams.fallSpeedMultiplier);
+    }
+  }
+
+  private refreshAllAsteroidsFallSpeed(multiplier: number): void {
+    const seen = new Set<Asteroid>();
+    for (const chunk of this.chunkImages) {
+      const a = chunk.getData('asteroid') as Asteroid | undefined;
+      if (a && !seen.has(a)) {
+        a.refreshFallSpeed(multiplier);
+        seen.add(a);
+      }
+    }
   }
 
   // ── gameplay ───────────────────────────────────────────────────────────
@@ -339,7 +353,9 @@ export class GameScene extends Phaser.Scene {
     this.spawner.spawnOne(halfW + jitter, SPAWN_Y, {
       minChunks: this.effectiveParams.minChunks,
       maxChunks: this.effectiveParams.maxChunks,
-      maxHpPerChunk: this.effectiveParams.maxHpPerChunk,
+      hpMultiplier: this.effectiveParams.maxHpPerChunk,
+      qualityLevel: this.effectiveParams.qualityLevel,
+      fallSpeedMultiplier: this.effectiveParams.fallSpeedMultiplier,
     });
     this.spawnedCount++;
     this.spawnedChunks += this.chunkImages.size - beforeSize;
@@ -449,14 +465,14 @@ export class GameScene extends Phaser.Scene {
   private collectAtDeathLine(chunk: Phaser.Physics.Matter.Image): void {
     const asteroid = chunk.getData('asteroid') as Asteroid | undefined;
     const dead = chunk.getData('dead') as boolean;
+    const tier = (chunk.getData('tier') as number | undefined) ?? 1;
 
     if (!dead && asteroid) {
       asteroid.damageChunkByImage(chunk, Number.POSITIVE_INFINITY);
     }
 
     if (dead) {
-      const maxHp = (chunk.getData('maxHp') as number) ?? 1;
-      const amount = Math.max(1, maxHp * 2);
+      const amount = tier;
       gameplayState.addCash(amount);
       this.cashFromSaw += amount;
       this.collectedDead++;

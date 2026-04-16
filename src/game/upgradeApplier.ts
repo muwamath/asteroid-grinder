@@ -35,7 +35,7 @@ export const BASE_PARAMS: EffectiveGameplayParams = {
   bladeCount: 1,
   channelHalfWidth: 44,
   spawnIntervalMs: 1800,
-  maxHpPerChunk: 3,
+  maxHpPerChunk: 1,
   minChunks: 9,
   maxChunks: 14,
   bladeSpinSpeed: 0.005,
