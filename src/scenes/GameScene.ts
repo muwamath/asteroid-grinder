@@ -84,8 +84,7 @@ export class GameScene extends Phaser.Scene {
     for (const wt of WEAPON_TYPES) {
       if (wt.locked || wt.id === 'grinder') continue;
       for (let i = 0; i < wt.startCount; i++) {
-        const jitter = (Math.random() - 0.5) * 40;
-        this.spawnWeaponInstance(wt.id, width / 2 + jitter, 560);
+        this.spawnWeaponInstance(wt.id, width / 2, 560);
       }
     }
     gameplayState.initWeaponCounts(
