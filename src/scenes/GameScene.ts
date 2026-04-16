@@ -438,8 +438,9 @@ export class GameScene extends Phaser.Scene {
     const dy = chunk.y - blade.y;
     const dist = Math.sqrt(dx * dx + dy * dy);
     if (dist > 0.1) {
-      const tx = -dy / dist;
-      const ty = dx / dist;
+      const dir = gameplayState.sawClockwise ? 1 : -1;
+      const tx = (-dy / dist) * dir;
+      const ty = (dx / dist) * dir;
       const strength = this.effectiveParams.bladeSpinSpeed * this.effectiveParams.bladeRadius;
       chunk.applyForce(new Phaser.Math.Vector2(tx * strength, ty * strength));
     }
