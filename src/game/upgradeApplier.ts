@@ -12,7 +12,7 @@ export interface EffectiveGameplayParams {
 export const BASE_PARAMS: EffectiveGameplayParams = {
   sawDamage: 1,
   bladeCount: 1,
-  channelHalfWidth: 80,
+  channelHalfWidth: 44,
   spawnIntervalMs: 1800,
   maxHpPerChunk: 3,
   minChunks: 9,
