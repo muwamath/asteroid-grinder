@@ -2,8 +2,24 @@ import Phaser from 'phaser';
 import { GameScene } from './scenes/GameScene';
 import { UIScene } from './scenes/UIScene';
 import { gameplayState } from './game/gameplayState';
+import { loadFromLocalStorage, OFFLINE_CAP_MS, MIN_OFFLINE_MS } from './game/saveState';
+import { computeOfflineAward } from './game/offlineProgress';
 
 const debug = new URLSearchParams(window.location.search).has('debug');
+
+const snapshot = loadFromLocalStorage();
+let offlineAward = 0;
+let offlineElapsedMs = 0;
+if (snapshot) {
+  offlineElapsedMs = Math.max(0, Date.now() - snapshot.savedAt);
+  if (offlineElapsedMs >= MIN_OFFLINE_MS) {
+    offlineAward = computeOfflineAward({
+      rate: snapshot.emaCashPerSec,
+      elapsedMs: offlineElapsedMs,
+      capMs: OFFLINE_CAP_MS,
+    });
+  }
+}
 
 const game = new Phaser.Game({
   type: Phaser.AUTO,
@@ -35,6 +51,10 @@ const game = new Phaser.Game({
   },
   scene: [GameScene, UIScene],
 });
+
+game.registry.set('pendingSnapshot', snapshot);
+game.registry.set('offlineAward', offlineAward);
+game.registry.set('offlineElapsedMs', Math.min(offlineElapsedMs, OFFLINE_CAP_MS));
 
 if (debug) {
   const w = window as unknown as { __GAME__: unknown; __STATE__: unknown };

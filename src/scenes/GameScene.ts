@@ -4,6 +4,8 @@ import { AsteroidSpawner } from '../game/asteroidSpawner';
 import { gameplayState } from '../game/gameplayState';
 import { BASE_PARAMS, applyUpgrades, type EffectiveGameplayParams } from '../game/upgradeApplier';
 import { WEAPON_TYPES } from '../game/weaponCatalog';
+import { CashRateTracker } from '../game/cashRate';
+import { saveToLocalStorage, type SaveStateV1 } from '../game/saveState';
 import { type WeaponBehavior, createBehavior, allBehaviorPrototypes } from '../game/weapons';
 import { MATERIALS, type Material, textureKeyFor } from '../game/materials';
 import type { ChunkTarget } from '../game/chunkTarget';
@@ -61,6 +63,11 @@ export class GameScene extends Phaser.Scene {
   private collisionHandler: ((event: Phaser.Physics.Matter.Events.CollisionStartEvent) => void) | null = null;
   private dragHandler: ((pointer: Phaser.Input.Pointer, obj: Phaser.GameObjects.GameObject, dragX: number, dragY: number) => void) | null = null;
 
+  private rateTracker: CashRateTracker = new CashRateTracker(60_000, 0);
+  private lastEarnedAt = 0;
+  private autosaveTimer: Phaser.Time.TimerEvent | null = null;
+  private beforeUnloadHandler: (() => void) | null = null;
+
   constructor() {
     super('game');
     this.debugMode = new URLSearchParams(window.location.search).has('debug');
@@ -76,6 +83,23 @@ export class GameScene extends Phaser.Scene {
 
   create(): void {
     gameplayState.resetData();
+
+    const snap = this.game.registry.get('pendingSnapshot') as SaveStateV1 | null;
+    if (snap) {
+      gameplayState.loadSnapshot({
+        cash: snap.cash,
+        levels: snap.levels,
+        weaponCounts: snap.weaponCounts,
+        sawClockwise: snap.sawClockwise,
+      });
+      this.rateTracker = new CashRateTracker(60_000, snap.emaCashPerSec);
+      // Consume once — a future scene restart should NOT re-apply.
+      this.game.registry.set('pendingSnapshot', null);
+    } else {
+      this.rateTracker = new CashRateTracker(60_000, 0);
+    }
+    this.lastEarnedAt = this.time.now;
+
     this.effectiveParams = applyUpgrades(gameplayState.levels());
 
     const { width, height } = this.scale;
@@ -86,20 +110,24 @@ export class GameScene extends Phaser.Scene {
     this.wireCollisions();
     this.wireDrag();
 
-    // Spawn initial weapon instances, spaced out vertically.
+    // Spawn initial weapon instances, spaced out vertically. When restoring
+    // a snapshot, use the persisted counts; otherwise seed from catalog.
     const unlocked = WEAPON_TYPES.filter((w) => !w.locked && w.id !== 'grinder');
     const yBottom = DEATH_LINE_Y - ARBOR_RADIUS - 10;
     const ySpacing = ARBOR_RADIUS * 3;
     for (let wi = 0; wi < unlocked.length; wi++) {
       const wt = unlocked[wi];
       const spawnY = yBottom - wi * ySpacing;
-      for (let i = 0; i < wt.startCount; i++) {
+      const count = snap ? (snap.weaponCounts[wt.id] ?? 0) : wt.startCount;
+      for (let i = 0; i < count; i++) {
         this.spawnWeaponInstance(wt.id, width / 2, spawnY);
       }
     }
-    gameplayState.initWeaponCounts(
-      Object.fromEntries(WEAPON_TYPES.filter((w) => !w.locked).map((w) => [w.id, w.startCount])),
-    );
+    if (!snap) {
+      gameplayState.initWeaponCounts(
+        Object.fromEntries(WEAPON_TYPES.filter((w) => !w.locked).map((w) => [w.id, w.startCount])),
+      );
+    }
 
     this.spawner = new AsteroidSpawner(this);
     this.rebuildSpawnTimer(this.effectiveParams.spawnIntervalMs);
@@ -115,6 +143,22 @@ export class GameScene extends Phaser.Scene {
         this.onWeaponCountChanged(typeId, count);
       }),
     );
+    this.unsubs.push(
+      gameplayState.on('cashEarned', (amount) => {
+        const now = this.time.now;
+        const dt = now - this.lastEarnedAt;
+        this.lastEarnedAt = now;
+        this.rateTracker.observe(amount, dt);
+      }),
+    );
+
+    this.autosaveTimer = this.time.addEvent({
+      delay: 5000,
+      loop: true,
+      callback: () => this.snapshotNow(),
+    });
+    this.beforeUnloadHandler = () => this.snapshotNow();
+    window.addEventListener('beforeunload', this.beforeUnloadHandler);
 
     this.events.once('shutdown', () => {
       for (const u of this.unsubs) u();
@@ -127,6 +171,14 @@ export class GameScene extends Phaser.Scene {
       if (this.dragHandler) {
         this.input.off(Phaser.Input.Events.DRAG, this.dragHandler);
         this.dragHandler = null;
+      }
+      if (this.autosaveTimer) {
+        this.autosaveTimer.remove(false);
+        this.autosaveTimer = null;
+      }
+      if (this.beforeUnloadHandler) {
+        window.removeEventListener('beforeunload', this.beforeUnloadHandler);
+        this.beforeUnloadHandler = null;
       }
       for (const inst of this.weaponInstances) {
         inst.behavior.destroy();
@@ -382,6 +434,22 @@ export class GameScene extends Phaser.Scene {
 
     behavior.init(this, sprite, this.effectiveParams);
     return instance;
+  }
+
+  private snapshotNow(): void {
+    const weaponIds = WEAPON_TYPES.filter((w) => !w.locked).map((w) => w.id);
+    const weaponCounts: Record<string, number> = {};
+    for (const id of weaponIds) weaponCounts[id] = gameplayState.weaponCount(id);
+    const snap: SaveStateV1 = {
+      v: 1,
+      cash: gameplayState.cash,
+      levels: gameplayState.levels(),
+      weaponCounts,
+      sawClockwise: gameplayState.sawClockwise,
+      emaCashPerSec: this.rateTracker.rate(),
+      savedAt: Date.now(),
+    };
+    saveToLocalStorage(snap);
   }
 
   private wireDrag(): void {
