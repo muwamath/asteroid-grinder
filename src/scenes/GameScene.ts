@@ -16,6 +16,11 @@ const SPAWN_Y = -80;
 const DEATH_LINE_Y = 652;
 
 const CHANNEL_WALL_THICKNESS = 12;
+// The Matter collision body is thicker than the visual rectangle. Deep
+// piles of compound asteroids can penetrate a thin static wall because the
+// solver has limited correction range. Giving the collider extra depth
+// outside the channel face fixes this without changing visuals.
+const CHANNEL_WALL_COLLIDER_THICKNESS = 40;
 const CHANNEL_TOP_Y = 80;
 
 interface WeaponInstance {
@@ -368,20 +373,27 @@ export class GameScene extends Phaser.Scene {
     const width = this.scale.width;
     const channelHeight = DEATH_LINE_Y - CHANNEL_TOP_Y;
     const channelMidY = CHANNEL_TOP_Y + channelHeight / 2;
-    const leftWallX = width / 2 - halfWidth - CHANNEL_WALL_THICKNESS / 2;
-    const rightWallX = width / 2 + halfWidth + CHANNEL_WALL_THICKNESS / 2;
+    // Visual rectangle face is at (halfWidth ± 0) from center; visual
+    // collider is offset so its INNER face matches the visual inner face,
+    // with its extra thickness extending OUTWARD (away from the channel).
+    const visualLeftX = width / 2 - halfWidth - CHANNEL_WALL_THICKNESS / 2;
+    const visualRightX = width / 2 + halfWidth + CHANNEL_WALL_THICKNESS / 2;
+    const colliderLeftX = width / 2 - halfWidth - CHANNEL_WALL_COLLIDER_THICKNESS / 2;
+    const colliderRightX = width / 2 + halfWidth + CHANNEL_WALL_COLLIDER_THICKNESS / 2;
 
     this.channelLeftBody = this.matter.add.rectangle(
-      leftWallX, channelMidY, CHANNEL_WALL_THICKNESS, channelHeight, { isStatic: true },
+      colliderLeftX, channelMidY, CHANNEL_WALL_COLLIDER_THICKNESS, channelHeight,
+      { isStatic: true },
     );
     this.channelRightBody = this.matter.add.rectangle(
-      rightWallX, channelMidY, CHANNEL_WALL_THICKNESS, channelHeight, { isStatic: true },
+      colliderRightX, channelMidY, CHANNEL_WALL_COLLIDER_THICKNESS, channelHeight,
+      { isStatic: true },
     );
     this.channelLeftVisual = this.add
-      .rectangle(leftWallX, channelMidY, CHANNEL_WALL_THICKNESS, channelHeight, 0x3a3a4c)
+      .rectangle(visualLeftX, channelMidY, CHANNEL_WALL_THICKNESS, channelHeight, 0x3a3a4c)
       .setOrigin(0.5);
     this.channelRightVisual = this.add
-      .rectangle(rightWallX, channelMidY, CHANNEL_WALL_THICKNESS, channelHeight, 0x3a3a4c)
+      .rectangle(visualRightX, channelMidY, CHANNEL_WALL_THICKNESS, channelHeight, 0x3a3a4c)
       .setOrigin(0.5);
 
     const halfW = this.scale.width / 2;
