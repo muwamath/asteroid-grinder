@@ -21,7 +21,10 @@ export interface ChunkPartPlugin {
   readonly chunkId: string;
 }
 
+let nextAsteroidId = 1;
+
 export class CompoundAsteroid {
+  readonly id: string;
   readonly chunks = new Map<string, ChunkPart>();
   readonly adjacency = new Map<string, Set<string>>();
   private compoundBody!: MatterJS.BodyType;
@@ -36,6 +39,7 @@ export class CompoundAsteroid {
     materialsByChunk: ReadonlyMap<string, Material>,
   ) {
     this.scene = scene;
+    this.id = `A${nextAsteroidId++}`;
 
     for (const [k, v] of shape.adjacency) {
       this.adjacency.set(k, new Set(v));
@@ -278,6 +282,7 @@ export class CompoundAsteroid {
   }): CompoundAsteroid {
     const child = Object.create(CompoundAsteroid.prototype) as CompoundAsteroid;
     (child as unknown as { scene: Phaser.Scene }).scene = args.scene;
+    (child as unknown as { id: string }).id = `A${nextAsteroidId++}`;
     (child as unknown as { chunks: Map<string, ChunkPart> }).chunks = new Map();
     (child as unknown as { adjacency: Map<string, Set<string>> }).adjacency = new Map();
 

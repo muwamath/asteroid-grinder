@@ -1,8 +1,8 @@
 import Phaser from 'phaser';
+import type { ChunkTarget } from '../chunkTarget';
 import { Laser } from '../laser';
 import type { EffectiveGameplayParams } from '../upgradeApplier';
 import type { WeaponBehavior } from './weaponBehavior';
-import { damageChunk } from './weaponBehavior';
 
 const TURRET_RADIUS = 10;
 
@@ -37,10 +37,10 @@ export class LaserBehavior implements WeaponBehavior {
     _scene: Phaser.Scene,
     sprite: Phaser.Physics.Matter.Image,
     delta: number,
-    chunks: Set<Phaser.Physics.Matter.Image>,
+    chunks: readonly ChunkTarget[],
     params: EffectiveGameplayParams,
   ): void {
-    const dmg = this.laser.update(delta, sprite.x, sprite.y, chunks, {
+    const fireResult = this.laser.update(delta, sprite.x, sprite.y, chunks, {
       aimSpeed: params.laserAimSpeed,
       range: params.laserRange,
       damage: params.laserDamage,
@@ -50,22 +50,22 @@ export class LaserBehavior implements WeaponBehavior {
     sprite.setRotation(this.laser.aimAngle + Math.PI / 2);
 
     this.beamGfx.clear();
-    if (this.laser.firing && this.laser.target && this.laser.target.active) {
+    if (fireResult) {
       const emit = this.laser.emitPoint(sprite.x, sprite.y, TURRET_RADIUS);
       this.beamGfx.lineStyle(2, 0xff3333, 0.8);
       this.beamGfx.beginPath();
       this.beamGfx.moveTo(emit.x, emit.y);
-      this.beamGfx.lineTo(this.laser.target.x, this.laser.target.y);
+      this.beamGfx.lineTo(fireResult.target.x, fireResult.target.y);
       this.beamGfx.strokePath();
 
-      if (dmg > 0) {
-        damageChunk(this.laser.target, dmg);
+      if (fireResult.damagePerTick > 0) {
+        fireResult.target.damage(fireResult.damagePerTick);
       }
     }
   }
 
   onUpgrade(): void {
-    // Laser params are read live each frame — no rebuild needed.
+    // Laser params are read live each frame.
   }
 
   destroy(): void {

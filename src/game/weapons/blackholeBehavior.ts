@@ -1,14 +1,15 @@
 import Phaser from 'phaser';
+import type { ChunkTarget } from '../chunkTarget';
 import { BlackHole } from '../blackhole';
 import type { EffectiveGameplayParams } from '../upgradeApplier';
-import type { WeaponBehavior } from './weaponBehavior';
+import type { WeaponBehavior, WeaponRawAccess } from './weaponBehavior';
 
 const TURRET_RADIUS = 10;
 
 export class BlackholeBehavior implements WeaponBehavior {
   readonly textureKey = 'blackhole-turret';
   readonly bodyRadius = TURRET_RADIUS;
-  readonly blocksChunks = false;  // black hole pulls chunks in, not out
+  readonly blocksChunks = false;
 
   private bh!: BlackHole;
   private rangeGfx!: Phaser.GameObjects.Arc;
@@ -32,19 +33,25 @@ export class BlackholeBehavior implements WeaponBehavior {
   }
 
   update(
-    _scene: Phaser.Scene,
+    scene: Phaser.Scene,
     sprite: Phaser.Physics.Matter.Image,
     delta: number,
-    chunks: Set<Phaser.Physics.Matter.Image>,
+    chunks: readonly ChunkTarget[],
     params: EffectiveGameplayParams,
+    raw?: WeaponRawAccess,
   ): void {
-    this.bh.update(delta, sprite.x, sprite.y, chunks, {
-      pullRange: params.blackholePullRange,
-      pullForce: params.blackholePullForce,
-      coreSize: params.blackholeCoreSize,
-      coreDamage: params.blackholeCoreDamage,
-      maxTargets: params.blackholeMaxTargets,
-    });
+    if (!raw) return;  // black hole needs body-level access
+    this.bh.update(
+      delta, sprite.x, sprite.y, chunks,
+      raw.liveAsteroids, raw.deadChunks, scene,
+      {
+        pullRange: params.blackholePullRange,
+        pullForce: params.blackholePullForce,
+        coreSize: params.blackholeCoreSize,
+        coreDamage: params.blackholeCoreDamage,
+        maxTargets: params.blackholeMaxTargets,
+      },
+    );
 
     this.rangeGfx.setPosition(sprite.x, sprite.y);
     this.rangeGfx.setRadius(params.blackholePullRange);

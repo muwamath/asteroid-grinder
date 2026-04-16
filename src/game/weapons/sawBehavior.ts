@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import type { ChunkTarget } from '../chunkTarget';
 import type { CompoundAsteroid } from '../compoundAsteroid';
 import { gameplayState } from '../gameplayState';
 import type { EffectiveGameplayParams } from '../upgradeApplier';
@@ -48,7 +49,7 @@ export class SawBehavior implements WeaponBehavior {
     _scene: Phaser.Scene,
     sprite: Phaser.Physics.Matter.Image,
     delta: number,
-    _chunks: Set<Phaser.Physics.Matter.Image>,
+    _chunks: readonly ChunkTarget[],
     params: EffectiveGameplayParams,
   ): void {
     if (this.blades.length === 0) return;

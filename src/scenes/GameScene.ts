@@ -134,13 +134,10 @@ export class GameScene extends Phaser.Scene {
   }
 
   update(_time: number, delta: number): void {
-    // Weapons run first; Task 9 switches them to ChunkTarget[]. For now
-    // we still pass an empty set — laser/missile/blackhole will no-op and
-    // the saw path fires via the collision handler in Task 8.
-    void this.buildChunkTargets; // reserved for Task 9
-    const emptyChunks = new Set<Phaser.Physics.Matter.Image>();
+    const chunkTargets = this.buildChunkTargets();
+    const raw = { liveAsteroids: this.liveAsteroids, deadChunks: this.deadChunks };
     for (const inst of this.weaponInstances) {
-      inst.behavior.update(this, inst.sprite, delta, emptyChunks, this.effectiveParams);
+      inst.behavior.update(this, inst.sprite, delta, chunkTargets, this.effectiveParams, raw);
     }
 
     const maxY = this.scale.height + 120;
@@ -213,19 +210,39 @@ export class GameScene extends Phaser.Scene {
   private buildChunkTargets(): ChunkTarget[] {
     const targets: ChunkTarget[] = [];
     for (const ast of this.liveAsteroids) {
+      const body = ast.body;
+      const vx = body.velocity.x;
+      const vy = body.velocity.y;
+      const w = body.angularVelocity;
+      const angle = body.angle;
+      const cos = Math.cos(angle);
+      const sin = Math.sin(angle);
       for (const chunk of ast.chunks.values()) {
         const pos = chunk.bodyPart.position;
+        const ox = chunk.localOffset.x;
+        const oy = chunk.localOffset.y;
+        const tvx = -w * (ox * sin + oy * cos);
+        const tvy =  w * (ox * cos - oy * sin);
+        const chunkId = chunk.chunkId;
         targets.push({
-          x: pos.x, y: pos.y, dead: false, tier: chunk.material.tier,
-          damage: (amount) => this.damageLiveChunk(ast, chunk.chunkId, amount),
+          id: `${ast.id}/${chunkId}`,
+          x: pos.x, y: pos.y,
+          vx: vx + tvx, vy: vy + tvy,
+          dead: false, tier: chunk.material.tier,
+          damage: (amount) => this.damageLiveChunk(ast, chunkId, amount),
         });
       }
     }
+    let deadIdx = 0;
     for (const dead of this.deadChunks) {
       if (!dead.active) continue;
       const tier = (dead.getData('tier') as number | undefined) ?? 1;
+      const body = dead.body as MatterJS.BodyType;
       targets.push({
-        x: dead.x, y: dead.y, dead: true, tier,
+        id: `D${deadIdx++}`,
+        x: dead.x, y: dead.y,
+        vx: body.velocity.x, vy: body.velocity.y,
+        dead: true, tier,
         damage: () => false,
       });
     }

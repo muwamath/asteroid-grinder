@@ -1,5 +1,4 @@
 export type { WeaponBehavior } from './weaponBehavior';
-export { damageChunk } from './weaponBehavior';
 export { SawBehavior } from './sawBehavior';
 export { LaserBehavior } from './laserBehavior';
 export { MissileBehavior } from './missileBehavior';

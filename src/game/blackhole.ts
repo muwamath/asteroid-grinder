@@ -1,71 +1,81 @@
 import Phaser from 'phaser';
-import type { Asteroid } from './asteroid';
+import type { ChunkTarget } from './chunkTarget';
+import type { CompoundAsteroid } from './compoundAsteroid';
 
 export interface BlackHoleParams {
-  pullRange: number;      // px — gravity field radius
-  pullForce: number;      // Matter.js force units (very small)
-  coreSize: number;       // px — inner damage zone radius
-  coreDamage: number;     // DPS within core
-  maxTargets: number;     // max chunks affected per frame
+  pullRange: number;
+  pullForce: number;
+  coreSize: number;
+  coreDamage: number;
+  maxTargets: number;
 }
 
+/**
+ * Black hole: pulls whole asteroid compound bodies inward, pushes loose
+ * dead chunks outward, and damages live chunks inside the core radius.
+ */
 export class BlackHole {
-  /**
-   * Run once per frame. Applies gravity to chunks in range and deals
-   * core damage. Live chunks are pulled in, dead chunks are pushed out.
-   */
   update(
     deltaMs: number,
     originX: number,
     originY: number,
-    chunks: Set<Phaser.Physics.Matter.Image>,
+    chunks: readonly ChunkTarget[],
+    liveAsteroids: readonly CompoundAsteroid[],
+    deadChunks: Iterable<Phaser.Physics.Matter.Image>,
+    scene: Phaser.Scene,
     params: BlackHoleParams,
   ): void {
     const dt = deltaMs / 1000;
     const range2 = params.pullRange * params.pullRange;
     const core2 = params.coreSize * params.coreSize;
+    const matterScene = scene as Phaser.Scene & { matter: Phaser.Physics.Matter.MatterPhysics };
 
-    // Collect chunks in range, sorted by distance.
-    const candidates: Array<{ chunk: Phaser.Physics.Matter.Image; dist: number }> = [];
-
-    for (const chunk of chunks) {
-      if (!chunk.active) continue;
-      const dx = chunk.x - originX;
-      const dy = chunk.y - originY;
+    // Pull live compound asteroids inward (whole-body force, no per-chunk shear).
+    for (const ast of liveAsteroids) {
+      const body = ast.body;
+      const dx = body.position.x - originX;
+      const dy = body.position.y - originY;
       const dist2 = dx * dx + dy * dy;
       if (dist2 > range2) continue;
-
-      const dist = Math.sqrt(dist2);
-      candidates.push({ chunk, dist });
+      const dist = Math.max(Math.sqrt(dist2), 1);
+      const nx = dx / dist;
+      const ny = dy / dist;
+      const mag = params.pullForce / dist;
+      matterScene.matter.body.applyForce(
+        body,
+        { x: body.position.x, y: body.position.y },
+        { x: -nx * mag, y: -ny * mag },
+      );
     }
 
-    // Sort by distance (closest first), cap at maxTargets.
-    candidates.sort((a, b) => a.dist - b.dist);
-    const count = Math.min(params.maxTargets, candidates.length);
+    // Push dead chunks outward.
+    for (const dead of deadChunks) {
+      if (!dead.active) continue;
+      const dx = dead.x - originX;
+      const dy = dead.y - originY;
+      const dist2 = dx * dx + dy * dy;
+      if (dist2 > range2) continue;
+      const dist = Math.max(Math.sqrt(dist2), 1);
+      const nx = dx / dist;
+      const ny = dy / dist;
+      const mag = params.pullForce / dist;
+      dead.applyForce(new Phaser.Math.Vector2(nx * mag, ny * mag));
+    }
 
-    for (let i = 0; i < count; i++) {
-      const { chunk, dist } = candidates[i];
+    // Core damage: live targets within core radius take DPS, capped at maxTargets.
+    const candidates: Array<{ target: ChunkTarget; dist: number }> = [];
+    for (const chunk of chunks) {
+      if (chunk.dead) continue;
       const dx = chunk.x - originX;
       const dy = chunk.y - originY;
-      const distClamped = Math.max(dist, 1);
-      const dead = chunk.getData('dead') as boolean;
-
-      // Inverse-distance force: closer = stronger.
-      const forceMag = params.pullForce / distClamped;
-
-      // Direction: toward center for live, away for dead.
-      const nx = dx / distClamped;
-      const ny = dy / distClamped;
-      const sign = dead ? 1 : -1; // -1 = pull inward, +1 = push outward
-      chunk.applyForce(new Phaser.Math.Vector2(nx * forceMag * sign, ny * forceMag * sign));
-
-      // Core damage: continuous DPS to alive chunks within core radius.
-      if (!dead && dist * dist <= core2) {
-        const asteroid = chunk.getData('asteroid') as Asteroid | undefined;
-        if (asteroid) {
-          asteroid.damageChunkByImage(chunk, params.coreDamage * dt);
-        }
-      }
+      const d2 = dx * dx + dy * dy;
+      if (d2 > core2) continue;
+      candidates.push({ target: chunk, dist: Math.sqrt(d2) });
+    }
+    candidates.sort((a, b) => a.dist - b.dist);
+    const count = Math.min(params.maxTargets, candidates.length);
+    for (let i = 0; i < count; i++) {
+      candidates[i].target.damage(params.coreDamage * dt);
     }
   }
 }

@@ -1,8 +1,8 @@
 import Phaser from 'phaser';
+import type { ChunkTarget } from '../chunkTarget';
 import { MissileLauncher, MissileProjectile } from '../missile';
 import type { EffectiveGameplayParams } from '../upgradeApplier';
 import type { WeaponBehavior } from './weaponBehavior';
-import { damageChunk } from './weaponBehavior';
 
 const TURRET_RADIUS = 10;
 const DEATH_LINE_Y = 652;
@@ -36,7 +36,7 @@ export class MissileBehavior implements WeaponBehavior {
     scene: Phaser.Scene,
     sprite: Phaser.Physics.Matter.Image,
     delta: number,
-    chunks: Set<Phaser.Physics.Matter.Image>,
+    chunks: readonly ChunkTarget[],
     params: EffectiveGameplayParams,
   ): void {
     const missileParams = {
@@ -56,14 +56,13 @@ export class MissileBehavior implements WeaponBehavior {
         emit.x, emit.y,
         fireCmd.dirX, fireCmd.dirY,
         missileParams.speed, missileParams.damage, missileParams.blastRadius, missileParams.homing,
-        fireCmd.target,
+        fireCmd.targetId,
       );
       const image = scene.add.rectangle(emit.x, emit.y, 8, 4, 0x33ff33);
       image.setDepth(3);
       this.missiles.push({ proj, image });
     }
 
-    // Update projectiles
     const halfW = scene.scale.width / 2;
     const halfCh = params.channelHalfWidth;
     const channelLeft = halfW - halfCh;
@@ -76,11 +75,11 @@ export class MissileBehavior implements WeaponBehavior {
       if (detonation) {
         const r2 = m.proj.blastRadius * m.proj.blastRadius;
         for (const chunk of chunks) {
-          if (!chunk.active || chunk.getData('dead')) continue;
+          if (chunk.dead) continue;
           const dx = chunk.x - detonation.x;
           const dy = chunk.y - detonation.y;
           if (dx * dx + dy * dy <= r2) {
-            damageChunk(chunk, m.proj.damage);
+            chunk.damage(m.proj.damage);
           }
         }
         const flash = scene.add.circle(detonation.x, detonation.y, m.proj.blastRadius, 0xff8833, 0.4);
