@@ -2,9 +2,17 @@ type Listener<A extends unknown[]> = (...args: A) => void;
 
 interface Events {
   cashChanged: [cash: number, delta: number];
+  cashEarned: [amount: number];
   upgradeLevelChanged: [id: string, level: number];
   weaponCountChanged: [id: string, count: number];
   sawDirectionChanged: [clockwise: boolean];
+}
+
+export interface GameplaySnapshot {
+  cash: number;
+  levels: Record<string, number>;
+  weaponCounts: Record<string, number>;
+  sawClockwise: boolean;
 }
 
 class GameplayState {
@@ -14,6 +22,7 @@ class GameplayState {
   private _sawClockwise = true;
   private readonly listeners: { [K in keyof Events]: Set<Listener<Events[K]>> } = {
     cashChanged: new Set(),
+    cashEarned: new Set(),
     upgradeLevelChanged: new Set(),
     weaponCountChanged: new Set(),
     sawDirectionChanged: new Set(),
@@ -27,6 +36,7 @@ class GameplayState {
     if (amount === 0) return;
     this._cash += amount;
     this.emit('cashChanged', this._cash, amount);
+    if (amount > 0) this.emit('cashEarned', amount);
   }
 
   trySpend(amount: number): boolean {
@@ -85,6 +95,26 @@ class GameplayState {
     this.emit('upgradeLevelChanged', id, level);
   }
 
+  // Bulk-restore from a persisted snapshot. Emits events so subscribers
+  // (UI scene, game scene) can reconcile. Caller is responsible for
+  // resetData() first if a clean slate is required.
+  loadSnapshot(s: GameplaySnapshot): void {
+    this._cash = s.cash;
+    this.emit('cashChanged', this._cash, s.cash);
+    this._levels.clear();
+    for (const [k, v] of Object.entries(s.levels)) {
+      this._levels.set(k, v);
+      this.emit('upgradeLevelChanged', k, v);
+    }
+    this._weaponCounts.clear();
+    for (const [k, v] of Object.entries(s.weaponCounts)) {
+      this._weaponCounts.set(k, v);
+      this.emit('weaponCountChanged', k, v);
+    }
+    this._sawClockwise = s.sawClockwise;
+    this.emit('sawDirectionChanged', s.sawClockwise);
+  }
+
   on<E extends keyof Events>(event: E, cb: Listener<Events[E]>): () => void {
     this.listeners[event].add(cb as Listener<Events[keyof Events]>);
     return () => {
@@ -105,6 +135,7 @@ class GameplayState {
   reset(): void {
     this.resetData();
     this.listeners.cashChanged.clear();
+    this.listeners.cashEarned.clear();
     this.listeners.upgradeLevelChanged.clear();
     this.listeners.weaponCountChanged.clear();
     this.listeners.sawDirectionChanged.clear();
