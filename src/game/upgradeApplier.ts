@@ -34,16 +34,16 @@ export function applyUpgrades(
   const lv = (id: string): number => levels[id] ?? 0;
 
   return {
-    sawDamage: BASE_PARAMS.sawDamage + lv('sawDamage') * SAW_DAMAGE_PER_LEVEL,
-    bladeCount: BASE_PARAMS.bladeCount + lv('bladeCount') * BLADE_COUNT_PER_LEVEL,
+    sawDamage: BASE_PARAMS.sawDamage + lv('saw.damage') * SAW_DAMAGE_PER_LEVEL,
+    bladeCount: BASE_PARAMS.bladeCount + lv('saw.bladeCount') * BLADE_COUNT_PER_LEVEL,
     channelHalfWidth:
-      BASE_PARAMS.channelHalfWidth + lv('channelWidth') * CHANNEL_WIDTH_PER_LEVEL,
+      BASE_PARAMS.channelHalfWidth + lv('chute.channelWidth') * CHANNEL_WIDTH_PER_LEVEL,
     spawnIntervalMs: Math.max(
       DROP_RATE_MIN_MS,
-      BASE_PARAMS.spawnIntervalMs - lv('dropRate') * DROP_RATE_MS_PER_LEVEL,
+      BASE_PARAMS.spawnIntervalMs - lv('asteroids.dropRate') * DROP_RATE_MS_PER_LEVEL,
     ),
-    maxHpPerChunk: BASE_PARAMS.maxHpPerChunk + lv('chunkHp') * CHUNK_HP_PER_LEVEL,
-    minChunks: BASE_PARAMS.minChunks + lv('asteroidSize') * ASTEROID_SIZE_PER_LEVEL,
-    maxChunks: BASE_PARAMS.maxChunks + lv('asteroidSize') * ASTEROID_SIZE_PER_LEVEL,
+    maxHpPerChunk: BASE_PARAMS.maxHpPerChunk + lv('asteroids.chunkHp') * CHUNK_HP_PER_LEVEL,
+    minChunks: BASE_PARAMS.minChunks + lv('asteroids.asteroidSize') * ASTEROID_SIZE_PER_LEVEL,
+    maxChunks: BASE_PARAMS.maxChunks + lv('asteroids.asteroidSize') * ASTEROID_SIZE_PER_LEVEL,
   };
 }

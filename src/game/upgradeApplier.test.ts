@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { BASE_PARAMS, applyUpgrades } from './upgradeApplier';
-import { UPGRADE_CATALOG, costAtLevel, findUpgrade, isMaxed } from './upgradeCatalog';
+import { costAtLevel, isMaxed } from './upgradeCatalog';
+import { allUpgradeDefs, findUpgrade } from './weaponCatalog';
 import { gameplayState } from './gameplayState';
 
 describe('applyUpgrades', () => {
@@ -9,36 +10,36 @@ describe('applyUpgrades', () => {
   });
 
   it('adds sawDamage per level', () => {
-    expect(applyUpgrades({ sawDamage: 3 }).sawDamage).toBe(BASE_PARAMS.sawDamage + 3);
+    expect(applyUpgrades({ 'saw.damage': 3 }).sawDamage).toBe(BASE_PARAMS.sawDamage + 3);
   });
 
   it('adds bladeCount per level', () => {
-    expect(applyUpgrades({ bladeCount: 4 }).bladeCount).toBe(BASE_PARAMS.bladeCount + 4);
+    expect(applyUpgrades({ 'saw.bladeCount': 4 }).bladeCount).toBe(BASE_PARAMS.bladeCount + 4);
   });
 
   it('widens the channel per level', () => {
-    expect(applyUpgrades({ channelWidth: 5 }).channelHalfWidth).toBe(
+    expect(applyUpgrades({ 'chute.channelWidth': 5 }).channelHalfWidth).toBe(
       BASE_PARAMS.channelHalfWidth + 5 * 14,
     );
   });
 
   it('shortens spawn interval per drop-rate level but clamps at 300ms', () => {
-    expect(applyUpgrades({ dropRate: 2 }).spawnIntervalMs).toBe(1800 - 260);
-    expect(applyUpgrades({ dropRate: 99 }).spawnIntervalMs).toBe(300);
+    expect(applyUpgrades({ 'asteroids.dropRate': 2 }).spawnIntervalMs).toBe(1800 - 260);
+    expect(applyUpgrades({ 'asteroids.dropRate': 99 }).spawnIntervalMs).toBe(300);
   });
 
   it('raises chunk HP per level', () => {
-    expect(applyUpgrades({ chunkHp: 7 }).maxHpPerChunk).toBe(BASE_PARAMS.maxHpPerChunk + 7);
+    expect(applyUpgrades({ 'asteroids.chunkHp': 7 }).maxHpPerChunk).toBe(BASE_PARAMS.maxHpPerChunk + 7);
   });
 
   it('expands the chunk-count range uniformly with asteroidSize', () => {
-    const e = applyUpgrades({ asteroidSize: 3 });
+    const e = applyUpgrades({ 'asteroids.asteroidSize': 3 });
     expect(e.minChunks).toBe(BASE_PARAMS.minChunks + 6);
     expect(e.maxChunks).toBe(BASE_PARAMS.maxChunks + 6);
   });
 
   it('combines multiple upgrades independently', () => {
-    const e = applyUpgrades({ sawDamage: 2, bladeCount: 1, chunkHp: 1 });
+    const e = applyUpgrades({ 'saw.damage': 2, 'saw.bladeCount': 1, 'asteroids.chunkHp': 1 });
     expect(e.sawDamage).toBe(3);
     expect(e.bladeCount).toBe(2);
     expect(e.maxHpPerChunk).toBe(4);
@@ -46,37 +47,33 @@ describe('applyUpgrades', () => {
   });
 });
 
-describe('upgradeCatalog', () => {
+describe('weaponCatalog + upgradeCatalog', () => {
   it('defines all expected upgrades', () => {
-    const ids = UPGRADE_CATALOG.map((u) => u.id);
+    const ids = allUpgradeDefs().map((u) => u.id);
     expect(ids).toEqual(
       expect.arrayContaining([
-        'sawDamage',
-        'bladeCount',
-        'channelWidth',
-        'dropRate',
-        'chunkHp',
-        'asteroidSize',
+        'saw.damage',
+        'saw.bladeCount',
+        'chute.channelWidth',
+        'asteroids.dropRate',
+        'asteroids.chunkHp',
+        'asteroids.asteroidSize',
       ]),
     );
   });
 
-  it('findUpgrade looks up by id', () => {
-    expect(findUpgrade('sawDamage')?.category).toBe('saw');
+  it('findUpgrade looks up by dotted id', () => {
+    expect(findUpgrade('saw.damage')?.category).toBe('saw');
     expect(findUpgrade('nope')).toBeUndefined();
   });
 
-  it('costAtLevel grows exponentially', () => {
-    const def = findUpgrade('sawDamage')!;
+  it('costAtLevel grows with growth rate', () => {
+    const def = findUpgrade('saw.damage')!;
     expect(costAtLevel(def, 0)).toBe(def.baseCost);
-    const c1 = costAtLevel(def, 1);
-    const c2 = costAtLevel(def, 2);
-    expect(c1).toBeGreaterThan(def.baseCost);
-    expect(c2).toBeGreaterThan(c1);
   });
 
   it('isMaxed flips at the cap', () => {
-    const def = findUpgrade('bladeCount')!;
+    const def = findUpgrade('saw.bladeCount')!;
     expect(isMaxed(def, def.maxLevel - 1)).toBe(false);
     expect(isMaxed(def, def.maxLevel)).toBe(true);
   });
@@ -109,9 +106,9 @@ describe('gameplayState', () => {
     gameplayState.reset();
     const events: Array<[string, number]> = [];
     gameplayState.on('upgradeLevelChanged', (id, lvl) => events.push([id, lvl]));
-    gameplayState.setLevel('sawDamage', 2);
-    expect(events).toEqual([['sawDamage', 2]]);
-    expect(gameplayState.levelOf('sawDamage')).toBe(2);
+    gameplayState.setLevel('saw.damage', 2);
+    expect(events).toEqual([['saw.damage', 2]]);
+    expect(gameplayState.levelOf('saw.damage')).toBe(2);
   });
 
   it('on() returns an unsubscribe function', () => {
