@@ -141,7 +141,6 @@ export class GameScene extends Phaser.Scene {
           const sy = inst.sprite.y + Math.sin(phase) * ARBOR_RADIUS;
           const blade = inst.blades[i];
           blade.setPosition(sx, sy);
-          blade.setVelocity(0, 0);
           blade.setRotation(blade.rotation + delta * 0.02);
         }
       }
@@ -206,7 +205,7 @@ export class GameScene extends Phaser.Scene {
     sprite.setFriction(0.2);
     sprite.setInteractive({ draggable: true });
     this.input.setDraggable(sprite);
-    sprite.setData('kind', typeId);
+    sprite.setData('kind', 'arbor');
     sprite.setData('instanceId', id);
 
     const instance: WeaponInstance = {
@@ -232,10 +231,9 @@ export class GameScene extends Phaser.Scene {
     for (let i = 0; i < count; i++) {
       const blade = this.matter.add.image(0, 0, 'saw-blade');
       blade.setCircle(SAW_BLADE_RADIUS);
-      blade.setSensor(true);
+      blade.setStatic(true);
       blade.setIgnoreGravity(true);
       blade.setFrictionAir(0);
-      blade.setMass(0.001);
       blade.setDepth(0);
       blade.setData('kind', 'saw');
       instance.blades.push(blade);
@@ -396,23 +394,14 @@ export class GameScene extends Phaser.Scene {
     if (!goA || !goB) return;
 
     let chunk: Phaser.Physics.Matter.Image | null = null;
-    let damageSource: string | null = null;
 
     if (goA.getData('kind') === 'saw' && goB.getData('kind') === 'chunk') {
       chunk = goB as Phaser.Physics.Matter.Image;
-      damageSource = 'saw';
     } else if (goB.getData('kind') === 'saw' && goA.getData('kind') === 'chunk') {
       chunk = goA as Phaser.Physics.Matter.Image;
-      damageSource = 'saw';
-    } else if (goA.getData('kind') === 'grinder' && goB.getData('kind') === 'chunk') {
-      chunk = goB as Phaser.Physics.Matter.Image;
-      damageSource = 'grinder';
-    } else if (goB.getData('kind') === 'grinder' && goA.getData('kind') === 'chunk') {
-      chunk = goA as Phaser.Physics.Matter.Image;
-      damageSource = 'grinder';
     }
 
-    if (!chunk || !damageSource) return;
+    if (!chunk) return;
     if (chunk.getData('dead')) return;
 
     const now = this.time.now;
@@ -423,11 +412,7 @@ export class GameScene extends Phaser.Scene {
     const asteroid = chunk.getData('asteroid') as Asteroid | undefined;
     if (!asteroid) return;
 
-    const damage = damageSource === 'saw'
-      ? this.effectiveParams.sawDamage
-      : (1 + gameplayState.levelOf('grinder.damage'));
-
-    const result = asteroid.damageChunkByImage(chunk, damage);
+    const result = asteroid.damageChunkByImage(chunk, this.effectiveParams.sawDamage);
     this.weaponHits++;
     this.spawnSpark(chunk.x, chunk.y);
 
