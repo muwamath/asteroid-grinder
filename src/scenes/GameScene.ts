@@ -5,11 +5,13 @@ import { AsteroidSpawner } from '../game/asteroidSpawner';
 import { gameplayState } from '../game/gameplayState';
 import { BASE_PARAMS, applyUpgrades, type EffectiveGameplayParams } from '../game/upgradeApplier';
 import { Laser } from '../game/laser';
+import { MissileLauncher, MissileProjectile } from '../game/missile';
 import { WEAPON_TYPES } from '../game/weaponCatalog';
 
 const ARBOR_RADIUS = 20;
 const SAW_HIT_COOLDOWN_MS = 120;
 const LASER_TURRET_SIZE = ARBOR_RADIUS * 2;
+const MISSILE_TURRET_SIZE = ARBOR_RADIUS * 2;
 
 // Hard barrier enforcement — pushes alive chunks out of weapon collision
 // zones every frame so pile pressure can't defeat the physics solver.
@@ -30,6 +32,7 @@ interface WeaponInstance {
   blades: Phaser.Physics.Matter.Image[];
   laser?: Laser;
   beamGfx?: Phaser.GameObjects.Graphics;
+  missileLauncher?: MissileLauncher;
 }
 
 export class GameScene extends Phaser.Scene {
@@ -39,6 +42,7 @@ export class GameScene extends Phaser.Scene {
   private spawner!: AsteroidSpawner;
   private chunkImages = new Set<Phaser.Physics.Matter.Image>();
   private lastHitAt = new WeakMap<Phaser.Physics.Matter.Image, number>();
+  private missiles: Array<{ proj: MissileProjectile; image: Phaser.GameObjects.Rectangle }> = [];
 
   private effectiveParams: EffectiveGameplayParams = BASE_PARAMS;
   private spawnTimer: Phaser.Time.TimerEvent | null = null;
@@ -73,6 +77,7 @@ export class GameScene extends Phaser.Scene {
     this.makeArborTexture();
     this.makeSawBladeTexture(BASE_PARAMS.bladeRadius);
     this.makeLaserTexture();
+    this.makeMissileTexture();
   }
 
   create(): void {
@@ -136,6 +141,8 @@ export class GameScene extends Phaser.Scene {
         inst.sprite.destroy();
       }
       this.weaponInstances = [];
+      for (const m of this.missiles) m.image.destroy();
+      this.missiles = [];
     });
 
     this.scene.launch('ui');
@@ -163,6 +170,13 @@ export class GameScene extends Phaser.Scene {
         this.updateLaser(inst, delta);
       }
     }
+
+    for (const inst of this.weaponInstances) {
+      if (inst.type === 'missile' && inst.missileLauncher) {
+        this.updateMissileLauncher(inst, delta);
+      }
+    }
+    this.updateMissileProjectiles(delta);
 
     this.enforceWeaponBarriers();
 
@@ -216,7 +230,10 @@ export class GameScene extends Phaser.Scene {
 
   private spawnWeaponInstance(typeId: string, x: number, y: number): WeaponInstance {
     const id = `${typeId}-${this.nextInstanceId++}`;
-    const texKey = typeId === 'saw' ? 'arbor' : typeId === 'laser' ? 'laser-turret' : typeId;
+    const texKey = typeId === 'saw' ? 'arbor'
+      : typeId === 'laser' ? 'laser-turret'
+      : typeId === 'missile' ? 'missile-turret'
+      : typeId;
 
     const sprite = this.matter.add.image(x, y, texKey);
     sprite.setCircle(ARBOR_RADIUS);
@@ -245,6 +262,9 @@ export class GameScene extends Phaser.Scene {
       instance.laser = new Laser(this.effectiveParams.laserCooldown);
       instance.beamGfx = this.add.graphics();
       instance.beamGfx.setDepth(2);
+    }
+    if (typeId === 'missile') {
+      instance.missileLauncher = new MissileLauncher(this.effectiveParams.missileFireInterval);
     }
 
     return instance;
@@ -576,6 +596,74 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  private updateMissileLauncher(inst: WeaponInstance, delta: number): void {
+    const launcher = inst.missileLauncher!;
+    const params = {
+      fireInterval: this.effectiveParams.missileFireInterval,
+      damage: this.effectiveParams.missileDamage,
+      blastRadius: this.effectiveParams.missileBlastRadius,
+      speed: this.effectiveParams.missileSpeed,
+      homing: this.effectiveParams.missileHoming,
+    };
+
+    const fireCmd = launcher.update(delta, inst.sprite.x, inst.sprite.y, this.chunkImages, params);
+    inst.sprite.setRotation(launcher.aimAngle + Math.PI / 2);
+
+    if (fireCmd) {
+      const emit = launcher.emitPoint(inst.sprite.x, inst.sprite.y, ARBOR_RADIUS);
+      const proj = new MissileProjectile(
+        emit.x, emit.y,
+        fireCmd.dirX, fireCmd.dirY,
+        params.speed, params.damage, params.blastRadius, params.homing,
+        fireCmd.target,
+      );
+      const image = this.add.rectangle(emit.x, emit.y, 8, 4, 0x33ff33);
+      image.setDepth(3);
+      this.missiles.push({ proj, image });
+    }
+  }
+
+  private updateMissileProjectiles(delta: number): void {
+    const halfW = this.scale.width / 2;
+    const halfCh = this.effectiveParams.channelHalfWidth;
+    const channelLeft = halfW - halfCh;
+    const channelRight = halfW + halfCh;
+
+    for (let i = this.missiles.length - 1; i >= 0; i--) {
+      const m = this.missiles[i];
+      const detonation = m.proj.update(delta, this.chunkImages, channelLeft, channelRight);
+
+      if (detonation) {
+        const r2 = m.proj.blastRadius * m.proj.blastRadius;
+        for (const chunk of this.chunkImages) {
+          if (!chunk.active || chunk.getData('dead')) continue;
+          const dx = chunk.x - detonation.x;
+          const dy = chunk.y - detonation.y;
+          if (dx * dx + dy * dy <= r2) {
+            const asteroid = chunk.getData('asteroid') as Asteroid | undefined;
+            if (asteroid) {
+              asteroid.damageChunkByImage(chunk, m.proj.damage);
+            }
+          }
+        }
+        const flash = this.add.circle(detonation.x, detonation.y, m.proj.blastRadius, 0xff8833, 0.4);
+        this.tweens.add({
+          targets: flash,
+          alpha: 0,
+          scale: 1.5,
+          duration: 200,
+          onComplete: () => flash.destroy(),
+        });
+
+        m.image.destroy();
+        this.missiles.splice(i, 1);
+      } else {
+        m.image.setPosition(m.proj.x, m.proj.y);
+        m.image.setRotation(Math.atan2(m.proj.dirY, m.proj.dirX));
+      }
+    }
+  }
+
   private collectAtDeathLine(chunk: Phaser.Physics.Matter.Image): void {
     const asteroid = chunk.getData('asteroid') as Asteroid | undefined;
     const dead = chunk.getData('dead') as boolean;
@@ -754,6 +842,19 @@ export class GameScene extends Phaser.Scene {
     g.lineStyle(1, 0x663333);
     g.strokeRect(0.5, 0.5, s - 1, s - 1);
     g.generateTexture('laser-turret', s, s);
+    g.destroy();
+  }
+
+  private makeMissileTexture(): void {
+    const s = MISSILE_TURRET_SIZE;
+    const g = this.make.graphics({ x: 0, y: 0 }, false);
+    g.fillStyle(0x224422);
+    g.fillRect(0, 0, s, s);
+    g.fillStyle(0x33ff33);
+    g.fillRect(0, 0, s, 4);
+    g.lineStyle(1, 0x336633);
+    g.strokeRect(0.5, 0.5, s - 1, s - 1);
+    g.generateTexture('missile-turret', s, s);
     g.destroy();
   }
 }
