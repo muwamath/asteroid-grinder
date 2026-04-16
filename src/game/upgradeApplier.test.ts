@@ -131,8 +131,8 @@ describe('applyUpgrades', () => {
   });
 
   it('scales fallSpeedMultiplier per asteroid-fallSpeed level', () => {
-    expect(applyUpgrades({}).fallSpeedMultiplier).toBeCloseTo(0.03);
-    expect(applyUpgrades({ 'asteroids.fallSpeed': 3 }).fallSpeedMultiplier).toBeCloseTo(0.33);
+    expect(applyUpgrades({}).fallSpeedMultiplier).toBeCloseTo(0.3);
+    expect(applyUpgrades({ 'asteroids.fallSpeed': 3 }).fallSpeedMultiplier).toBeCloseTo(1.2);
   });
 
   it('combines multiple upgrades independently', () => {

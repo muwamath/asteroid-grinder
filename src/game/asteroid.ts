@@ -64,9 +64,14 @@ export class Asteroid {
         image.setFrictionAir(0.005);
         image.setBounce(0);
         (image.body as unknown as { slop: number }).slop = 0.005;
+        // Kinematic fall: zero gravity for alive chunks; GameScene.update()
+        // sets velocityY each tick to fallSpeedMultiplier (px/tick). This
+        // keeps upgrade response crisp and immune to collision-spike noise.
+        // Dead chunks reset gravityScale to 1 on death for snappy confetti.
         (image.body as unknown as { gravityScale: { x: number; y: number } }).gravityScale = {
-          x: 0, y: fallSpeedMultiplier,
+          x: 0, y: 0,
         };
+        void fallSpeedMultiplier; // retained in signature; applied by GameScene
         image.setData('kind', 'chunk');
         image.setData('asteroid', this);
         image.setData('chunkId', entry.chunkId);
@@ -133,13 +138,10 @@ export class Asteroid {
     return { hp: state.hp, killed: false, key: chunkId };
   }
 
-  refreshFallSpeed(multiplier: number): void {
-    for (const state of this.chunks.values()) {
-      if (state.dead) continue;
-      (state.image.body as unknown as { gravityScale: { x: number; y: number } }).gravityScale = {
-        x: 0, y: multiplier,
-      };
-    }
+  // Kept for callers that still diff fallSpeedMultiplier; no-op under the
+  // kinematic model since GameScene.update() applies velocityY directly.
+  refreshFallSpeed(_multiplier: number): void {
+    void _multiplier;
   }
 
   private detachChunk(chunkId: string): void {

@@ -107,8 +107,11 @@ export function chooseMaterial(qualityLevel: number, rng: SeededRng): Material {
   return MATERIALS[MATERIALS.length - 1];
 }
 
-const FALL_BASE = 0.03;
-const FALL_PER_LEVEL = 0.10;
+// Kinematic fall: fallSpeedMultiplier is pixels/tick applied directly as
+// velocityY to alive chunks. gravityScale is zeroed for alive chunks. Dead
+// chunks fall under normal gravity so confetti is snappy.
+const FALL_BASE = 0.3;
+const FALL_PER_LEVEL = 0.3;
 
 export function fallSpeedMultiplier(level: number): number {
   return FALL_BASE + Math.max(0, level) * FALL_PER_LEVEL;

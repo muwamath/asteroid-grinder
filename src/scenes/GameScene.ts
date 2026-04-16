@@ -142,6 +142,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.enforceWeaponBarriers();
+    this.applyKinematicFall();
 
     for (const chunk of this.chunkImages) {
       if (!chunk.active) {
@@ -389,6 +390,21 @@ export class GameScene extends Phaser.Scene {
         }
         break;
       }
+    }
+  }
+
+  /**
+   * Kinematic fall for alive chunks. Sets velocityY directly to the current
+   * fallSpeedMultiplier (px/tick) so upgrades are immediately visible and
+   * motion isn't washed out by accumulated gravity velocity or collision
+   * noise. Dead chunks are skipped — their gravityScale is reset to 1 on
+   * death, so natural gravity pulls confetti to the death line snappily.
+   */
+  private applyKinematicFall(): void {
+    const v = this.effectiveParams.fallSpeedMultiplier;
+    for (const chunk of this.chunkImages) {
+      if (!chunk.active || chunk.getData('dead')) continue;
+      chunk.setVelocityY(v);
     }
   }
 
