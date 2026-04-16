@@ -7,8 +7,6 @@ import { BASE_PARAMS, applyUpgrades, type EffectiveGameplayParams } from '../gam
 import { WEAPON_TYPES } from '../game/weaponCatalog';
 
 const ARBOR_RADIUS = 20;
-const SAW_BLADE_RADIUS = 6;
-const SAW_ORBIT_RAD_PER_SEC = 4;
 const SAW_HIT_COOLDOWN_MS = 120;
 
 // Hard barrier enforcement — pushes alive chunks out of weapon collision
@@ -69,7 +67,7 @@ export class GameScene extends Phaser.Scene {
   preload(): void {
     this.makeChunkTextures();
     this.makeArborTexture();
-    this.makeSawBladeTexture();
+    this.makeSawBladeTexture(BASE_PARAMS.bladeRadius);
   }
 
   create(): void {
@@ -137,7 +135,7 @@ export class GameScene extends Phaser.Scene {
     for (const inst of this.weaponInstances) {
       if (inst.type === 'saw' && inst.blades.length > 0) {
         const dir = gameplayState.sawClockwise ? 1 : -1;
-        inst.orbitAngle += dir * (SAW_ORBIT_RAD_PER_SEC * delta) / 1000;
+        inst.orbitAngle += dir * (this.effectiveParams.orbitSpeed * delta) / 1000;
         const bladeCount = inst.blades.length;
         for (let i = 0; i < bladeCount; i++) {
           const phase = inst.orbitAngle + (i * Math.PI * 2) / bladeCount;
@@ -145,7 +143,7 @@ export class GameScene extends Phaser.Scene {
           const sy = inst.sprite.y + Math.sin(phase) * ARBOR_RADIUS;
           const blade = inst.blades[i];
           blade.setPosition(sx, sy);
-          blade.setRotation(blade.rotation + delta * 0.02);
+          blade.setRotation(blade.rotation + delta * this.effectiveParams.bladeSpinSpeed);
         }
       }
     }
@@ -225,18 +223,18 @@ export class GameScene extends Phaser.Scene {
     this.weaponInstances.push(instance);
 
     if (typeId === 'saw') {
-      this.rebuildBladesForInstance(instance, this.effectiveParams.bladeCount);
+      this.rebuildBladesForInstance(instance, this.effectiveParams.bladeCount, this.effectiveParams.bladeRadius);
     }
 
     return instance;
   }
 
-  private rebuildBladesForInstance(instance: WeaponInstance, count: number): void {
+  private rebuildBladesForInstance(instance: WeaponInstance, count: number, radius: number): void {
     for (const blade of instance.blades) blade.destroy();
     instance.blades = [];
     for (let i = 0; i < count; i++) {
       const blade = this.matter.add.image(0, 0, 'saw-blade');
-      blade.setCircle(SAW_BLADE_RADIUS);
+      blade.setCircle(radius);
       blade.setStatic(true);
       blade.setIgnoreGravity(true);
       blade.setFrictionAir(0);
@@ -364,10 +362,14 @@ export class GameScene extends Phaser.Scene {
     const prev = this.effectiveParams;
     this.effectiveParams = applyUpgrades(gameplayState.levels());
 
-    if (this.effectiveParams.bladeCount !== prev.bladeCount) {
+    if (this.effectiveParams.bladeCount !== prev.bladeCount ||
+        this.effectiveParams.bladeRadius !== prev.bladeRadius) {
+      if (this.effectiveParams.bladeRadius !== prev.bladeRadius) {
+        this.makeSawBladeTexture(this.effectiveParams.bladeRadius);
+      }
       for (const inst of this.weaponInstances) {
         if (inst.type === 'saw') {
-          this.rebuildBladesForInstance(inst, this.effectiveParams.bladeCount);
+          this.rebuildBladesForInstance(inst, this.effectiveParams.bladeCount, this.effectiveParams.bladeRadius);
         }
       }
     }
@@ -400,14 +402,17 @@ export class GameScene extends Phaser.Scene {
     if (!goA || !goB) return;
 
     let chunk: Phaser.Physics.Matter.Image | null = null;
+    let blade: Phaser.Physics.Matter.Image | null = null;
 
     if (goA.getData('kind') === 'saw' && goB.getData('kind') === 'chunk') {
+      blade = goA as Phaser.Physics.Matter.Image;
       chunk = goB as Phaser.Physics.Matter.Image;
     } else if (goB.getData('kind') === 'saw' && goA.getData('kind') === 'chunk') {
+      blade = goB as Phaser.Physics.Matter.Image;
       chunk = goA as Phaser.Physics.Matter.Image;
     }
 
-    if (!chunk) return;
+    if (!chunk || !blade) return;
     if (chunk.getData('dead')) return;
 
     const now = this.time.now;
@@ -424,6 +429,17 @@ export class GameScene extends Phaser.Scene {
 
     if (result.killed) {
       this.killedBySaw++;
+    }
+
+    // Tangential impulse — spinning blade pushes chunks along its surface.
+    const dx = chunk.x - blade.x;
+    const dy = chunk.y - blade.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist > 0.1) {
+      const tx = -dy / dist;
+      const ty = dx / dist;
+      const strength = this.effectiveParams.bladeSpinSpeed * this.effectiveParams.bladeRadius;
+      chunk.applyForce(new Phaser.Math.Vector2(tx * strength, ty * strength));
     }
   }
 
@@ -458,7 +474,7 @@ export class GameScene extends Phaser.Scene {
           ARBOR_RADIUS + CHUNK_HALF + BARRIER_BUFFER);
         for (const blade of inst.blades) {
           this.pushOutOfCircle(chunk, blade.x, blade.y,
-            SAW_BLADE_RADIUS + CHUNK_HALF + BARRIER_BUFFER);
+            this.effectiveParams.bladeRadius + CHUNK_HALF + BARRIER_BUFFER);
         }
       }
     }
@@ -630,11 +646,11 @@ export class GameScene extends Phaser.Scene {
     g.destroy();
   }
 
-  private makeSawBladeTexture(): void {
-    const d = SAW_BLADE_RADIUS * 2 + 4;
+  private makeSawBladeTexture(radius: number): void {
+    const d = radius * 2 + 4;
     const cx = d / 2;
     const cy = d / 2;
-    const r = SAW_BLADE_RADIUS;
+    const r = radius;
     const g = this.make.graphics({ x: 0, y: 0 }, false);
 
     // 4-quadrant pinwheel: opposite quadrants same color
