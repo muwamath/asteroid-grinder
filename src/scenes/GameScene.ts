@@ -154,6 +154,32 @@ export class GameScene extends Phaser.Scene {
     const wallInnerL = halfW - halfCh;
     const wallInnerR = halfW + halfCh;
 
+    // Wake any asteroid whose chunks are near an active weapon (saw arbor
+    // etc). Otherwise Matter's sleeping optimization hides the pile from
+    // the orbiting blade and the saw passes through chunks without
+    // pushing them. Wake radius = arbor + chunk half + margin.
+    const wakeRadiusSq: { x: number; y: number; r2: number }[] = [];
+    for (const inst of this.weaponInstances) {
+      const wakeR = inst.behavior.bodyRadius + 20;
+      wakeRadiusSq.push({ x: inst.sprite.x, y: inst.sprite.y, r2: wakeR * wakeR });
+    }
+    for (const ast of this.liveAsteroids) {
+      if (!ast.body.isSleeping) continue;
+      for (const zone of wakeRadiusSq) {
+        const dx = ast.body.position.x - zone.x;
+        const dy = ast.body.position.y - zone.y;
+        if (dx * dx + dy * dy <= zone.r2 + 2500) { // +50px slop via r2 pad
+          const Matter = (this.matter as unknown as {
+            Sleeping: { set: (body: MatterJS.BodyType, isSleeping: boolean) => void };
+          });
+          Matter.Sleeping?.set?.(ast.body, false);
+          // Fallback: direct property touch wakes body in all Matter versions.
+          (ast.body as unknown as { isSleeping: boolean }).isSleeping = false;
+          break;
+        }
+      }
+    }
+
     for (let i = this.liveAsteroids.length - 1; i >= 0; i--) {
       const ast = this.liveAsteroids[i];
       if (!ast.isAlive) {

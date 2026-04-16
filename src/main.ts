@@ -22,10 +22,15 @@ const game = new Phaser.Game({
       debug,
       // Bump solver iterations so chunks pinned between walls/saw/other
       // asteroids don't interpenetrate. Default is 6/4 — insufficient for
-      // the welded-cluster + static-channel pressure combo.
+      // pile pressure even with rigid compound bodies.
       positionIterations: 20,
       velocityIterations: 14,
       constraintIterations: 16,
+      // Sleeping: bodies stacked and nearly stationary enter a frozen state
+      // Matter doesn't try to re-solve each tick. Critical for stable rigid
+      // piles; without it, pile pressure + kinematic fall produces
+      // unresolvable interpenetration.
+      enableSleeping: true,
     },
   },
   scene: [GameScene, UIScene],

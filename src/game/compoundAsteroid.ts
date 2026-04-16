@@ -142,7 +142,35 @@ export class CompoundAsteroid {
 
   get isAlive(): boolean { return this.chunks.size > 0; }
 
+  /**
+   * Apply kinematic fall velocity — but not if the asteroid is sleeping
+   * (pile stable) or currently resting on another body (Matter has already
+   * stopped its fall; re-injecting velocity would drive it into the pile
+   * and create unresolvable penetration). `enableSleeping: true` on the
+   * engine lets stacked bodies freeze; this check keeps them settled.
+   */
   applyKinematicFall(velocityY: number): void {
+    if (this.compoundBody.isSleeping) return;
+
+    const pairs = (this.scene.matter.world as unknown as {
+      engine: { pairs: { list: Array<{
+        isActive: boolean;
+        bodyA: { parent?: unknown };
+        bodyB: { parent?: unknown };
+        collision: { normal: { y: number } };
+      }> } };
+    }).engine.pairs.list;
+
+    for (const p of pairs) {
+      if (!p.isActive) continue;
+      const aMine = p.bodyA.parent === this.compoundBody;
+      const bMine = p.bodyB.parent === this.compoundBody;
+      if (!aMine && !bMine) continue;
+      // normal points bodyA → bodyB. normal.y > 0 means B is below A.
+      const restingNy = aMine ? p.collision.normal.y : -p.collision.normal.y;
+      if (restingNy > 0.5) return; // resting on something below — let Matter hold us
+    }
+
     this.scene.matter.body.setVelocity(this.compoundBody, {
       x: this.compoundBody.velocity.x, y: velocityY,
     });
