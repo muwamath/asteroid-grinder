@@ -28,7 +28,7 @@ asteroid-grinder/
 
 ## Source history
 
-This project is a **port of an earlier Unity prototype** at `/Users/matt/dev/Unity/Pinata Grinder`. When porting a new mechanic, read the corresponding C# file in that repo first — the design and tuning are the canonical reference. Unity CSharp maps to TS/Phaser cleanly:
+This project is a **port of an earlier Unity prototype** (local-only, not public). When porting a new mechanic, read the corresponding C# file in the Unity repo first — the design and tuning are the canonical reference. Unity CSharp maps to TS/Phaser cleanly:
 
 | Unity | Phaser 3 + Matter |
 |---|---|

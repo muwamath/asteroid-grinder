@@ -40,7 +40,7 @@ Living document. Phases are strategic milestones; the todo list at the bottom tr
 
 ## 📦 Post-port reference: Unity prototype roadmap (review AFTER Phase 2 ports the game)
 
-The Unity prototype at `/Users/matt/dev/muwamath/Asteroid Grinder/` shipped through Phase 5 before being abandoned in favor of this Phaser port. Its roadmap is preserved verbatim below as a design reference — **do not merge these items into the phase list until the core loop is ported and running in Phaser**. Some items are already subsumed by the Phaser phase list above; others are genuine future work (tuning notes, paired-triangle refactor, menu polish) worth porting over once the basic game is playable.
+The Unity prototype (local-only, not public) shipped through Phase 5 before being abandoned in favor of this Phaser port. Its roadmap is preserved verbatim below as a design reference — **do not merge these items into the phase list until the core loop is ported and running in Phaser**. Some items are already subsumed by the Phaser phase list above; others are genuine future work (tuning notes, paired-triangle refactor, menu polish) worth porting over once the basic game is playable.
 
 **How to use this section:** after Phase 2 is complete and asteroids fall / fracture / grind in Phaser, walk this list top-to-bottom, decide which items apply to the Phaser version, and either fold them into the main phase list or discard. Then delete this section.
 

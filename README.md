@@ -2,7 +2,7 @@
 
 An idle physics sandbox. Roughly-round asteroids fall into a narrow grind channel where an orbiting saw blade chews them into chunks. Collect the debris, earn cash, upgrade everything. Watch the physics. Relax.
 
-Phaser 3 + Matter.js + TypeScript + Vite. Port of an earlier Unity prototype ([`/Users/matt/dev/Unity/Pinata Grinder`](../../Unity/Pinata%20Grinder)) to a web-native stack.
+Phaser 3 + Matter.js + TypeScript + Vite. Port of an earlier Unity prototype to a web-native stack.
 
 ## Status
 
