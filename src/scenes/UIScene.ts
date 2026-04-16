@@ -25,6 +25,7 @@ export class UIScene extends Phaser.Scene {
   private optionsModal: OptionsModal | null = null;
   private saveToast: Phaser.GameObjects.Text | null = null;
   private saveToastTween: Phaser.Tweens.Tween | null = null;
+  private escKey: Phaser.Input.Keyboard.Key | null = null;
 
   constructor() {
     super('ui');
@@ -79,6 +80,11 @@ export class UIScene extends Phaser.Scene {
     this.events.once('shutdown', () => {
       for (const u of this.unsubs) u();
       this.unsubs = [];
+      if (this.escKey) {
+        this.escKey.removeAllListeners();
+        this.input.keyboard?.removeKey(this.escKey);
+        this.escKey = null;
+      }
     });
 
     const award = (this.game.registry.get('offlineAward') as number | undefined) ?? 0;
@@ -215,8 +221,8 @@ export class UIScene extends Phaser.Scene {
     bg.on('pointerdown', () => this.openOptions());
 
     if (this.input.keyboard) {
-      const escKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
-      escKey.on('down', () => {
+      this.escKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
+      this.escKey.on('down', () => {
         if (this.optionsModal) this.closeOptions();
         else this.openOptions();
       });

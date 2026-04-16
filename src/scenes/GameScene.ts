@@ -189,6 +189,11 @@ export class GameScene extends Phaser.Scene {
         window.removeEventListener('beforeunload', this.beforeUnloadHandler);
         this.beforeUnloadHandler = null;
       }
+      if (this.debugKey) {
+        this.debugKey.removeAllListeners();
+        this.input.keyboard?.removeKey(this.debugKey);
+        this.debugKey = null;
+      }
       for (const inst of this.weaponInstances) {
         inst.behavior.destroy();
         inst.sprite.destroy();
