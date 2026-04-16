@@ -11,8 +11,6 @@ export interface WeaponRawAccess {
 export interface WeaponBehavior {
   readonly textureKey: string;
   readonly bodyRadius: number;
-  /** If true, weapon body blocks chunks (informational; no per-frame push loop). */
-  readonly blocksChunks: boolean;
 
   createTextures(scene: Phaser.Scene): void;
 

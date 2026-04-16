@@ -10,7 +10,6 @@ const DEATH_LINE_Y = 652;
 export class MissileBehavior implements WeaponBehavior {
   readonly textureKey = 'missile-turret';
   readonly bodyRadius = TURRET_RADIUS;
-  readonly blocksChunks = true;
 
   private launcher!: MissileLauncher;
   private missiles: Array<{ proj: MissileProjectile; image: Phaser.GameObjects.Rectangle }> = [];

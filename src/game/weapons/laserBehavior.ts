@@ -9,7 +9,6 @@ const TURRET_RADIUS = 10;
 export class LaserBehavior implements WeaponBehavior {
   readonly textureKey = 'laser-turret';
   readonly bodyRadius = TURRET_RADIUS;
-  readonly blocksChunks = true;
 
   private laser!: Laser;
   private beamGfx!: Phaser.GameObjects.Graphics;

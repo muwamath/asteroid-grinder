@@ -9,7 +9,6 @@ const TURRET_RADIUS = 10;
 export class BlackholeBehavior implements WeaponBehavior {
   readonly textureKey = 'blackhole-turret';
   readonly bodyRadius = TURRET_RADIUS;
-  readonly blocksChunks = false;
 
   private bh!: BlackHole;
   private rangeGfx!: Phaser.GameObjects.Arc;

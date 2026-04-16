@@ -16,7 +16,6 @@ interface SceneWithDamage extends Phaser.Scene {
 export class SawBehavior implements WeaponBehavior {
   readonly textureKey = 'arbor';
   readonly bodyRadius = ARBOR_RADIUS;
-  readonly blocksChunks = true;
 
   private orbitAngle = 0;
   private blades: Phaser.Physics.Matter.Image[] = [];
@@ -131,13 +130,6 @@ export class SawBehavior implements WeaponBehavior {
 
     if (killed) this.killCount++;
     return { hit: true, killed };
-  }
-
-  getBarrierBodies(): Array<{ x: number; y: number; radius: number }> {
-    return this.blades.map((b) => ({
-      x: b.x, y: b.y,
-      radius: (b.body as MatterJS.BodyType).circleRadius ?? 6,
-    }));
   }
 
   destroy(): void {
