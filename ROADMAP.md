@@ -36,6 +36,7 @@ Living document. Phases are strategic milestones; the todo list at the bottom tr
 
 - **Economy rebalance.** All costs are placeholder ($1 flat). Needs proper exponential scaling, per-weapon buy cost curves, sell refund formula, and upgrade cost tuning. Must come AFTER all weapons and money-touching features are implemented.
 - **Grinder visual overhaul.** Replace the plain circle with spinning saw teeth / conveyor-belt feel. Comes after weapons.
+- **Chunk weld squishiness.** Welded chunks compress visually under pile pressure — Matter.js constraint solver can't keep zero-length welds perfectly rigid. Try bumping `constraintIterations` (currently 4) or adding constraint damping.
 - **Saw direction on double-click.** Replace CW/CCW menu toggle with double-click on the saw arbor to reverse direction. Simpler, more tactile.
 - **Saw shape library.** Unlock alternative blade silhouettes (circular, bladed, star, crescent) via a "Shape Library" purchase. Needs `SawShape` concept (sprite + collider profile per shape) and a selector UI.
 - Additional weapons beyond the four in Phase 5 (Tesla Coil, Freeze Ray, Flak Cannon, Gravity Well, Rail Gun, Drone Swarm — from the Unity project's `TODO.md`).
