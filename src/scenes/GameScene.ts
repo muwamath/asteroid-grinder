@@ -4,6 +4,7 @@ import { CHUNK_PIXEL_SIZE } from '../game/asteroid';
 import { AsteroidSpawner } from '../game/asteroidSpawner';
 import { gameplayState } from '../game/gameplayState';
 import { BASE_PARAMS, applyUpgrades, type EffectiveGameplayParams } from '../game/upgradeApplier';
+import { BlackHole } from '../game/blackhole';
 import { Laser } from '../game/laser';
 import { MissileLauncher, MissileProjectile } from '../game/missile';
 import { WEAPON_TYPES } from '../game/weaponCatalog';
@@ -33,6 +34,8 @@ interface WeaponInstance {
   laser?: Laser;
   beamGfx?: Phaser.GameObjects.Graphics;
   missileLauncher?: MissileLauncher;
+  blackhole?: BlackHole;
+  rangeGfx?: Phaser.GameObjects.Arc;
 }
 
 export class GameScene extends Phaser.Scene {
@@ -78,6 +81,7 @@ export class GameScene extends Phaser.Scene {
     this.makeSawBladeTexture(BASE_PARAMS.bladeRadius);
     this.makeLaserTexture();
     this.makeMissileTexture();
+    this.makeBlackholeTexture();
   }
 
   create(): void {
@@ -138,6 +142,7 @@ export class GameScene extends Phaser.Scene {
       for (const inst of this.weaponInstances) {
         for (const blade of inst.blades) blade.destroy();
         inst.beamGfx?.destroy();
+        inst.rangeGfx?.destroy();
         inst.sprite.destroy();
       }
       this.weaponInstances = [];
@@ -177,6 +182,12 @@ export class GameScene extends Phaser.Scene {
       }
     }
     this.updateMissileProjectiles(delta);
+
+    for (const inst of this.weaponInstances) {
+      if (inst.type === 'blackhole' && inst.blackhole) {
+        this.updateBlackHole(inst, delta);
+      }
+    }
 
     this.enforceWeaponBarriers();
 
@@ -233,6 +244,7 @@ export class GameScene extends Phaser.Scene {
     const texKey = typeId === 'saw' ? 'arbor'
       : typeId === 'laser' ? 'laser-turret'
       : typeId === 'missile' ? 'missile-turret'
+      : typeId === 'blackhole' ? 'blackhole-turret'
       : typeId;
 
     const sprite = this.matter.add.image(x, y, texKey);
@@ -267,6 +279,12 @@ export class GameScene extends Phaser.Scene {
     }
     if (typeId === 'missile') {
       instance.missileLauncher = new MissileLauncher(this.effectiveParams.missileFireInterval);
+    }
+    if (typeId === 'blackhole') {
+      instance.blackhole = new BlackHole();
+      instance.rangeGfx = this.add.circle(x, y, this.effectiveParams.blackholePullRange, 0x6611aa, 0.06);
+      instance.rangeGfx.setStrokeStyle(1, 0x6611aa, 0.15);
+      instance.rangeGfx.setDepth(0);
     }
 
     return instance;
@@ -397,6 +415,7 @@ export class GameScene extends Phaser.Scene {
       const victim = currentInstances[idx];
       for (const blade of victim.blades) blade.destroy();
       victim.beamGfx?.destroy();
+      victim.rangeGfx?.destroy();
       victim.sprite.destroy();
       this.weaponInstances = this.weaponInstances.filter((i) => i !== victim);
     }
@@ -666,6 +685,23 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  private updateBlackHole(inst: WeaponInstance, delta: number): void {
+    const bh = inst.blackhole!;
+    bh.update(delta, inst.sprite.x, inst.sprite.y, this.chunkImages, {
+      pullRange: this.effectiveParams.blackholePullRange,
+      pullForce: this.effectiveParams.blackholePullForce,
+      coreSize: this.effectiveParams.blackholeCoreSize,
+      coreDamage: this.effectiveParams.blackholeCoreDamage,
+      maxTargets: this.effectiveParams.blackholeMaxTargets,
+    });
+
+    // Keep range indicator centered and sized.
+    if (inst.rangeGfx) {
+      inst.rangeGfx.setPosition(inst.sprite.x, inst.sprite.y);
+      inst.rangeGfx.setRadius(this.effectiveParams.blackholePullRange);
+    }
+  }
+
   private collectAtDeathLine(chunk: Phaser.Physics.Matter.Image): void {
     const asteroid = chunk.getData('asteroid') as Asteroid | undefined;
     const dead = chunk.getData('dead') as boolean;
@@ -857,6 +893,17 @@ export class GameScene extends Phaser.Scene {
     g.lineStyle(1, 0x336633);
     g.strokeRect(0.5, 0.5, s - 1, s - 1);
     g.generateTexture('missile-turret', s, s);
+    g.destroy();
+  }
+
+  private makeBlackholeTexture(): void {
+    const d = TURRET_RADIUS * 2;
+    const g = this.make.graphics({ x: 0, y: 0 }, false);
+    g.fillStyle(0x260540);
+    g.fillCircle(TURRET_RADIUS, TURRET_RADIUS, TURRET_RADIUS);
+    g.lineStyle(1, 0x6611aa);
+    g.strokeCircle(TURRET_RADIUS, TURRET_RADIUS, TURRET_RADIUS - 1);
+    g.generateTexture('blackhole-turret', d, d);
     g.destroy();
   }
 }
