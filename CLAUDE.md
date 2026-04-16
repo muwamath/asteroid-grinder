@@ -70,5 +70,5 @@ Per global: one-line, terse, lowercase OK, no body unless genuinely non-obvious,
 ## Files that are mine (gitignored) vs yours
 
 - `node_modules/`, `dist/`, `.vite/` — gitignored.
-- Matt's private scratch (`todo.md`, `.remember/`, etc.) — don't read unless he points at them.
+- Private scratch (`todo.md`, `.remember/`, etc.) — don't read unless explicitly pointed at.
 - Everything else under `src/`, `index.html`, configs, docs — tracked.

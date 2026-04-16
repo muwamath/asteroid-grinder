@@ -22,7 +22,7 @@ Living document. Phases are strategic milestones; the todo list at the bottom tr
 
 ## Current todos (Phase 4 — Stoppers & shop)
 
-- [ ] Scope Phase 4 with Matt: how many stoppers max, per-stopper state shape, whether each stopper has its own saw or shares one, shop UI for buying more stoppers.
+- [ ] Scope Phase 4: how many stoppers max, per-stopper state shape, whether each stopper has its own saw or shares one, shop UI for buying more stoppers.
 - [ ] Refactor single `stopper` + single saw fleet into a list of `Stopper` objects, each owning its own orbit angle + blade fleet.
 - [ ] Buy-more-stoppers upgrade button with escalating cost (consider integrating into existing `UpgradeCatalog` or a new "shop" data layer).
 - [ ] Sell-and-refund per stopper (partial refund of total spend).
@@ -31,7 +31,7 @@ Living document. Phases are strategic milestones; the todo list at the bottom tr
 ## Backlog (future work)
 
 - Additional weapons beyond the four in Phase 5 (Tesla Coil, Freeze Ray, Flak Cannon, Gravity Well, Rail Gun, Drone Swarm — from the Unity project's `TODO.md`).
-- **Background pass.** The arena currently sits on a flat `#1a1a28` canvas. Needs a proper background: stars, nebula gradient, parallax layers, or a subtle animated field. Should read as "space" without distracting from the gameplay. Defer until art pass or earlier if it bothers Matt again.
+- **Background pass.** The arena currently sits on a flat `#1a1a28` canvas. Needs a proper background: stars, nebula gradient, parallax layers, or a subtle animated field. Should read as "space" without distracting from the gameplay. Defer until art pass unless flagged earlier.
 - Prestige / meta loop (no design yet).
 - Mobile/portrait mode.
 - Achievements, cosmetics.
@@ -59,10 +59,10 @@ The Unity prototype (local-only, not public) shipped through Phase 5 before bein
 ### Unity-era backlog (tuning notes worth keeping)
 
 #### Asteroid & arena tuning
-- **General asteroid improvements — including "larger sooner" on the upgrade curve.** The Unity `AsteroidSize` upgrade started at 4 chunks/level 0 and added 2 per level. Matt wants asteroids to grow MORE and FASTER early in the curve so the game feels meaty quickly. Tune `BaseAsteroidChunkCount` and the per-level multiplier. Consider a non-linear curve (e.g. Fibonacci-like).
+- **General asteroid improvements — including "larger sooner" on the upgrade curve.** The Unity `AsteroidSize` upgrade started at 4 chunks/level 0 and added 2 per level. Desired direction: asteroids should grow MORE and FASTER early in the curve so the game feels meaty quickly. Tune `BaseAsteroidChunkCount` and the per-level multiplier. Consider a non-linear curve (e.g. Fibonacci-like).
 - **Chunk containment — stop chunks from flying out of the arena.** Dead chunks from high-velocity saw hits sometimes escape through the top of the arena or over the walls. Options: raise walls, add a ceiling collider at spawn height, clamp chunk velocity on death, or give chunks drag post-death. Diagnose in play first.
-- **Paired triangles — two triangles in the same cell.** Unity `CircularShapeGenerator` allowed at most one shape per cell (Square or one of 4 Triangle rotations), so a triangle's hypotenuse never connects to anything. Matt wants two triangles (e.g. NE + SW halves) to share one cell with an internal diagonal split. Requires refactoring `AsteroidShape` from `Dictionary<ChunkCell, ChunkShape>` to a tile-indexed list so multiple chunks can share a cell coordinate. Touches generator, factory, fracture, tests. ~300-line refactor.
-- **Wall expansion should be much slower.** Arena Width upgrade widened by 1 unit per level (2 → 10 over 8 levels). Matt wants the progression earned — widen by smaller increments (e.g. 0.25 per level, extend the cap), or scale cost much more aggressively.
+- **Paired triangles — two triangles in the same cell.** Unity `CircularShapeGenerator` allowed at most one shape per cell (Square or one of 4 Triangle rotations), so a triangle's hypotenuse never connects to anything. Desired direction: two triangles (e.g. NE + SW halves) share one cell with an internal diagonal split. Requires refactoring `AsteroidShape` from `Dictionary<ChunkCell, ChunkShape>` to a tile-indexed list so multiple chunks can share a cell coordinate. Touches generator, factory, fracture, tests. ~300-line refactor.
+- **Wall expansion should be much slower.** Arena Width upgrade widened by 1 unit per level (2 → 10 over 8 levels). Desired direction: progression should feel earned — widen by smaller increments (e.g. 0.25 per level, extend the cap), or scale cost much more aggressively.
 
 #### Saw tree
 - **Buy and pick saw shape.** Saw is locked to one blade silhouette (triangular). Add a "Shape Library" purchase that unlocks alternatives (circular, bladed, star, crescent) and a selector UI. Needs a new `SawShape` concept (sprite + collider profile per shape) plus a "currently equipped" setter on the saw hub and UI for selection.
