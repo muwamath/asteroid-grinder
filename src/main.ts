@@ -7,9 +7,13 @@ const debug = new URLSearchParams(window.location.search).has('debug');
 new Phaser.Game({
   type: Phaser.AUTO,
   parent: 'game',
-  width: 900,
-  height: 640,
+  width: 1280,
+  height: 720,
   backgroundColor: '#1a1a28',
+  scale: {
+    mode: Phaser.Scale.FIT,
+    autoCenter: Phaser.Scale.CENTER_BOTH,
+  },
   physics: {
     default: 'matter',
     matter: {

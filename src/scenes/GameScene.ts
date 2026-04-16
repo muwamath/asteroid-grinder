@@ -12,7 +12,7 @@ const SAW_ORBIT_RAD_PER_SEC = 4;
 const SAW_HIT_COOLDOWN_MS = 120;
 
 const SPAWN_Y = -80;
-const DEATH_LINE_Y = 580;
+const DEATH_LINE_Y = 652;
 
 const CHANNEL_WALL_THICKNESS = 12;
 const CHANNEL_TOP_Y = 80;
@@ -85,7 +85,7 @@ export class GameScene extends Phaser.Scene {
       if (wt.locked || wt.id === 'grinder') continue;
       for (let i = 0; i < wt.startCount; i++) {
         const jitter = (Math.random() - 0.5) * 40;
-        this.spawnWeaponInstance(wt.id, width / 2 + jitter, 500);
+        this.spawnWeaponInstance(wt.id, width / 2 + jitter, 560);
       }
     }
     gameplayState.initWeaponCounts(
