@@ -88,11 +88,15 @@ export class GameScene extends Phaser.Scene {
     this.wireCollisions();
     this.wireDrag();
 
-    // Spawn initial weapon instances (one per unlocked type).
-    for (const wt of WEAPON_TYPES) {
-      if (wt.locked || wt.id === 'grinder') continue;
+    // Spawn initial weapon instances, spaced out vertically.
+    const unlocked = WEAPON_TYPES.filter((w) => !w.locked && w.id !== 'grinder');
+    const yBottom = DEATH_LINE_Y - ARBOR_RADIUS - 10;
+    const ySpacing = ARBOR_RADIUS * 3;
+    for (let wi = 0; wi < unlocked.length; wi++) {
+      const wt = unlocked[wi];
+      const spawnY = yBottom - wi * ySpacing;
       for (let i = 0; i < wt.startCount; i++) {
-        this.spawnWeaponInstance(wt.id, width / 2, 560);
+        this.spawnWeaponInstance(wt.id, width / 2, spawnY);
       }
     }
     gameplayState.initWeaponCounts(
