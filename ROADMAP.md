@@ -6,15 +6,17 @@ Backlog below is grouped by **what it adds to the game**. Order is execution ord
 
 ---
 
-## 1. Tech hygiene
+## 1. Tech hygiene — done (2026-04-16)
 
-Doesn't add on its own — prevents regressions and future pain. Land first so the bigger adds don't compound existing rot.
+Shipped on `feature/tech-hygiene`, FF-merged to main.
 
-- **Design invariants + golden-path Playwright smoke.** Short `DESIGN_INVARIANTS.md` listing load-bearing behaviors (asteroids rotate on spawn, saw is slow, grinder chews bottom-up, gem halos, etc.), referenced from `CLAUDE.md`. One Playwright test that boots the game, waits 10s, asserts non-zero rotation / non-zero saw hits / no console errors. Tripwire against refactor drift.
-- **Multi-saw collision routing.** `GameScene.handleContact` routes blade-vs-chunk to the FIRST weapon instance with `handleCompoundHit`, regardless of which instance owns the blade. Harmless with one saw; wrong cooldowns/stats with ≥2. Fix: match `otherBody.gameObject.getData('instanceId')` against `inst.id` before routing.
-- **Zombie asteroid cleanup.** In `GameScene.damageLiveChunk`, when `components.length === 0`, removal waits for the next `update()` tick's `!ast.isAlive` guard — brief zombie iterated once more. Fix: remove from `liveAsteroids` explicitly in the 0-component branch.
-- **Saw `lastHitAt` unbounded growth.** `Map<chunkId, number>` never prunes; few-KB leak per session. Fix: key on `${asteroid.id}/${chunkId}` and drop entries older than ~1s each frame.
-- **CI action versions.** `actions/*@v4/v5` run on Node 20 (deprecated June 2026). Bump when replacements ship.
+- ✅ `DESIGN_INVARIANTS.md` at repo root, referenced from `CLAUDE.md`. Load-bearing behaviors documented.
+- ✅ Playwright golden-path smoke in `tests/e2e/smoke.spec.ts` — boots game, waits 30s (L0 Fall Speed gives ~40s arena crossing), asserts spawned asteroids, non-zero saw hits, rotating live bodies, clean console. `npm run test:e2e`.
+- ✅ Multi-saw collision routing — blades carry their arbor's `instanceId`; `GameScene.handleContact` routes to the owning instance instead of the first weapon with `handleCompoundHit`.
+- ✅ Saw cooldown scoped per-asteroid — `lastHitAt` keyed `${asteroid.id}/${chunkId}`, pruned every 1s, entries older than 1s dropped.
+- ✅ Zero-chunk asteroid de-listed + destroyed in `damageLiveChunk`'s 0-component branch rather than waiting for the next tick's `isAlive` guard.
+
+**Deferred:** CI action versions (`actions/*@v4/v5` → Node 20 deprecated June 2026). Bump when replacements ship.
 
 ## 2. Quality of life
 

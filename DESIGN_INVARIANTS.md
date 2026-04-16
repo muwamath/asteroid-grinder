@@ -20,7 +20,7 @@ Paired with the Playwright golden-path smoke test (`tests/e2e/smoke.spec.ts`), w
 - **Asteroids are Matter compound bodies — one `Matter.Body.create({ parts })` per live connected component.** No welds. Killing a chunk → `Body.setParts(compound, remaining, false)` + spawn a loose dead chunk inheriting `v + ω × r`.
 - **Compound body construction: parts at LOCAL offsets, then `setPosition` after `Body.create`.** Passing pre-positioned parts AND a `position` to `Body.create` produces a corrupt compound that silently defeats broadphase — zero collision pairs, no visible error. Applies to initial spawn and to `fromPartsOfParent` (the split path).
 - **Compound collision events report the specific child part, never the parent.** `pair.bodyA.plugin` carries `{ kind, asteroid, chunkId }`. The auto-synthesized parent (emitted when `parts.length ≥ 2`) has an empty plugin — routing on it gets you nothing.
-- **Asteroids rotate on spawn** (random spin kick ±0.005 rad/tick). Visible tumble is a gameplay-feel invariant — a perfectly axis-aligned asteroid is a regression.
+- **Asteroids rotate on spawn.** `Matter.Body.setAngularVelocity(body, (Math.random() - 0.5) * 0.01)` in `compoundAsteroid.ts`. Visible tumble is a gameplay-feel invariant — a perfectly axis-aligned asteroid is a regression.
 - **Chunks are squares, never triangles.** Triangles were removed in Phase 6. The shape generator produces squares only.
 - **The centroid chunk is tagged `isCore`.** Reserved for the prestige/core-mining system. Don't overload the flag for other purposes.
 - **Material is per-chunk, not per-asteroid.** HP and reward both scale with tier (linked). 9-tier ladder: Dirt → Stone → Copper → Silver → Gold → Ruby → Emerald → Sapphire → Diamond.

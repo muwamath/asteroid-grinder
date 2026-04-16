@@ -29,9 +29,10 @@ test('golden path: game boots, grinding loop runs, clean console', async ({ page
 
   await page.goto('/');
 
-  // Fresh run — clear any save from a previous test session so starting
-  // cash and weapon counts are deterministic.
-  await page.evaluate(() => window.localStorage.clear());
+  // Fresh run — drop the save key from a previous test session so
+  // starting cash and weapon counts are deterministic. Targeted
+  // `removeItem` so we don't clobber unrelated localhost storage.
+  await page.evaluate(() => window.localStorage.removeItem('asteroid-grinder:save:v1'));
   await page.reload();
 
   await page.waitForFunction(() => Boolean((window as unknown as { __GAME__?: unknown }).__GAME__), {
