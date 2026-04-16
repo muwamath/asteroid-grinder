@@ -175,12 +175,14 @@ class WeaponBarButton {
       .setOrigin(0.5);
 
     if (isWeapon && !this.isLocked && def.id !== 'grinder') {
+      const initialCount = gameplayState.weaponCount(def.id);
       this.countText = scene.add
-        .text(x + BAR_BUTTON_SIZE - 4, y + 3, '×1', {
+        .text(x + BAR_BUTTON_SIZE - 4, y + 3, `×${initialCount}`, {
           font: 'bold 9px ui-monospace',
           color: '#b0ffa8',
         })
-        .setOrigin(1, 0);
+        .setOrigin(1, 0)
+        .setVisible(initialCount > 0);
     } else {
       this.countText = null;
     }
@@ -193,7 +195,9 @@ class WeaponBarButton {
   }
 
   updateCount(count: number): void {
-    this.countText?.setText(`×${count}`);
+    if (!this.countText) return;
+    this.countText.setText(`×${count}`);
+    this.countText.setVisible(count > 0);
   }
 }
 

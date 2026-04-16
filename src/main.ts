@@ -1,10 +1,11 @@
 import Phaser from 'phaser';
 import { GameScene } from './scenes/GameScene';
 import { UIScene } from './scenes/UIScene';
+import { gameplayState } from './game/gameplayState';
 
 const debug = new URLSearchParams(window.location.search).has('debug');
 
-new Phaser.Game({
+const game = new Phaser.Game({
   type: Phaser.AUTO,
   parent: 'game',
   width: 1280,
@@ -29,3 +30,9 @@ new Phaser.Game({
   },
   scene: [GameScene, UIScene],
 });
+
+if (debug) {
+  const w = window as unknown as { __GAME__: unknown; __STATE__: unknown };
+  w.__GAME__ = game;
+  w.__STATE__ = gameplayState;
+}
