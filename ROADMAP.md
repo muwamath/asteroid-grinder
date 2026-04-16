@@ -17,13 +17,13 @@ Living document. Phases are strategic milestones; the todo list at the bottom tr
 10. **Code review** — pending. Fresh reviewer agent, findings, fixes. (Required phase per global conventions.)
 11. **Final verification & remote deploy** — pending. Full typecheck + build, live validation in Chrome, push to a new GitHub repo, optional GH Pages setup.
 
-## Current todos (post-Phase 6.5)
+## Current todos (Phase 7)
 
 - [ ] **Phase 7 — Save & offline.** `localStorage` autosave + welcome-back popup.
-- [ ] **Design invariants file + golden-path Playwright smoke.** Short `DESIGN_INVARIANTS.md` at repo root listing load-bearing behaviors (asteroids rotate on spawn, saw is slow, grinder chews bottom-up, gem halos, etc.), referenced from CLAUDE.md. Plus one Playwright test that boots the game, waits 10s, and asserts non-zero angle / non-zero saw hits / no console errors. Tripwire against refactor drift.
 
 ## Backlog (future work)
 
+- **Design invariants file + golden-path Playwright smoke.** Short `DESIGN_INVARIANTS.md` at repo root listing load-bearing behaviors (asteroids rotate on spawn, saw is slow, grinder chews bottom-up, gem halos, etc.), referenced from CLAUDE.md. Plus one Playwright test that boots the game, waits 10s, and asserts non-zero angle / non-zero saw hits / no console errors. Tripwire against refactor drift.
 - **Economy rebalance.** All costs are placeholder ($1 flat). Needs proper exponential scaling, per-weapon buy cost curves, sell refund formula, and upgrade cost tuning. Must come AFTER all weapons and money-touching features are implemented.
 - **Sell the last weapon of a type; link buy prices across types.** Currently the shop presumably prevents selling the final instance of a weapon type (or will once economy lands). Allow selling down to zero. Related: all weapon buy prices are linked together — the Nth weapon of any type costs the same globally, not per-type. Roll up with economy rebalance.
 - **Grinder visual overhaul.** Replace the plain circle with spinning saw teeth / conveyor-belt feel. Comes after weapons.
@@ -35,6 +35,7 @@ Living document. Phases are strategic milestones; the todo list at the bottom tr
 - Additional weapons beyond the four in Phase 5 (Tesla Coil, Freeze Ray, Flak Cannon, Gravity Well, Rail Gun, Drone Swarm — from the Unity project's `TODO.md`).
 - **Background pass.** The arena currently sits on a flat `#1a1a28` canvas. Needs a proper background: stars, nebula gradient, parallax layers, or a subtle animated field. Should read as "space" without distracting from the gameplay. Defer until art pass unless flagged earlier.
 - **Prestige / meta loop — asteroid cores.** Each asteroid has a **core chunk** (likely the centroid cell). Mining the core yields a prestige-tier resource. Prestige triggers after collecting enough cores — resets progress but unlocks random pathways, new zones where weapons can go, and deeper meta-progression (global upgrades that persist across runs). Phase 6 design should reserve the centroid cell as the core slot even though the mining mechanic ships later. Need to design a compelling reason to prestige (what do you gain that makes resetting feel worth it?).
+  - **Offline-earnings cap extender.** A prestige-tier upgrade that raises the `OFFLINE_CAP_MS` ceiling (default 8h from Phase 7). Tiers could go 8h → 12h → 24h → 48h, with steeply rising prestige cost. Lives alongside other meta upgrades that persist across prestige resets.
 - Mobile/portrait mode.
 - Achievements, cosmetics.
 
