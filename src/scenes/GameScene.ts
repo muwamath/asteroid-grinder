@@ -4,6 +4,7 @@ import { CHUNK_PIXEL_SIZE } from '../game/asteroid';
 import { AsteroidSpawner } from '../game/asteroidSpawner';
 import { gameplayState } from '../game/gameplayState';
 import { BASE_PARAMS, applyUpgrades, type EffectiveGameplayParams } from '../game/upgradeApplier';
+import { WEAPON_TYPES } from '../game/weaponCatalog';
 
 const STOPPER_RADIUS = 32;
 const SAW_ORBIT_RADIUS = 56;
@@ -17,10 +18,17 @@ const DEATH_LINE_Y = 580;
 const CHANNEL_WALL_THICKNESS = 12;
 const CHANNEL_TOP_Y = 80;
 
+interface WeaponInstance {
+  id: string;
+  type: string;
+  sprite: Phaser.Physics.Matter.Image;
+  orbitAngle: number;
+  blades: Phaser.Physics.Matter.Image[];
+}
+
 export class GameScene extends Phaser.Scene {
-  private stopper!: Phaser.Physics.Matter.Image;
-  private sawBlades: Phaser.Physics.Matter.Image[] = [];
-  private sawAngle = 0;
+  private weaponInstances: WeaponInstance[] = [];
+  private nextInstanceId = 0;
 
   private spawner!: AsteroidSpawner;
   private chunkImages = new Set<Phaser.Physics.Matter.Image>();
@@ -45,7 +53,7 @@ export class GameScene extends Phaser.Scene {
   private spawnedCount = 0;
   private spawnedChunks = 0;
 
-  private unsubscribeUpgrade: (() => void) | null = null;
+  private unsubs: Array<() => void> = [];
   private collisionHandler: ((event: Phaser.Physics.Matter.Events.CollisionStartEvent) => void) | null = null;
 
   constructor() {
@@ -67,45 +75,71 @@ export class GameScene extends Phaser.Scene {
     const { width, height } = this.scale;
 
     this.buildArena(width, height);
-    this.buildStopper(width);
-    this.rebuildBlades(this.effectiveParams.bladeCount);
     this.rebuildChannelWalls(this.effectiveParams.channelHalfWidth);
     this.buildHud(width);
     this.wireCollisions();
+    this.wireDrag();
+
+    // Spawn initial weapon instances (one per unlocked type).
+    for (const wt of WEAPON_TYPES) {
+      if (wt.locked) continue;
+      for (let i = 0; i < wt.startCount; i++) {
+        const jitter = (Math.random() - 0.5) * 40;
+        this.spawnWeaponInstance(wt.id, width / 2 + jitter, 500);
+      }
+    }
+    gameplayState.initWeaponCounts(
+      Object.fromEntries(WEAPON_TYPES.filter((w) => !w.locked).map((w) => [w.id, w.startCount])),
+    );
 
     this.spawner = new AsteroidSpawner(this, this.chunkImages);
     this.rebuildSpawnTimer(this.effectiveParams.spawnIntervalMs);
     this.spawnAsteroid();
 
-    this.unsubscribeUpgrade = gameplayState.on('upgradeLevelChanged', () => {
-      this.recomputeEffectiveParams();
-    });
+    this.unsubs.push(
+      gameplayState.on('upgradeLevelChanged', () => {
+        this.recomputeEffectiveParams();
+      }),
+    );
+    this.unsubs.push(
+      gameplayState.on('weaponCountChanged', (typeId, count) => {
+        this.onWeaponCountChanged(typeId, count);
+      }),
+    );
 
     this.events.once('shutdown', () => {
-      this.unsubscribeUpgrade?.();
-      this.unsubscribeUpgrade = null;
+      for (const u of this.unsubs) u();
+      this.unsubs = [];
       if (this.collisionHandler) {
         this.matter.world.off('collisionstart', this.collisionHandler);
         this.matter.world.off('collisionactive', this.collisionHandler);
         this.collisionHandler = null;
       }
+      for (const inst of this.weaponInstances) {
+        for (const blade of inst.blades) blade.destroy();
+        inst.sprite.destroy();
+      }
+      this.weaponInstances = [];
     });
 
     this.scene.launch('ui');
   }
 
   update(_time: number, delta: number): void {
-    this.sawAngle += (SAW_ORBIT_RAD_PER_SEC * delta) / 1000;
-
-    const bladeCount = this.sawBlades.length;
-    for (let i = 0; i < bladeCount; i++) {
-      const phase = this.sawAngle + (i * Math.PI * 2) / bladeCount;
-      const sx = this.stopper.x + Math.cos(phase) * SAW_ORBIT_RADIUS;
-      const sy = this.stopper.y + Math.sin(phase) * SAW_ORBIT_RADIUS;
-      const blade = this.sawBlades[i];
-      blade.setPosition(sx, sy);
-      blade.setVelocity(0, 0);
-      blade.setRotation(blade.rotation + delta * 0.02);
+    for (const inst of this.weaponInstances) {
+      if (inst.type === 'saw' && inst.blades.length > 0) {
+        inst.orbitAngle += (SAW_ORBIT_RAD_PER_SEC * delta) / 1000;
+        const bladeCount = inst.blades.length;
+        for (let i = 0; i < bladeCount; i++) {
+          const phase = inst.orbitAngle + (i * Math.PI * 2) / bladeCount;
+          const sx = inst.sprite.x + Math.cos(phase) * SAW_ORBIT_RADIUS;
+          const sy = inst.sprite.y + Math.sin(phase) * SAW_ORBIT_RADIUS;
+          const blade = inst.blades[i];
+          blade.setPosition(sx, sy);
+          blade.setVelocity(0, 0);
+          blade.setRotation(blade.rotation + delta * 0.02);
+        }
+      }
     }
 
     for (const chunk of this.chunkImages) {
@@ -132,7 +166,7 @@ export class GameScene extends Phaser.Scene {
           `saw hits ${this.sawHits}  ·  killed by saw ${this.killedBySaw}`,
           `collected dead ${this.collectedDead}  ·  collected alive ${this.collectedAlive}`,
           `cash ledger $${gameplayState.cash} (saw $${this.cashFromSaw} + line $${this.cashFromLine})`,
-          `blades ${this.sawBlades.length}  ·  dmg ${this.effectiveParams.sawDamage}  ·  spawn ${this.effectiveParams.spawnIntervalMs}ms`,
+          `weapons ${this.weaponInstances.length}  ·  dmg ${this.effectiveParams.sawDamage}  ·  spawn ${this.effectiveParams.spawnIntervalMs}ms`,
         ].join('\n'),
       );
     }
@@ -156,31 +190,39 @@ export class GameScene extends Phaser.Scene {
       .setOrigin(1, 1);
   }
 
-  private buildStopper(width: number): void {
-    this.stopper = this.matter.add.image(width / 2, 500, 'stopper');
-    this.stopper.setCircle(STOPPER_RADIUS);
-    this.stopper.setStatic(true);
-    this.stopper.setFriction(0.2);
-    this.stopper.setInteractive({ draggable: true });
-    this.input.setDraggable(this.stopper);
-    this.input.on(
-      Phaser.Input.Events.DRAG,
-      (_pointer: Phaser.Input.Pointer, obj: Phaser.GameObjects.GameObject, dragX: number, dragY: number) => {
-        if (obj !== this.stopper) return;
-        const halfW = this.scale.width / 2;
-        const halfChannel = this.effectiveParams.channelHalfWidth;
-        const minX = halfW - halfChannel + STOPPER_RADIUS + 4;
-        const maxX = halfW + halfChannel - STOPPER_RADIUS - 4;
-        const cx = Phaser.Math.Clamp(dragX, minX, maxX);
-        const cy = Phaser.Math.Clamp(dragY, CHANNEL_TOP_Y + STOPPER_RADIUS + 4, DEATH_LINE_Y - STOPPER_RADIUS - 4);
-        this.stopper.setPosition(cx, cy);
-      },
-    );
+  private spawnWeaponInstance(typeId: string, x: number, y: number): WeaponInstance {
+    const id = `${typeId}-${this.nextInstanceId++}`;
+    const texKey = typeId === 'grinder' ? 'stopper' : typeId;
+
+    const sprite = this.matter.add.image(x, y, texKey);
+    sprite.setCircle(STOPPER_RADIUS);
+    sprite.setStatic(true);
+    sprite.setFriction(0.2);
+    sprite.setInteractive({ draggable: true });
+    this.input.setDraggable(sprite);
+    sprite.setData('kind', typeId);
+    sprite.setData('instanceId', id);
+
+    const instance: WeaponInstance = {
+      id,
+      type: typeId,
+      sprite,
+      orbitAngle: 0,
+      blades: [],
+    };
+
+    this.weaponInstances.push(instance);
+
+    if (typeId === 'saw') {
+      this.rebuildBladesForInstance(instance, this.effectiveParams.bladeCount);
+    }
+
+    return instance;
   }
 
-  private rebuildBlades(count: number): void {
-    for (const blade of this.sawBlades) blade.destroy();
-    this.sawBlades = [];
+  private rebuildBladesForInstance(instance: WeaponInstance, count: number): void {
+    for (const blade of instance.blades) blade.destroy();
+    instance.blades = [];
     for (let i = 0; i < count; i++) {
       const blade = this.matter.add.image(0, 0, 'saw');
       blade.setCircle(SAW_RADIUS);
@@ -189,8 +231,26 @@ export class GameScene extends Phaser.Scene {
       blade.setFrictionAir(0);
       blade.setMass(0.001);
       blade.setData('kind', 'saw');
-      this.sawBlades.push(blade);
+      instance.blades.push(blade);
     }
+  }
+
+  private wireDrag(): void {
+    this.input.on(
+      Phaser.Input.Events.DRAG,
+      (_pointer: Phaser.Input.Pointer, obj: Phaser.GameObjects.GameObject, dragX: number, dragY: number) => {
+        const inst = this.weaponInstances.find((w) => w.sprite === obj);
+        if (!inst) return;
+        const halfW = this.scale.width / 2;
+        const halfChannel = this.effectiveParams.channelHalfWidth;
+        const radius = STOPPER_RADIUS;
+        const minX = halfW - halfChannel + radius + 4;
+        const maxX = halfW + halfChannel - radius - 4;
+        const cx = Phaser.Math.Clamp(dragX, minX, maxX);
+        const cy = Phaser.Math.Clamp(dragY, CHANNEL_TOP_Y + radius + 4, DEATH_LINE_Y - radius - 4);
+        inst.sprite.setPosition(cx, cy);
+      },
+    );
   }
 
   private rebuildChannelWalls(halfWidth: number): void {
@@ -226,14 +286,16 @@ export class GameScene extends Phaser.Scene {
       .rectangle(rightWallX, channelMidY, CHANNEL_WALL_THICKNESS, channelHeight, 0x3a3a4c)
       .setOrigin(0.5);
 
-    // If the stopper is outside the new channel, pull it in.
+    // If any weapons are outside the new channel, pull them in.
     const halfW = this.scale.width / 2;
     const minX = halfW - halfWidth + STOPPER_RADIUS + 4;
     const maxX = halfW + halfWidth - STOPPER_RADIUS - 4;
-    this.stopper?.setPosition(
-      Phaser.Math.Clamp(this.stopper.x, minX, maxX),
-      this.stopper.y,
-    );
+    for (const inst of this.weaponInstances) {
+      inst.sprite.setPosition(
+        Phaser.Math.Clamp(inst.sprite.x, minX, maxX),
+        inst.sprite.y,
+      );
+    }
   }
 
   private rebuildSpawnTimer(delayMs: number): void {
@@ -266,6 +328,27 @@ export class GameScene extends Phaser.Scene {
     this.matter.world.on('collisionactive', this.collisionHandler);
   }
 
+  // ── weapon count changes ──────────────────────────────────────────────
+
+  private onWeaponCountChanged(typeId: string, newCount: number): void {
+    const currentInstances = this.weaponInstances.filter((i) => i.type === typeId);
+    if (newCount > currentInstances.length) {
+      // Buy — spawn at random position in channel.
+      const halfW = this.scale.width / 2;
+      const halfChannel = this.effectiveParams.channelHalfWidth;
+      const rx = halfW + (Math.random() - 0.5) * halfChannel;
+      const ry = CHANNEL_TOP_Y + 100 + Math.random() * (DEATH_LINE_Y - CHANNEL_TOP_Y - 200);
+      this.spawnWeaponInstance(typeId, rx, ry);
+    } else if (newCount < currentInstances.length) {
+      // Sell — remove a random instance of this type.
+      const idx = Math.floor(Math.random() * currentInstances.length);
+      const victim = currentInstances[idx];
+      for (const blade of victim.blades) blade.destroy();
+      victim.sprite.destroy();
+      this.weaponInstances = this.weaponInstances.filter((i) => i !== victim);
+    }
+  }
+
   // ── upgrades ──────────────────────────────────────────────────────────
 
   private recomputeEffectiveParams(): void {
@@ -273,7 +356,11 @@ export class GameScene extends Phaser.Scene {
     this.effectiveParams = applyUpgrades(gameplayState.levels());
 
     if (this.effectiveParams.bladeCount !== prev.bladeCount) {
-      this.rebuildBlades(this.effectiveParams.bladeCount);
+      for (const inst of this.weaponInstances) {
+        if (inst.type === 'saw') {
+          this.rebuildBladesForInstance(inst, this.effectiveParams.bladeCount);
+        }
+      }
     }
     if (this.effectiveParams.channelHalfWidth !== prev.channelHalfWidth) {
       this.rebuildChannelWalls(this.effectiveParams.channelHalfWidth);
@@ -304,12 +391,23 @@ export class GameScene extends Phaser.Scene {
     if (!goA || !goB) return;
 
     let chunk: Phaser.Physics.Matter.Image | null = null;
+    let damageSource: string | null = null;
+
     if (goA.getData('kind') === 'saw' && goB.getData('kind') === 'chunk') {
       chunk = goB as Phaser.Physics.Matter.Image;
+      damageSource = 'saw';
     } else if (goB.getData('kind') === 'saw' && goA.getData('kind') === 'chunk') {
       chunk = goA as Phaser.Physics.Matter.Image;
+      damageSource = 'saw';
+    } else if (goA.getData('kind') === 'grinder' && goB.getData('kind') === 'chunk') {
+      chunk = goB as Phaser.Physics.Matter.Image;
+      damageSource = 'grinder';
+    } else if (goB.getData('kind') === 'grinder' && goA.getData('kind') === 'chunk') {
+      chunk = goA as Phaser.Physics.Matter.Image;
+      damageSource = 'grinder';
     }
-    if (!chunk) return;
+
+    if (!chunk || !damageSource) return;
     if (chunk.getData('dead')) return;
 
     const now = this.time.now;
@@ -320,7 +418,11 @@ export class GameScene extends Phaser.Scene {
     const asteroid = chunk.getData('asteroid') as Asteroid | undefined;
     if (!asteroid) return;
 
-    const result = asteroid.damageChunkByImage(chunk, this.effectiveParams.sawDamage);
+    const damage = damageSource === 'saw'
+      ? this.effectiveParams.sawDamage
+      : (1 + gameplayState.levelOf('grinder.damage'));
+
+    const result = asteroid.damageChunkByImage(chunk, damage);
     this.sawHits++;
     this.spawnSpark(chunk.x, chunk.y);
 
