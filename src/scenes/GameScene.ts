@@ -375,6 +375,12 @@ export class GameScene extends Phaser.Scene {
       this.liveAsteroids.push(...children);
     } else if (components.length === 1) {
       ast.setAdjacency(prunedAdjacency);
+    } else {
+      // Last chunk died — tear down and de-list now rather than waiting
+      // for the next update() tick's isAlive guard to notice.
+      const idx = this.liveAsteroids.indexOf(ast);
+      if (idx >= 0) this.liveAsteroids.splice(idx, 1);
+      ast.destroy();
     }
 
     return true;
@@ -683,17 +689,20 @@ export class GameScene extends Phaser.Scene {
     const otherKind = goOther?.getData?.('kind') as string | undefined;
     if (otherKind !== 'saw') return;
 
-    for (const inst of this.weaponInstances) {
-      if (inst.behavior.handleCompoundHit) {
-        const result = inst.behavior.handleCompoundHit(
-          plugin.asteroid, plugin.chunkId, otherPart, this.effectiveParams, this,
-        );
-        if (result.hit) {
-          this.weaponHits++;
-          if (result.killed) this.killedBySaw++;
-        }
-        break;
-      }
+    // Route the hit to the owning weapon instance — blades carry their
+    // arbor's instanceId. Without this match, multi-saw setups would
+    // drive every hit into the first instance's cooldown + stats.
+    const instanceId = goOther?.getData?.('instanceId') as string | undefined;
+    if (!instanceId) return;
+    const inst = this.weaponInstances.find((w) => w.id === instanceId);
+    if (!inst?.behavior.handleCompoundHit) return;
+
+    const result = inst.behavior.handleCompoundHit(
+      plugin.asteroid, plugin.chunkId, otherPart, this.effectiveParams, this,
+    );
+    if (result.hit) {
+      this.weaponHits++;
+      if (result.killed) this.killedBySaw++;
     }
   }
 

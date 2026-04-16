@@ -8,6 +8,8 @@ import type { WeaponBehavior } from './weaponBehavior';
 
 const ARBOR_RADIUS = 20;
 const SAW_HIT_COOLDOWN_MS = 120;
+const LAST_HIT_PRUNE_INTERVAL_MS = 1000;
+const LAST_HIT_STALE_MS = 1000;
 
 interface SceneWithDamage extends Phaser.Scene {
   damageLiveChunk(ast: CompoundAsteroid, chunkId: string, amount: number): boolean;
@@ -19,7 +21,12 @@ export class SawBehavior implements WeaponBehavior {
 
   private orbitAngle = 0;
   private blades: Phaser.Physics.Matter.Image[] = [];
+  // Key is `${asteroid.id}/${chunkId}` — chunkIds repeat across asteroids
+  // (they're cell-local), so a bare chunkId would share cooldown across
+  // unrelated asteroids. Entries older than LAST_HIT_STALE_MS are
+  // pruned in update() to bound map growth.
   private lastHitAt = new Map<string, number>();
+  private lastPruneAt = 0;
   private hitCount = 0;
   private killCount = 0;
 
@@ -40,17 +47,26 @@ export class SawBehavior implements WeaponBehavior {
     this.makeSawBladeTexture(scene, BASE_PARAMS.bladeRadius);
   }
 
-  init(scene: Phaser.Scene, _sprite: Phaser.Physics.Matter.Image, params: EffectiveGameplayParams): void {
-    this.rebuildBlades(scene, params.bladeCount, params.bladeRadius);
+  init(scene: Phaser.Scene, sprite: Phaser.Physics.Matter.Image, params: EffectiveGameplayParams): void {
+    this.rebuildBlades(scene, sprite, params.bladeCount, params.bladeRadius);
   }
 
   update(
-    _scene: Phaser.Scene,
+    scene: Phaser.Scene,
     sprite: Phaser.Physics.Matter.Image,
     delta: number,
     _chunks: readonly ChunkTarget[],
     params: EffectiveGameplayParams,
   ): void {
+    const now = scene.time.now;
+    if (now - this.lastPruneAt >= LAST_HIT_PRUNE_INTERVAL_MS) {
+      const cutoff = now - LAST_HIT_STALE_MS;
+      for (const [key, t] of this.lastHitAt) {
+        if (t < cutoff) this.lastHitAt.delete(key);
+      }
+      this.lastPruneAt = now;
+    }
+
     if (this.blades.length === 0) return;
     const dir = gameplayState.sawClockwise ? 1 : -1;
     this.orbitAngle += dir * (params.orbitSpeed * delta) / 1000;
@@ -67,7 +83,7 @@ export class SawBehavior implements WeaponBehavior {
 
   onUpgrade(
     scene: Phaser.Scene,
-    _sprite: Phaser.Physics.Matter.Image,
+    sprite: Phaser.Physics.Matter.Image,
     prev: EffectiveGameplayParams,
     next: EffectiveGameplayParams,
   ): void {
@@ -75,7 +91,7 @@ export class SawBehavior implements WeaponBehavior {
       if (next.bladeRadius !== prev.bladeRadius) {
         this.makeSawBladeTexture(scene, next.bladeRadius);
       }
-      this.rebuildBlades(scene, next.bladeCount, next.bladeRadius);
+      this.rebuildBlades(scene, sprite, next.bladeCount, next.bladeRadius);
     }
   }
 
@@ -90,9 +106,10 @@ export class SawBehavior implements WeaponBehavior {
     if (!chunk) return { hit: false, killed: false };
 
     const now = (scene as Phaser.Scene & { time: Phaser.Time.Clock }).time.now;
-    const last = this.lastHitAt.get(chunkId) ?? -Infinity;
+    const key = `${asteroid.id}/${chunkId}`;
+    const last = this.lastHitAt.get(key) ?? -Infinity;
     if (now - last < SAW_HIT_COOLDOWN_MS) return { hit: false, killed: false };
-    this.lastHitAt.set(chunkId, now);
+    this.lastHitAt.set(key, now);
 
     const sceneTyped = scene as SceneWithDamage;
     const killed = sceneTyped.damageLiveChunk(asteroid, chunkId, params.sawDamage);
@@ -139,9 +156,15 @@ export class SawBehavior implements WeaponBehavior {
 
   get stats() { return { hits: this.hitCount, kills: this.killCount }; }
 
-  private rebuildBlades(scene: Phaser.Scene, count: number, radius: number): void {
+  private rebuildBlades(
+    scene: Phaser.Scene,
+    arbor: Phaser.Physics.Matter.Image,
+    count: number,
+    radius: number,
+  ): void {
     for (const blade of this.blades) blade.destroy();
     this.blades = [];
+    const instanceId = arbor.getData('instanceId') as string | undefined;
     const displaySize = radius * 2 + 4;
     const matterScene = scene as Phaser.Scene & { matter: Phaser.Physics.Matter.MatterPhysics };
     for (let i = 0; i < count; i++) {
@@ -153,6 +176,7 @@ export class SawBehavior implements WeaponBehavior {
       blade.setFrictionAir(0);
       blade.setDepth(0);
       blade.setData('kind', 'saw');
+      blade.setData('instanceId', instanceId);
       this.blades.push(blade);
     }
   }
