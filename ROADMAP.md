@@ -7,12 +7,12 @@ Living document. Phases are strategic milestones; the todo list at the bottom tr
 1. **Engine spike** — **done (2026-04-15)**. Vite + TypeScript + Phaser 3 + Matter.js scaffold with draggable stopper, orbiting saw blade (dynamic sensor + kinematic orbit), 3×3 loose pinata spawner, red death line, cash HUD, debug mode (`?debug=1` → Matter wireframes + FPS + saw-hit counter). Verified end-to-end in Chrome. Engine choice confirmed viable.
 2. **Core loop parity — round asteroids** — **done (2026-04-15)**. Ported `CircularShapeGenerator` + `ConnectedComponents` + `SeededRng` + `AsteroidShape` to TS. `Asteroid` class builds welded-chunk rigid bodies from a shape, damage routes through `damageChunkByImage`, fracture severs weld constraints on kill. `AsteroidSpawner` drops random asteroids (9–14 chunks, random triangle prob, random palette color) into a grind channel flanked by two static walls — verified in Chrome that the channel produces the intended grinding loop (saw chews chunks, dead chunks fall as confetti debris through the death line, cash accrues). Vitest installed, 9 pure-logic tests green. Procedural textures for square + 4 triangle orientations.
 3. **Economy & upgrades** — **done (2026-04-15)**. `gameplayState` singleton ledger with `cashChanged` + `upgradeLevelChanged` events. Data-driven `UpgradeCatalog` with 6 upgrades (Saw Damage, Blade Count, Channel Width, Drop Rate, Chunk HP, Asteroid Size), exponential `costAtLevel`. Pure `applyUpgrades(levels) → EffectiveGameplayParams` with vitest coverage. `GameScene` consumes effective params live — subscribes to `upgradeLevelChanged` and rebuilds the multi-blade saw fleet, channel walls, and spawn timer when their dependent params change. Dedicated pure-Phaser `UIScene` running in parallel with `GameScene` renders the side panel with category-striped buttons, level/cost/desc text, affordability tinting, and max-level disabling. 25 vitest tests green. Verified end-to-end in Chrome: earn → buy → gameplay changes → earn more. Code review pass fixed two latent issues (`reset()` listener clobber + unstored collision handler).
-4. **Stoppers & shop** — pending. Multiple draggable stoppers, per-stopper weapon menu, sell-and-refund, buy-more-stoppers button with escalating cost.
-5. **Weapons** — pending (moved from old Phase 3). Port the remaining Pinata Grinder weapon types beyond the saw blade:
+4. **Weapon shop & multi-instance weapons** — **done (2026-04-15)**. Replaced single stopper with weapon-centric shop. Left-side weapon bar UI (Chute, Asteroids categories + Grinder, Saw weapons + 3 locked placeholders) with expandable sub-panels for buy/sell/upgrade. Multiple draggable weapon instances per type — buy spawns at random position, sell removes a random one (can't sell last). Grinder absorbed as a weapon type (circular static body, damage on contact). Upgrades use dotted-prefix keys (`saw.damage`, `chute.channelWidth`, etc.) in a new `weaponCatalog.ts` registry. Placeholder economy ($1 flat). 38 vitest tests green. Verified in Chrome.
+5. **Weapons** — pending. Port the remaining weapon types beyond Grinder + Saw:
    - Laser (beam + continuous energy damage)
    - Missile (homing AOE with lead targeting)
    - Black Hole (gravity vortex)
-   Each with its own upgrade slots. Weapon abstraction (`Weapon` interface) lands here; existing saw refactors onto it.
+   Each with its own upgrade slots and unique arena behavior. Weapon bar UI is already in place from Phase 4 — unlock the locked buttons and wire up behaviors.
 6. **Pinata variants** — pending. Basic / Armored / Shielded / Swift / Heavy with per-variant resistances and reward multipliers.
 7. **Save & offline** — pending. `localStorage` autosave every N seconds, welcome-back offline-progression popup.
 8. **Menu & HUD polish** — pending. Options menu, manual save, restart, debug overlay, shop styling.
@@ -20,16 +20,17 @@ Living document. Phases are strategic milestones; the todo list at the bottom tr
 10. **Code review** — pending. Fresh reviewer agent, findings, fixes. (Required phase per global conventions.)
 11. **Final verification & remote deploy** — pending. Full typecheck + build, live validation in Chrome, push to a new GitHub repo, optional GH Pages setup.
 
-## Current todos (Phase 4 — Stoppers & shop)
+## Current todos (Phase 5 — Weapons)
 
-- [ ] Scope Phase 4: how many stoppers max, per-stopper state shape, whether each stopper has its own saw or shares one, shop UI for buying more stoppers.
-- [ ] Refactor single `stopper` + single saw fleet into a list of `Stopper` objects, each owning its own orbit angle + blade fleet.
-- [ ] Buy-more-stoppers upgrade button with escalating cost (consider integrating into existing `UpgradeCatalog` or a new "shop" data layer).
-- [ ] Sell-and-refund per stopper (partial refund of total spend).
-- [ ] Per-stopper weapon selector stub (returns saw only until Phase 5 weapons land).
+- [ ] Scope Phase 5: Laser beam behavior, Missile homing + AOE, Black Hole gravity vortex. Each needs a unique `update()` and collision pattern.
+- [ ] Create `Weapon` interface / base abstraction that Grinder and Saw refactor onto. Laser/Missile/BlackHole implement it.
+- [ ] Unlock Laser/Missile/BlackHole in `weaponCatalog.ts` and wire up behaviors in `GameScene`.
+- [ ] Per-weapon-type upgrade definitions for each new weapon.
 
 ## Backlog (future work)
 
+- **Economy rebalance.** All costs are placeholder ($1 flat). Needs proper exponential scaling, per-weapon buy cost curves, sell refund formula, and upgrade cost tuning. Must come AFTER all weapons and money-touching features are implemented.
+- **Grinder visual overhaul.** Replace the plain circle with spinning saw teeth / conveyor-belt feel. Comes after weapons.
 - Additional weapons beyond the four in Phase 5 (Tesla Coil, Freeze Ray, Flak Cannon, Gravity Well, Rail Gun, Drone Swarm — from the Unity project's `TODO.md`).
 - **Background pass.** The arena currently sits on a flat `#1a1a28` canvas. Needs a proper background: stars, nebula gradient, parallax layers, or a subtle animated field. Should read as "space" without distracting from the gameplay. Defer until art pass unless flagged earlier.
 - Prestige / meta loop (no design yet).

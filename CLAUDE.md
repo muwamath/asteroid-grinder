@@ -18,12 +18,25 @@ asteroid-grinder/
 ├── tsconfig.json
 ├── vite.config.ts
 ├── src/
-│   ├── main.ts              # Phaser.Game bootstrap
-│   └── scenes/
-│       └── GameScene.ts     # the game (for now — will split by phase 3)
+│   ├── main.ts                          # Phaser.Game bootstrap
+│   ├── scenes/
+│   │   ├── GameScene.ts                 # arena, weapon instances, physics, collisions
+│   │   └── UIScene.ts                   # weapon bar, sub-panels, upgrade buttons
+│   └── game/
+│       ├── weaponCatalog.ts             # weapon type + category registry (replaces UPGRADE_CATALOG)
+│       ├── upgradeCatalog.ts            # UpgradeDef type, costAtLevel, isMaxed
+│       ├── upgradeApplier.ts            # levels → EffectiveGameplayParams
+│       ├── gameplayState.ts             # cash, upgrade levels, weapon counts, events
+│       ├── asteroid.ts                  # asteroid + chunk model, damage, fracture
+│       ├── asteroidSpawner.ts           # factory for random asteroids
+│       ├── circularShapeGenerator.ts    # procedural asteroid layout generator
+│       ├── connectedComponents.ts       # BFS graph utility
+│       ├── shape.ts                     # chunk shape types
+│       ├── rng.ts                       # seeded RNG
+│       └── palette.ts                   # color palette
 ├── README.md
 ├── ROADMAP.md
-└── CLAUDE.md                # you are here
+└── CLAUDE.md                            # you are here
 ```
 
 ## Source history
