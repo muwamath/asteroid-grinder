@@ -1,5 +1,5 @@
 import type Phaser from 'phaser';
-import { Asteroid } from './asteroid';
+import { CompoundAsteroid } from './compoundAsteroid';
 import { CircularShapeGenerator } from './circularShapeGenerator';
 import { chooseMaterial, type Material } from './materials';
 import { SeededRng } from './rng';
@@ -13,12 +13,9 @@ export interface AsteroidSpawnParams {
 }
 
 export class AsteroidSpawner {
-  constructor(
-    private readonly scene: Phaser.Scene,
-    private readonly chunkRegistry: Set<Phaser.Physics.Matter.Image>,
-  ) {}
+  constructor(private readonly scene: Phaser.Scene) {}
 
-  spawnOne(worldX: number, worldY: number, params: AsteroidSpawnParams): Asteroid {
+  spawnOne(worldX: number, worldY: number, params: AsteroidSpawnParams): CompoundAsteroid {
     const seed = (Math.random() * 0xffffffff) >>> 0 || 1;
     const rng = new SeededRng(seed);
 
@@ -35,15 +32,8 @@ export class AsteroidSpawner {
       }
     }
 
-    return new Asteroid(
-      this.scene,
-      shape,
-      worldX,
-      worldY,
-      params.hpMultiplier,
-      params.fallSpeedMultiplier,
-      materialsByChunk,
-      this.chunkRegistry,
+    return new CompoundAsteroid(
+      this.scene, shape, worldX, worldY, params.hpMultiplier, materialsByChunk,
     );
   }
 }
