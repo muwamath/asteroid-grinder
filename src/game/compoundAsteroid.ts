@@ -106,6 +106,9 @@ export class CompoundAsteroid {
     // compound's centroid is at origin. Move it to the spawn location.
     scene.matter.body.setPosition(body, { x: spawnX, y: spawnY });
 
+    // Small random spin kick so asteroids visibly tumble as they fall.
+    scene.matter.body.setAngularVelocity(body, (Math.random() - 0.5) * 0.01);
+
     scene.matter.world.add(body);
 
     for (const info of partInfos) {
