@@ -6,10 +6,10 @@ import { BASE_PARAMS, applyUpgrades, type EffectiveGameplayParams } from '../gam
 import { WEAPON_TYPES } from '../game/weaponCatalog';
 import { type WeaponBehavior, createBehavior, allBehaviorPrototypes } from '../game/weapons';
 import { MATERIALS, type Material, textureKeyFor } from '../game/materials';
+import type { ChunkTarget } from '../game/chunkTarget';
+import { applyKillAndSplit } from '../game/asteroidGraph';
 
 const ARBOR_RADIUS = 20;
-
-void CHUNK_PIXEL_SIZE;
 
 const SPAWN_Y = -80;
 const DEATH_LINE_Y = 652;
@@ -133,26 +133,156 @@ export class GameScene extends Phaser.Scene {
   }
 
   update(_time: number, delta: number): void {
-    // Mid-refactor: fields reserved for Tasks 7-8 must stay live.
-    void this.weaponHits; void this.killedBySaw; void this.collectedAlive;
-    void this.collectedDead; void this.cashFromSaw; void this.cashFromLine;
-    void this.spawnConfetti;
-
-    // NOTE: Task 7 rewrites this loop. For now weapons run against an empty
-    // chunk set so they no-op gracefully while the refactor progresses.
+    // Weapons run first; Task 9 switches them to ChunkTarget[]. For now
+    // we still pass an empty set — laser/missile/blackhole will no-op and
+    // the saw path fires via the collision handler in Task 8.
+    void this.buildChunkTargets; // reserved for Task 9
     const emptyChunks = new Set<Phaser.Physics.Matter.Image>();
     for (const inst of this.weaponInstances) {
       inst.behavior.update(this, inst.sprite, delta, emptyChunks, this.effectiveParams);
+    }
+
+    const maxY = this.scale.height + 120;
+    const fall = this.effectiveParams.fallSpeedMultiplier;
+
+    for (let i = this.liveAsteroids.length - 1; i >= 0; i--) {
+      const ast = this.liveAsteroids[i];
+      if (!ast.isAlive) {
+        ast.destroy();
+        this.liveAsteroids.splice(i, 1);
+        continue;
+      }
+      ast.applyKinematicFall(fall);
+      ast.syncSprites();
+
+      // Grinder line: any chunk part below DEATH_LINE_Y gets chewed.
+      // Snapshot IDs first — damageLiveChunk may split the asteroid.
+      const toGrind: string[] = [];
+      for (const chunk of ast.chunks.values()) {
+        if (chunk.bodyPart.position.y > DEATH_LINE_Y) toGrind.push(chunk.chunkId);
+      }
+      for (const id of toGrind) {
+        const killed = this.damageLiveChunk(ast, id, Number.POSITIVE_INFINITY);
+        if (killed) {
+          gameplayState.addCash(1);
+          this.cashFromLine += 1;
+          this.collectedAlive++;
+        }
+      }
+
+      if (ast.isOutOfBounds(maxY)) {
+        ast.destroy();
+        const idx = this.liveAsteroids.indexOf(ast);
+        if (idx >= 0) this.liveAsteroids.splice(idx, 1);
+      }
+    }
+
+    for (const chunk of this.deadChunks) {
+      if (!chunk.active) {
+        this.deadChunks.delete(chunk);
+        continue;
+      }
+      if (chunk.y > DEATH_LINE_Y) {
+        this.collectDeadAtDeathLine(chunk);
+      } else if (chunk.y > maxY) {
+        this.deadChunks.delete(chunk);
+        chunk.destroy();
+      }
     }
 
     if (this.debugMode && this.debugText) {
       const fps = Math.round(this.game.loop.actualFps);
       const world = this.matter.world.localWorld as unknown as { bodies: unknown[] };
       const bodies = world.bodies.length;
+      let liveChunkCount = 0;
+      for (const a of this.liveAsteroids) liveChunkCount += a.chunks.size;
       this.debugText.setText(
-        `FPS ${fps}  ·  bodies ${bodies}  ·  asteroids ${this.liveAsteroids.length}  ·  dead ${this.deadChunks.size}`,
+        [
+          `FPS ${fps}  ·  bodies ${bodies}  ·  asteroids ${this.liveAsteroids.length}  ·  live ${liveChunkCount}  ·  dead ${this.deadChunks.size}`,
+          `spawned ${this.spawnedCount} asteroids · ${this.spawnedChunks} chunks`,
+          `hits ${this.weaponHits}  ·  killed ${this.killedBySaw}`,
+          `collected dead ${this.collectedDead}  ·  collected alive ${this.collectedAlive}`,
+          `cash $${gameplayState.cash} (saw $${this.cashFromSaw} + line $${this.cashFromLine})`,
+          `weapons ${this.weaponInstances.length}  ·  dmg ${this.effectiveParams.sawDamage}  ·  spawn ${this.effectiveParams.spawnIntervalMs}ms`,
+        ].join('\n'),
       );
     }
+  }
+
+  private buildChunkTargets(): ChunkTarget[] {
+    const targets: ChunkTarget[] = [];
+    for (const ast of this.liveAsteroids) {
+      for (const chunk of ast.chunks.values()) {
+        const pos = chunk.bodyPart.position;
+        targets.push({
+          x: pos.x, y: pos.y, dead: false, tier: chunk.material.tier,
+          damage: (amount) => this.damageLiveChunk(ast, chunk.chunkId, amount),
+        });
+      }
+    }
+    for (const dead of this.deadChunks) {
+      if (!dead.active) continue;
+      const tier = (dead.getData('tier') as number | undefined) ?? 1;
+      targets.push({
+        x: dead.x, y: dead.y, dead: true, tier,
+        damage: () => false,
+      });
+    }
+    return targets;
+  }
+
+  damageLiveChunk(ast: CompoundAsteroid, chunkId: string, amount: number): boolean {
+    const result = ast.damageChunk(chunkId, amount);
+    if (!result.killed) return false;
+
+    const { prunedAdjacency, components } = applyKillAndSplit(ast.adjacency, chunkId);
+
+    const extracted = ast.extractDeadChunk(chunkId);
+    if (extracted) this.spawnDeadConfettiChunk(extracted);
+
+    if (components.length >= 2) {
+      const idx = this.liveAsteroids.indexOf(ast);
+      if (idx >= 0) this.liveAsteroids.splice(idx, 1);
+      const children = ast.split(components);
+      this.liveAsteroids.push(...children);
+    } else if (components.length === 1) {
+      ast.setAdjacency(prunedAdjacency);
+    }
+
+    return true;
+  }
+
+  private spawnDeadConfettiChunk(info: {
+    worldX: number; worldY: number;
+    velocityX: number; velocityY: number;
+    material: Material; textureKey: string;
+    isCore: boolean;
+  }): void {
+    const chunk = this.matter.add.image(info.worldX, info.worldY, info.textureKey);
+    chunk.setRectangle(CHUNK_PIXEL_SIZE, CHUNK_PIXEL_SIZE);
+    chunk.setMass(0.25);
+    chunk.setFriction(0.1);
+    chunk.setFrictionAir(0.005);
+    chunk.setBounce(0);
+    chunk.setVelocity(info.velocityX, info.velocityY);
+    chunk.setAlpha(0.55);
+    chunk.setScale(0.8);
+    chunk.setData('kind', 'chunk');
+    chunk.setData('dead', true);
+    chunk.setData('tier', info.material.tier);
+    chunk.setData('material', info.material);
+    chunk.setData('isCore', info.isCore);
+    this.deadChunks.add(chunk);
+  }
+
+  private collectDeadAtDeathLine(chunk: Phaser.Physics.Matter.Image): void {
+    const tier = (chunk.getData('tier') as number | undefined) ?? 1;
+    gameplayState.addCash(tier);
+    this.cashFromSaw += tier;
+    this.collectedDead++;
+    this.spawnConfetti(chunk.x, chunk.y);
+    this.deadChunks.delete(chunk);
+    chunk.destroy();
   }
 
   // ── build ──────────────────────────────────────────────────────────────
