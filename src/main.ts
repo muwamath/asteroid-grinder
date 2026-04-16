@@ -15,6 +15,12 @@ new Phaser.Game({
     matter: {
       gravity: { x: 0, y: 1 },
       debug,
+      // Bump solver iterations so chunks pinned between walls/saw/other
+      // asteroids don't interpenetrate. Default is 6/4 — insufficient for
+      // the welded-cluster + static-channel pressure combo.
+      positionIterations: 20,
+      velocityIterations: 14,
+      constraintIterations: 4,
     },
   },
   scene: [GameScene, UIScene],

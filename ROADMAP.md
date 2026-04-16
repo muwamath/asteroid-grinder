@@ -31,6 +31,7 @@ Living document. Phases are strategic milestones; the todo list at the bottom tr
 ## Backlog (future work)
 
 - Additional weapons beyond the four in Phase 5 (Tesla Coil, Freeze Ray, Flak Cannon, Gravity Well, Rail Gun, Drone Swarm — from the Unity project's `TODO.md`).
+- **Background pass.** The arena currently sits on a flat `#1a1a28` canvas. Needs a proper background: stars, nebula gradient, parallax layers, or a subtle animated field. Should read as "space" without distracting from the gameplay. Defer until art pass or earlier if it bothers Matt again.
 - Prestige / meta loop (no design yet).
 - Mobile/portrait mode.
 - Achievements, cosmetics.

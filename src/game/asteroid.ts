@@ -2,6 +2,16 @@ import Phaser from 'phaser';
 import type { AsteroidShape, CellKey, ChunkShape } from './shape';
 import { canonicalEdge, cellKey, keyForCell } from './shape';
 
+function lightenColor(color: number, amount: number): number {
+  const r = (color >> 16) & 0xff;
+  const g = (color >> 8) & 0xff;
+  const b = color & 0xff;
+  const lr = Math.round(r + (255 - r) * amount);
+  const lg = Math.round(g + (255 - g) * amount);
+  const lb = Math.round(b + (255 - b) * amount);
+  return (lr << 16) | (lg << 8) | lb;
+}
+
 export const CHUNK_PIXEL_SIZE = 20;
 
 interface ChunkState {
@@ -9,6 +19,8 @@ interface ChunkState {
   hp: number;
   maxHp: number;
   dead: boolean;
+  baseColor: number;
+  deadColor: number;
 }
 
 const TEXTURE_KEY_BY_SHAPE: Record<ChunkShape, string> = {
@@ -61,12 +73,18 @@ export class Asteroid {
       const wy = originY - cell.y * CHUNK_PIXEL_SIZE;
 
       const image = scene.matter.add.image(wx, wy, TEXTURE_KEY_BY_SHAPE[shapeKind]);
-      image.setRectangle(CHUNK_PIXEL_SIZE - 1, CHUNK_PIXEL_SIZE - 1);
+      // Collision body matches the sprite exactly so two neighboring chunks
+      // don't visually overlap at the edge where their sprites meet.
+      image.setRectangle(CHUNK_PIXEL_SIZE, CHUNK_PIXEL_SIZE);
       image.setTint(color);
       image.setMass(0.25);
       image.setFriction(0.1);
       image.setFrictionAir(0.005);
       image.setBounce(0.05);
+      // Tighten Matter's overlap tolerance (default 0.05 px) so the
+      // solver keeps contacts tight rather than letting tiny overlaps
+      // accumulate into visible clipping.
+      (image.body as unknown as { slop: number }).slop = 0.005;
       image.setData('kind', 'chunk');
       image.setData('asteroid', this);
       image.setData('cellKey', key);
@@ -74,7 +92,14 @@ export class Asteroid {
       image.setData('maxHp', maxHpPerChunk);
       image.setData('dead', false);
 
-      this.chunks.set(key, { image, hp: maxHpPerChunk, maxHp: maxHpPerChunk, dead: false });
+      this.chunks.set(key, {
+        image,
+        hp: maxHpPerChunk,
+        maxHp: maxHpPerChunk,
+        dead: false,
+        baseColor: color,
+        deadColor: lightenColor(color, 0.35),
+      });
       chunkRegistry.add(image);
     }
 
@@ -111,8 +136,7 @@ export class Asteroid {
     if (state.hp <= 0) {
       state.dead = true;
       image.setData('dead', true);
-      image.setAlpha(0.5);
-      image.setTint(0x55556a);
+      image.setTint(state.deadColor);
       this.detachChunk(key);
       return { hp: 0, killed: true, key };
     }
