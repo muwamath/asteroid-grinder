@@ -137,6 +137,7 @@ export class Asteroid {
       state.dead = true;
       image.setData('dead', true);
       image.setTint(state.deadColor);
+      image.setScale(0.8);
       this.detachChunk(key);
       return { hp: 0, killed: true, key };
     }
