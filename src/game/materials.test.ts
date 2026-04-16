@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MATERIALS, materialByTier, materialByName, chooseMaterial, materialDistribution } from './materials';
+import { MATERIALS, materialByTier, materialByName, chooseMaterial, materialDistribution, fallSpeedMultiplier } from './materials';
 import { SeededRng } from './rng';
 
 describe('MATERIALS ladder', () => {
@@ -101,5 +101,21 @@ describe('chooseMaterial', () => {
     for (let i = 0; i < 50; i++) {
       expect(chooseMaterial(5, a).name).toBe(chooseMaterial(5, b).name);
     }
+  });
+});
+
+describe('fallSpeedMultiplier', () => {
+  it('L0 = 0.15×', () => {
+    expect(fallSpeedMultiplier(0)).toBeCloseTo(0.15, 6);
+  });
+  it('L9 = 1.05×', () => {
+    expect(fallSpeedMultiplier(9)).toBeCloseTo(1.05, 6);
+  });
+  it('linear +0.10 per level', () => {
+    expect(fallSpeedMultiplier(3)).toBeCloseTo(0.45, 6);
+    expect(fallSpeedMultiplier(5)).toBeCloseTo(0.65, 6);
+  });
+  it('clamps negative levels to L0 minimum', () => {
+    expect(fallSpeedMultiplier(-5)).toBeCloseTo(0.15, 6);
   });
 });

@@ -106,3 +106,10 @@ export function chooseMaterial(qualityLevel: number, rng: SeededRng): Material {
   }
   return MATERIALS[MATERIALS.length - 1];
 }
+
+const FALL_BASE = 0.15;
+const FALL_PER_LEVEL = 0.10;
+
+export function fallSpeedMultiplier(level: number): number {
+  return FALL_BASE + Math.max(0, level) * FALL_PER_LEVEL;
+}
