@@ -6,6 +6,7 @@ import { gameplayState } from '../game/gameplayState';
 import { BASE_PARAMS, applyUpgrades, type EffectiveGameplayParams } from '../game/upgradeApplier';
 import { WEAPON_TYPES } from '../game/weaponCatalog';
 import { type WeaponBehavior, createBehavior, allBehaviorPrototypes } from '../game/weapons';
+import { MATERIALS, type Material, textureKeyFor } from '../game/materials';
 
 const ARBOR_RADIUS = 20;
 
@@ -492,36 +493,55 @@ export class GameScene extends Phaser.Scene {
   // ── procedural textures ────────────────────────────────────────────────
 
   private makeChunkTextures(): void {
-    const size = CHUNK_PIXEL_SIZE;
-
-    {
-      const g = this.make.graphics({ x: 0, y: 0 }, false);
-      g.fillStyle(0xffffff);
-      g.fillRect(0, 0, size, size);
-      g.lineStyle(1, 0x000000, 0.25);
-      g.strokeRect(0.5, 0.5, size - 1, size - 1);
-      g.generateTexture('chunk-square', size, size);
-      g.destroy();
+    for (const material of MATERIALS) {
+      this.drawMaterialTexture(material);
     }
+  }
 
-    const tri = (key: string, verts: [number, number][]): void => {
-      const g = this.make.graphics({ x: 0, y: 0 }, false);
-      g.fillStyle(0xffffff);
-      g.beginPath();
-      g.moveTo(verts[0][0], verts[0][1]);
-      g.lineTo(verts[1][0], verts[1][1]);
-      g.lineTo(verts[2][0], verts[2][1]);
-      g.closePath();
-      g.fillPath();
-      g.lineStyle(1, 0x000000, 0.25);
-      g.strokePath();
-      g.generateTexture(key, size, size);
-      g.destroy();
-    };
+  private drawMaterialTexture(material: Material): void {
+    const size = CHUNK_PIXEL_SIZE;
+    const key = textureKeyFor(material);
+    if (material.hasGlow) {
+      const pad = 3;
+      const total = size + pad * 2;
+      const ct = this.textures.createCanvas(key, total, total);
+      if (!ct) return;
+      const ctx = ct.getContext();
+      const grad = ctx.createRadialGradient(total / 2, total / 2, size * 0.1, total / 2, total / 2, total / 2);
+      grad.addColorStop(0, material.glowColor);
+      grad.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, total, total);
+      this.drawChunkBody(ctx, pad, pad, size, material);
+      ct.refresh();
+      return;
+    }
+    const ct = this.textures.createCanvas(key, size, size);
+    if (!ct) return;
+    const ctx = ct.getContext();
+    this.drawChunkBody(ctx, 0, 0, size, material);
+    ct.refresh();
+  }
 
-    tri('chunk-tri-NE', [[0, 0], [size, 0], [size, size]]);
-    tri('chunk-tri-NW', [[0, 0], [size, 0], [0, size]]);
-    tri('chunk-tri-SE', [[size, 0], [size, size], [0, size]]);
-    tri('chunk-tri-SW', [[0, 0], [0, size], [size, size]]);
+  private drawChunkBody(
+    ctx: CanvasRenderingContext2D,
+    x: number, y: number, size: number,
+    material: Material,
+  ): void {
+    const grad = ctx.createLinearGradient(x, y, x + size, y + size);
+    grad.addColorStop(0, material.fillColors[0]);
+    grad.addColorStop(0.5, material.fillColors[1]);
+    grad.addColorStop(1, material.fillColors[2]);
+    ctx.fillStyle = grad;
+    ctx.fillRect(x, y, size, size);
+
+    ctx.strokeStyle = material.borderColor;
+    ctx.lineWidth = 1;
+    ctx.strokeRect(x + 0.5, y + 0.5, size - 1, size - 1);
+
+    if (material.band !== 'earth') {
+      ctx.fillStyle = 'rgba(255,255,255,0.55)';
+      ctx.fillRect(x + 1, y + 1, 1, 1);
+    }
   }
 }
