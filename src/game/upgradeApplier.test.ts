@@ -100,6 +100,31 @@ describe('applyUpgrades', () => {
     expect(applyUpgrades({ 'missile.homing': 6 }).missileHoming).toBeCloseTo(6 * 0.5);
   });
 
+  it('increases blackholePullRange per level', () => {
+    expect(applyUpgrades({}).blackholePullRange).toBe(60);
+    expect(applyUpgrades({ 'blackhole.pullRange': 5 }).blackholePullRange).toBe(60 + 5 * 8);
+  });
+
+  it('increases blackholePullForce per level', () => {
+    expect(applyUpgrades({}).blackholePullForce).toBe(0.0003);
+    expect(applyUpgrades({ 'blackhole.pullForce': 4 }).blackholePullForce).toBeCloseTo(0.0003 + 4 * 0.00015);
+  });
+
+  it('increases blackholeCoreSize per level', () => {
+    expect(applyUpgrades({}).blackholeCoreSize).toBe(15);
+    expect(applyUpgrades({ 'blackhole.coreSize': 3 }).blackholeCoreSize).toBe(15 + 3 * 3);
+  });
+
+  it('increases blackholeCoreDamage per level', () => {
+    expect(applyUpgrades({}).blackholeCoreDamage).toBe(1);
+    expect(applyUpgrades({ 'blackhole.coreDamage': 6 }).blackholeCoreDamage).toBeCloseTo(1 + 6 * 0.5);
+  });
+
+  it('increases blackholeMaxTargets per level', () => {
+    expect(applyUpgrades({}).blackholeMaxTargets).toBe(3);
+    expect(applyUpgrades({ 'blackhole.maxTargets': 4 }).blackholeMaxTargets).toBe(3 + 4);
+  });
+
   it('combines multiple upgrades independently', () => {
     const e = applyUpgrades({ 'saw.damage': 2, 'saw.bladeCount': 1, 'asteroids.chunkHp': 1 });
     expect(e.sawDamage).toBe(3);

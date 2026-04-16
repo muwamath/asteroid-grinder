@@ -18,6 +18,11 @@ export interface EffectiveGameplayParams {
   readonly missileBlastRadius: number;
   readonly missileSpeed: number;
   readonly missileHoming: number;
+  readonly blackholePullRange: number;
+  readonly blackholePullForce: number;
+  readonly blackholeCoreSize: number;
+  readonly blackholeCoreDamage: number;
+  readonly blackholeMaxTargets: number;
 }
 
 // Level-0 defaults. Each upgrade adds to these via applyUpgrades.
@@ -41,6 +46,11 @@ export const BASE_PARAMS: EffectiveGameplayParams = {
   missileBlastRadius: 20,
   missileSpeed: 80,
   missileHoming: 0,
+  blackholePullRange: 60,
+  blackholePullForce: 0.0003,
+  blackholeCoreSize: 15,
+  blackholeCoreDamage: 1,
+  blackholeMaxTargets: 3,
 };
 
 // Per-level deltas. Tuning scaffolding — adjust after playtesting.
@@ -65,6 +75,11 @@ const MISSILE_DAMAGE_PER_LEVEL = 1.5;
 const MISSILE_BLAST_RADIUS_PER_LEVEL = 4;
 const MISSILE_SPEED_PER_LEVEL = 12;
 const MISSILE_HOMING_PER_LEVEL = 0.5;
+const BLACKHOLE_PULL_RANGE_PER_LEVEL = 8;
+const BLACKHOLE_PULL_FORCE_PER_LEVEL = 0.00015;
+const BLACKHOLE_CORE_SIZE_PER_LEVEL = 3;
+const BLACKHOLE_CORE_DAMAGE_PER_LEVEL = 0.5;
+const BLACKHOLE_MAX_TARGETS_PER_LEVEL = 1;
 
 export function applyUpgrades(
   levels: Readonly<Record<string, number>>,
@@ -101,5 +116,10 @@ export function applyUpgrades(
     missileBlastRadius: BASE_PARAMS.missileBlastRadius + lv('missile.blastRadius') * MISSILE_BLAST_RADIUS_PER_LEVEL,
     missileSpeed: BASE_PARAMS.missileSpeed + lv('missile.speed') * MISSILE_SPEED_PER_LEVEL,
     missileHoming: BASE_PARAMS.missileHoming + lv('missile.homing') * MISSILE_HOMING_PER_LEVEL,
+    blackholePullRange: BASE_PARAMS.blackholePullRange + lv('blackhole.pullRange') * BLACKHOLE_PULL_RANGE_PER_LEVEL,
+    blackholePullForce: BASE_PARAMS.blackholePullForce + lv('blackhole.pullForce') * BLACKHOLE_PULL_FORCE_PER_LEVEL,
+    blackholeCoreSize: BASE_PARAMS.blackholeCoreSize + lv('blackhole.coreSize') * BLACKHOLE_CORE_SIZE_PER_LEVEL,
+    blackholeCoreDamage: BASE_PARAMS.blackholeCoreDamage + lv('blackhole.coreDamage') * BLACKHOLE_CORE_DAMAGE_PER_LEVEL,
+    blackholeMaxTargets: BASE_PARAMS.blackholeMaxTargets + lv('blackhole.maxTargets') * BLACKHOLE_MAX_TARGETS_PER_LEVEL,
   };
 }
