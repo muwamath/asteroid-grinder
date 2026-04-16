@@ -35,7 +35,13 @@ export function deserialize(json: string): SaveStateV1 | null {
   if (p.v !== 1) return null;
   if (typeof p.cash !== 'number') return null;
   if (!p.levels || typeof p.levels !== 'object') return null;
+  for (const v of Object.values(p.levels)) {
+    if (typeof v !== 'number' || !Number.isFinite(v)) return null;
+  }
   if (!p.weaponCounts || typeof p.weaponCounts !== 'object') return null;
+  for (const v of Object.values(p.weaponCounts)) {
+    if (typeof v !== 'number' || !Number.isFinite(v) || v < 0) return null;
+  }
   if (!Array.isArray(p.weaponInstances)) return null;
   for (const inst of p.weaponInstances) {
     if (!inst || typeof inst !== 'object') return null;

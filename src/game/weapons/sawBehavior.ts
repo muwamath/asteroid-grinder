@@ -24,19 +24,19 @@ export class SawBehavior implements WeaponBehavior {
   private killCount = 0;
 
   createTextures(scene: Phaser.Scene): void {
-    // Arbor texture
-    const d = ARBOR_RADIUS * 2;
-    const g = scene.make.graphics({ x: 0, y: 0 }, false);
-    g.fillStyle(0x8a8aa0);
-    g.fillCircle(ARBOR_RADIUS, ARBOR_RADIUS, ARBOR_RADIUS);
-    g.lineStyle(2, 0xc8c8dc);
-    g.strokeCircle(ARBOR_RADIUS, ARBOR_RADIUS, ARBOR_RADIUS - 1);
-    g.fillStyle(0x5a5a70);
-    g.fillCircle(ARBOR_RADIUS, ARBOR_RADIUS, 4);
-    g.generateTexture('arbor', d, d);
-    g.destroy();
+    if (!scene.textures.exists('arbor')) {
+      const d = ARBOR_RADIUS * 2;
+      const g = scene.make.graphics({ x: 0, y: 0 }, false);
+      g.fillStyle(0x8a8aa0);
+      g.fillCircle(ARBOR_RADIUS, ARBOR_RADIUS, ARBOR_RADIUS);
+      g.lineStyle(2, 0xc8c8dc);
+      g.strokeCircle(ARBOR_RADIUS, ARBOR_RADIUS, ARBOR_RADIUS - 1);
+      g.fillStyle(0x5a5a70);
+      g.fillCircle(ARBOR_RADIUS, ARBOR_RADIUS, 4);
+      g.generateTexture('arbor', d, d);
+      g.destroy();
+    }
 
-    // Initial blade texture
     this.makeSawBladeTexture(scene, BASE_PARAMS.bladeRadius);
   }
 

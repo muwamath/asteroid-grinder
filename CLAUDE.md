@@ -9,6 +9,16 @@ This file is read automatically by Claude Code at session start. It documents pr
 - Target platform: desktop + mobile web browsers. No native packaging, no WebGL-engine gymnastics.
 - Node 22+ / npm 10+ assumed.
 
+## Commands
+
+```bash
+npm run dev         # vite dev server @ http://127.0.0.1:5173
+npm run build       # tsc --noEmit + vite build
+npm run typecheck   # tsc --noEmit (fast)
+npm test            # vitest run (pure-logic tests)
+npm run test:watch  # vitest in watch mode
+```
+
 ## Layout
 
 ```
@@ -24,16 +34,28 @@ asteroid-grinder/
 │   │   └── UIScene.ts                   # weapon bar, sub-panels, upgrade buttons
 │   └── game/
 │       ├── weaponCatalog.ts             # weapon type + category registry (replaces UPGRADE_CATALOG)
+│       ├── weapons/                     # WeaponBehavior interface + per-weapon behaviors
+│       │   ├── weaponBehavior.ts        # interface — one file per weapon
+│       │   ├── sawBehavior.ts
+│       │   ├── laserBehavior.ts
+│       │   ├── missileBehavior.ts
+│       │   └── blackholeBehavior.ts
 │       ├── upgradeCatalog.ts            # UpgradeDef type, costAtLevel, isMaxed
 │       ├── upgradeApplier.ts            # levels → EffectiveGameplayParams
 │       ├── gameplayState.ts             # cash, upgrade levels, weapon counts, events
-│       ├── asteroid.ts                  # asteroid + chunk model, damage, fracture
+│       ├── compoundAsteroid.ts          # Matter compound body per live-component; split/extract
+│       ├── asteroidGraph.ts             # BFS split helper (pure, tested)
+│       ├── chunkTarget.ts               # unified target query surface for laser/missile
 │       ├── asteroidSpawner.ts           # factory for random asteroids
 │       ├── circularShapeGenerator.ts    # procedural asteroid layout generator
+│       ├── materials.ts                 # 9-tier material ladder (Dirt → Diamond), HP + reward
 │       ├── connectedComponents.ts       # BFS graph utility
 │       ├── shape.ts                     # chunk shape types
 │       ├── rng.ts                       # seeded RNG
-│       └── palette.ts                   # color palette
+│       ├── palette.ts                   # color palette
+│       ├── saveState.ts                 # versioned localStorage snapshot (v:1)
+│       ├── offlineProgress.ts           # offline elapsed → award (8h cap)
+│       └── cashRate.ts                  # EMA cash/sec tracker (tau=60s)
 ├── README.md
 ├── ROADMAP.md
 └── CLAUDE.md                            # you are here
@@ -57,6 +79,12 @@ This project is a **port of an earlier Unity prototype** (local-only, not public
 | `ParticleSystem` | `scene.add.particles(...)` or hand-rolled tweened shapes |
 | `Canvas` UI | overlay Scene with `Phaser.GameObjects.Text` or DOM |
 
+## Architecture patterns
+
+- **Weapons are plug-ins.** Each weapon implements `WeaponBehavior` (`src/game/weapons/`) and is registered in `weaponCatalog.ts`. GameScene is weapon-agnostic — adding a weapon = one behavior file + one catalog entry. Do not scatter weapon-specific logic into GameScene.
+- **Cross-scene handoff via `game.registry`.** Parallel scenes can't receive events fired during a sibling's `create()` (see gotcha below). Phase 7 uses `game.registry` keys (`pendingSnapshot`, `offlineAward`, `offlineElapsedMs`) as a consume-once mailbox that survives scene restarts. Use this pattern for any GameScene→UIScene data that must cross the `create()` boundary.
+- **Devtools handles.** `window.__GAME__` (Phaser.Game) and `window.__STATE__` (gameplayState) are exposed unconditionally in `main.ts`. Use these for in-console inspection; no need to add more.
+
 ## Phaser + Matter gotchas (fill in as we hit them)
 
 - **Static bodies can still be teleported via `setPosition` and broadphase updates.** Used for the orbiting saw blade and arbor in `GameScene.ts` — both static + manual orbit positioning.
@@ -73,7 +101,7 @@ This project is a **port of an earlier Unity prototype** (local-only, not public
 
 ## Tests
 
-- **Vitest** for pure logic (cost formulas, economy math, weapon catalog, upgrade appliers, gameplayState, shape generator, material ladder + distribution, asteroid graph split) — lives under `src/**/*.test.ts`. 82 tests across 6 files. Run with `npm test`.
+- **Vitest** for pure logic (cost formulas, economy math, weapon catalog, upgrade appliers, gameplayState, shape generator, material ladder + distribution, asteroid graph split, save state, offline progress, cash rate) — lives under `src/**/*.test.ts`. 111 tests across 10 files. Run with `npm test`. **Bump the count here when you add or remove tests** — it drifts otherwise.
 - **Playwright** for scene smoke tests (planned, not yet implemented) — will live under `tests/e2e/`.
 
 ## Deploy

@@ -85,6 +85,26 @@ describe('saveState', () => {
     expect(deserialize(JSON.stringify(bad))).toBeNull();
   });
 
+  it('returns null when a levels value is non-numeric', () => {
+    const bad = { ...sample, levels: { sawDamage: 2, dropRate: 'hacked' } };
+    expect(deserialize(JSON.stringify(bad))).toBeNull();
+  });
+
+  it('returns null when a levels value is NaN', () => {
+    const bad = { ...sample, levels: { sawDamage: Number.NaN } };
+    expect(deserialize(JSON.stringify(bad))).toBeNull();
+  });
+
+  it('returns null when a weaponCounts value is negative', () => {
+    const bad = { ...sample, weaponCounts: { saw: -1 } };
+    expect(deserialize(JSON.stringify(bad))).toBeNull();
+  });
+
+  it('returns null when a weaponCounts value is non-numeric', () => {
+    const bad = { ...sample, weaponCounts: { saw: 'two' } };
+    expect(deserialize(JSON.stringify(bad))).toBeNull();
+  });
+
   it('round-trips multiple weapon instances', () => {
     const multi: SaveStateV1 = {
       ...sample,
