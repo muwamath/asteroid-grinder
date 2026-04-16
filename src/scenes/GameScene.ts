@@ -8,9 +8,8 @@ import { WEAPON_TYPES } from '../game/weaponCatalog';
 
 const STOPPER_RADIUS = 32;
 const SAW_HUB_RADIUS = 16;
-const SAW_ORBIT_RADIUS = SAW_HUB_RADIUS + 18; // hub edge + blade radius
+const SAW_BLADE_RADIUS = 28;
 const SAW_ORBIT_RAD_PER_SEC = 4;
-const SAW_RADIUS = 18;
 const SAW_HIT_COOLDOWN_MS = 120;
 
 const SPAWN_Y = -80;
@@ -136,16 +135,11 @@ export class GameScene extends Phaser.Scene {
     for (const inst of this.weaponInstances) {
       if (inst.type === 'saw' && inst.blades.length > 0) {
         const dir = gameplayState.sawClockwise ? 1 : -1;
-        inst.orbitAngle += dir * (SAW_ORBIT_RAD_PER_SEC * delta) / 1000;
-        const bladeCount = inst.blades.length;
-        for (let i = 0; i < bladeCount; i++) {
-          const phase = inst.orbitAngle + (i * Math.PI * 2) / bladeCount;
-          const sx = inst.sprite.x + Math.cos(phase) * SAW_ORBIT_RADIUS;
-          const sy = inst.sprite.y + Math.sin(phase) * SAW_ORBIT_RADIUS;
-          const blade = inst.blades[i];
-          blade.setPosition(sx, sy);
+        const spinRate = dir * SAW_ORBIT_RAD_PER_SEC * delta / 1000;
+        for (const blade of inst.blades) {
+          blade.setPosition(inst.sprite.x, inst.sprite.y);
           blade.setVelocity(0, 0);
-          blade.setRotation(blade.rotation + delta * 0.02);
+          blade.setRotation(blade.rotation + spinRate);
         }
       }
     }
@@ -211,6 +205,7 @@ export class GameScene extends Phaser.Scene {
     this.input.setDraggable(sprite);
     sprite.setData('kind', typeId);
     sprite.setData('instanceId', id);
+    if (typeId === 'saw') sprite.setDepth(1); // hub renders above blades
 
     const instance: WeaponInstance = {
       id,
@@ -234,11 +229,12 @@ export class GameScene extends Phaser.Scene {
     instance.blades = [];
     for (let i = 0; i < count; i++) {
       const blade = this.matter.add.image(0, 0, 'saw-blade');
-      blade.setCircle(SAW_RADIUS);
+      blade.setCircle(SAW_BLADE_RADIUS);
       blade.setSensor(true);
       blade.setIgnoreGravity(true);
       blade.setFrictionAir(0);
       blade.setMass(0.001);
+      blade.setDepth(-1); // render under the hub
       blade.setData('kind', 'saw');
       instance.blades.push(blade);
     }
@@ -604,10 +600,10 @@ export class GameScene extends Phaser.Scene {
   }
 
   private makeSawBladeTexture(): void {
-    const d = SAW_RADIUS * 2 + 4;
+    const d = SAW_BLADE_RADIUS * 2 + 4;
     const cx = d / 2;
     const cy = d / 2;
-    const r = SAW_RADIUS;
+    const r = SAW_BLADE_RADIUS;
     const g = this.make.graphics({ x: 0, y: 0 }, false);
 
     // 4-quadrant pinwheel: opposite quadrants same color
