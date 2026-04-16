@@ -1,17 +1,16 @@
 import type Phaser from 'phaser';
 import { Asteroid } from './asteroid';
 import { CircularShapeGenerator } from './circularShapeGenerator';
-import { randomPaletteColor } from './palette';
+import { chooseMaterial, type Material } from './materials';
 import { SeededRng } from './rng';
 
 export interface AsteroidSpawnParams {
   readonly minChunks: number;
   readonly maxChunks: number;
-  readonly maxHpPerChunk: number;
+  readonly hpMultiplier: number;
+  readonly qualityLevel: number;
+  readonly fallSpeedMultiplier: number;
 }
-
-const MIN_TRIANGLE_PROBABILITY = 0.15;
-const MAX_TRIANGLE_PROBABILITY = 0.55;
 
 export class AsteroidSpawner {
   constructor(
@@ -26,22 +25,24 @@ export class AsteroidSpawner {
     const span = Math.max(0, params.maxChunks - params.minChunks);
     const count = params.minChunks + rng.nextInt(span + 1);
 
-    const triProb =
-      MIN_TRIANGLE_PROBABILITY +
-      rng.next() * (MAX_TRIANGLE_PROBABILITY - MIN_TRIANGLE_PROBABILITY);
-
-    const color = randomPaletteColor(() => rng.next());
-
     const generator = new CircularShapeGenerator(rng);
-    const shape = generator.generate(count, triProb);
+    const shape = generator.generate(count);
+
+    const materialsByChunk = new Map<string, Material>();
+    for (const entries of shape.chunksByCell.values()) {
+      for (const entry of entries) {
+        materialsByChunk.set(entry.chunkId, chooseMaterial(params.qualityLevel, rng));
+      }
+    }
 
     return new Asteroid(
       this.scene,
       shape,
       worldX,
       worldY,
-      params.maxHpPerChunk,
-      color,
+      params.hpMultiplier,
+      params.fallSpeedMultiplier,
+      materialsByChunk,
       this.chunkRegistry,
     );
   }
