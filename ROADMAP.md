@@ -6,7 +6,7 @@ Living document. Phases are strategic milestones; the todo list at the bottom tr
 
 1. **Engine spike** — **done (2026-04-15)**. Vite + TypeScript + Phaser 3 + Matter.js scaffold with draggable stopper, orbiting saw blade (dynamic sensor + kinematic orbit), 3×3 loose pinata spawner, red death line, cash HUD, debug mode (`?debug=1` → Matter wireframes + FPS + saw-hit counter). Verified end-to-end in Chrome. Engine choice confirmed viable.
 2. **Core loop parity — round asteroids** — **done (2026-04-15)**. Ported `CircularShapeGenerator` + `ConnectedComponents` + `SeededRng` + `AsteroidShape` to TS. `Asteroid` class builds welded-chunk rigid bodies from a shape, damage routes through `damageChunkByImage`, fracture severs weld constraints on kill. `AsteroidSpawner` drops random asteroids (9–14 chunks, random triangle prob, random palette color) into a grind channel flanked by two static walls — verified in Chrome that the channel produces the intended grinding loop (saw chews chunks, dead chunks fall as confetti debris through the death line, cash accrues). Vitest installed, 9 pure-logic tests green. Procedural textures for square + 4 triangle orientations.
-3. **Economy & upgrades** — pending. Port Unity Phases 4+5 to Phaser: `GameplayState` ledger singleton, data-driven `UpgradeCatalog` with exponential cost formula, pure `UpgradeApplier` that turns upgrade levels into effective gameplay params (saw damage / blade count / channel width / spawn rate / chunk HP / asteroid size), refactor `GameScene.ts` to consume those params instead of hardcoded consts, side-panel UI with 6 starter upgrades. Absorbs what was "Global upgrades" in the prior roadmap.
+3. **Economy & upgrades** — **done (2026-04-15)**. `gameplayState` singleton ledger with `cashChanged` + `upgradeLevelChanged` events. Data-driven `UpgradeCatalog` with 6 upgrades (Saw Damage, Blade Count, Channel Width, Drop Rate, Chunk HP, Asteroid Size), exponential `costAtLevel`. Pure `applyUpgrades(levels) → EffectiveGameplayParams` with vitest coverage. `GameScene` consumes effective params live — subscribes to `upgradeLevelChanged` and rebuilds the multi-blade saw fleet, channel walls, and spawn timer when their dependent params change. Dedicated pure-Phaser `UIScene` running in parallel with `GameScene` renders the side panel with category-striped buttons, level/cost/desc text, affordability tinting, and max-level disabling. 25 vitest tests green. Verified end-to-end in Chrome: earn → buy → gameplay changes → earn more. Code review pass fixed two latent issues (`reset()` listener clobber + unstored collision handler).
 4. **Stoppers & shop** — pending. Multiple draggable stoppers, per-stopper weapon menu, sell-and-refund, buy-more-stoppers button with escalating cost.
 5. **Weapons** — pending (moved from old Phase 3). Port the remaining Pinata Grinder weapon types beyond the saw blade:
    - Laser (beam + continuous energy damage)
@@ -20,19 +20,13 @@ Living document. Phases are strategic milestones; the todo list at the bottom tr
 10. **Code review** — pending. Fresh reviewer agent, findings, fixes. (Required phase per global conventions.)
 11. **Final verification & remote deploy** — pending. Full typecheck + build, live validation in Chrome, push to a new GitHub repo, optional GH Pages setup.
 
-## Current todos (Phase 3 — Economy & upgrades)
+## Current todos (Phase 4 — Stoppers & shop)
 
-- [ ] Lift cash from the debug-only HUD to an always-visible top-left readout (already half-plumbed in `GameScene.ts`).
-- [ ] `src/game/gameplayState.ts` — module singleton holding cash + upgrade levels + a minimal event emitter (`cashChanged`, `upgradeLevelChanged`).
-- [ ] `src/game/upgradeCatalog.ts` — data-driven catalog of 6 starter upgrades (id, name, category, baseCost, growthRate, maxLevel, effectKey) + pure `costAtLevel` helper (exponential).
-- [ ] `src/game/upgradeApplier.ts` — pure `(levels) → effectiveParams` function that produces current saw damage, blade count, channel half-width, spawn interval, chunk HP, asteroid chunk-count range. Vitest coverage.
-- [ ] Refactor `GameScene.ts`: stop reading `SAW_DAMAGE_PER_HIT` / `SPAWN_INTERVAL_MS` / `CHANNEL_HALF_WIDTH` / etc. as module consts — pull each from `effectiveParams`, rebuild channel walls on arena-width change.
-- [ ] Multi-blade saw: visible blade count upgrade (1 → 6 orbiting blades around the saw hub).
-- [ ] Movable/resizable channel walls: visible arena-width upgrade.
-- [ ] UI overlay — side panel with the 6 upgrade buttons, cash display, cost gating, disabled-state styling. (UI-framework choice — HTML overlay vs Phaser DOM vs pure Phaser — to be decided when this step starts.)
-- [ ] Verify full loop in Chrome: earn → buy → gameplay changes → earn more.
-- [ ] Code review pass (dispatch a fresh reviewer subagent against the feature branch diff).
-- [ ] FF-merge to main + docs update (`README.md` / `ROADMAP.md` / `CLAUDE.md`).
+- [ ] Scope Phase 4 with Matt: how many stoppers max, per-stopper state shape, whether each stopper has its own saw or shares one, shop UI for buying more stoppers.
+- [ ] Refactor single `stopper` + single saw fleet into a list of `Stopper` objects, each owning its own orbit angle + blade fleet.
+- [ ] Buy-more-stoppers upgrade button with escalating cost (consider integrating into existing `UpgradeCatalog` or a new "shop" data layer).
+- [ ] Sell-and-refund per stopper (partial refund of total spend).
+- [ ] Per-stopper weapon selector stub (returns saw only until Phase 5 weapons land).
 
 ## Backlog (future work)
 

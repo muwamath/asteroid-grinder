@@ -6,9 +6,9 @@ Phaser 3 + Matter.js + TypeScript + Vite. Port of an earlier Unity prototype ([`
 
 ## Status
 
-**Phase 2 — core loop parity, done (2026-04-15).** Asteroids are welded-chunk rigid bodies built from a deterministic circular shape generator; the saw routes damage to individual chunks and fractures them via connected-components when their HP hits zero. Two static channel walls flank the stopper/saw, producing the intended grinding loop (dead chunks slough off as confetti, fall past the death line, pay out). Debug overlay at `?debug=1` shows FPS, body count, saw hits, kills, and a cash breakdown.
+**Phase 3 — economy & upgrades, done (2026-04-15).** Data-driven upgrade catalog (Saw Damage, Blade Count, Channel Width, Drop Rate, Chunk HP, Asteroid Size) with an exponential cost formula and a pure applier that turns levels into effective gameplay params. Side-panel upgrade UI runs as a dedicated parallel `UIScene` built in pure Phaser. Buying an upgrade live-rebuilds the affected physical bodies — multi-blade saw fleets around the stopper, movable channel walls, variable spawn timer. 25 vitest tests cover the pure logic.
 
-Phase 3 — economy & upgrades — is next. See [ROADMAP.md](ROADMAP.md).
+Phase 4 — stoppers & shop — is next. See [ROADMAP.md](ROADMAP.md).
 
 ## Run locally
 
