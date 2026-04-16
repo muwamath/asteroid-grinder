@@ -59,18 +59,15 @@ This project is a **port of an earlier Unity prototype** (local-only, not public
 
 ## Phaser + Matter gotchas (fill in as we hit them)
 
-- **Static bodies can still be teleported via `setPosition` and broadphase updates.** Used for the orbiting saw blade in `GameScene.ts` — static + sensor + manual orbit math.
-- **Sensor bodies still emit `collisionstart` / `collisionactive` events but apply no impulse.** Perfect for weapons that shouldn't push the target — saw blade uses this.
-- **Matter doesn't generate pairs between two static bodies.** No collision between the static saw blade and the static stopper even though they overlap geometrically.
+- **Static bodies can still be teleported via `setPosition` and broadphase updates.** Used for the orbiting saw blade and arbor in `GameScene.ts` — both static + manual orbit positioning.
+- **Saw blades are static (not sensors).** They block chunks physically AND deal damage via `collisionstart`/`collisionactive`. The arbor is also static and blocks but doesn't damage (kind `'arbor'` is not routed in the collision handler).
+- **Matter doesn't generate pairs between two static bodies.** No collision between the static saw blade and the static arbor even though they overlap geometrically.
 - **`body.gameObject` is only populated when the body was created through Phaser's matter wrappers** (`this.matter.add.image/sprite/...`). Raw `this.matter.add.rectangle({ isStatic: true })` arena walls do NOT have a `gameObject` reference — check for `undefined` in collision handlers.
 
 ## Tests
 
-Not yet. Phase 1 is a throwaway spike. Planned approach for phase 2+:
-
-- **Vitest** for pure logic (cost formulas, economy math, variant tables, upgrade appliers) — lives under `src/**/*.test.ts`.
-- **Playwright** for scene smoke tests (load, interact, assert state via `scene.registry` or a test-only probe) — lives under `tests/e2e/`.
-- TDD remains the default per global workflow once we're past Phase 1.
+- **Vitest** for pure logic (cost formulas, economy math, weapon catalog, upgrade appliers, gameplayState) — lives under `src/**/*.test.ts`. 38 tests across 4 files. Run with `npm test`.
+- **Playwright** for scene smoke tests (planned, not yet implemented) — will live under `tests/e2e/`.
 
 ## Deploy
 
