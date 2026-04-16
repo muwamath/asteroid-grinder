@@ -23,13 +23,14 @@ Living document. Phases are strategic milestones; the todo list at the bottom tr
 ## Immediate next
 
 - [x] **Fix physics: chunks pushing through the saw.** — **done (2026-04-16)**. Active barrier enforcement in `update()` pushes alive chunks out of arbor, blade, and channel wall collision zones every frame so pile pressure can never defeat the Matter solver. Dead chunks are excluded so they can still slip through to the death line.
+- [x] **Saw upgrade tree expansion.** — **done (2026-04-16)**. Three new upgrades: Spin Speed (tangential impulse pushes chunks), Orbit Speed (base 1 rad/s, was 4), Blade Size (blade radius scales, arbor fixed). 5 total saw upgrades matching Unity prototype tree. 43 vitest tests green.
 
 ## Current todos (Phase 5 — Weapons)
 
-- [ ] Scope Phase 5: Laser beam behavior, Missile homing + AOE, Black Hole gravity vortex. Each needs a unique `update()` and collision pattern.
-- [ ] Create `Weapon` interface / base abstraction that Grinder and Saw refactor onto. Laser/Missile/BlackHole implement it.
-- [ ] Unlock Laser/Missile/BlackHole in `weaponCatalog.ts` and wire up behaviors in `GameScene`.
-- [ ] Per-weapon-type upgrade definitions for each new weapon.
+- [ ] Design and implement Laser weapon (beam + continuous energy damage)
+- [ ] Design and implement Missile weapon (homing AOE with lead targeting)
+- [ ] Design and implement Black Hole weapon (gravity vortex)
+- [ ] Create `Weapon` interface / base abstraction that Grinder and Saw refactor onto
 
 ## Backlog (future work)
 
