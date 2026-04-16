@@ -232,8 +232,10 @@ export class GameScene extends Phaser.Scene {
   private rebuildBladesForInstance(instance: WeaponInstance, count: number, radius: number): void {
     for (const blade of instance.blades) blade.destroy();
     instance.blades = [];
+    const displaySize = radius * 2 + 4;
     for (let i = 0; i < count; i++) {
       const blade = this.matter.add.image(0, 0, 'saw-blade');
+      blade.setDisplaySize(displaySize, displaySize);
       blade.setCircle(radius);
       blade.setStatic(true);
       blade.setIgnoreGravity(true);
@@ -647,6 +649,9 @@ export class GameScene extends Phaser.Scene {
   }
 
   private makeSawBladeTexture(radius: number): void {
+    if (this.textures.exists('saw-blade')) {
+      this.textures.remove('saw-blade');
+    }
     const d = radius * 2 + 4;
     const cx = d / 2;
     const cy = d / 2;
