@@ -1,82 +1,63 @@
 # Asteroid Grinder Roadmap
 
-Living document. Phases are strategic milestones; the todo list at the bottom tracks the next concrete actions for the current phase.
+Living document. MVP shipped **2026-04-16** — core loop, 9-tier material ladder, 4 weapons behind `WeaponBehavior`, compound-body asteroids, save/offline, options menu, GH Pages deploy. Phases 1–10 complete; see git history for details.
 
-## Phases
-
-1. **Engine spike** — **done (2026-04-15)**. Vite + TypeScript + Phaser 3 + Matter.js scaffold with draggable stopper, orbiting saw blade (dynamic sensor + kinematic orbit), 3×3 loose asteroid spawner, red death line, cash HUD, debug mode (`?debug=1` → Matter wireframes + FPS + saw-hit counter). Verified end-to-end in Chrome. Engine choice confirmed viable.
-2. **Core loop parity — round asteroids** — **done (2026-04-15)**. Ported `CircularShapeGenerator` + `ConnectedComponents` + `SeededRng` + `AsteroidShape` to TS. `Asteroid` class builds welded-chunk rigid bodies from a shape, damage routes through `damageChunkByImage`, fracture severs weld constraints on kill. `AsteroidSpawner` drops random asteroids (9–14 chunks, random triangle prob, random palette color) into a grind channel flanked by two static walls — verified in Chrome that the channel produces the intended grinding loop (saw chews chunks, dead chunks fall as confetti debris through the death line, cash accrues). Vitest installed, 9 pure-logic tests green. Procedural textures for square + 4 triangle orientations.
-3. **Economy & upgrades** — **done (2026-04-15)**. `gameplayState` singleton ledger with `cashChanged` + `upgradeLevelChanged` events. Data-driven `UpgradeCatalog` with 6 upgrades (Saw Damage, Blade Count, Channel Width, Drop Rate, Chunk HP, Asteroid Size), exponential `costAtLevel`. Pure `applyUpgrades(levels) → EffectiveGameplayParams` with vitest coverage. `GameScene` consumes effective params live — subscribes to `upgradeLevelChanged` and rebuilds the multi-blade saw fleet, channel walls, and spawn timer when their dependent params change. Dedicated pure-Phaser `UIScene` running in parallel with `GameScene` renders the side panel with category-striped buttons, level/cost/desc text, affordability tinting, and max-level disabling. 25 vitest tests green. Verified end-to-end in Chrome: earn → buy → gameplay changes → earn more. Code review pass fixed two latent issues (`reset()` listener clobber + unstored collision handler).
-4. **Weapon shop & multi-instance weapons** — **done (2026-04-15)**. Weapon-centric shop with left-side weapon bar (Chute, Asteroids categories + Grinder, Saw + 3 locked placeholders). Sub-panels for buy/sell/upgrade. Multiple draggable saw instances — arbor (center disc) + orbiting pinwheel blade, CW/CCW toggle. Grinder is the death line (upgrades only, no arena spawn). Edge-to-edge asteroid chunk connections with paired triangle support, chunkId-based adjacency. 1280×720 16:9 with Scale.FIT. Chunk 12px, arbor r=20, blade r=6. Placeholder economy ($1 flat). 40 vitest tests green. Verified in Chrome.
-5. **Weapons** — **done (2026-04-16)**. Four weapons live behind the `WeaponBehavior` interface: Saw (5 upgrades), Laser (4), Missile (5), Black Hole (5). GameScene is weapon-agnostic — adding a weapon = one behavior file + one catalog entry. Physics barrier enforcement prevents chunks pushing through weapons/walls.
-6. **Asteroid Overhaul** — **done (2026-04-16)**. Replaced random pastel rocks with a 9-tier material ladder (Dirt, Stone, Copper, Silver, Gold, Ruby, Emerald, Sapphire, Diamond) where `HP = tier × hpMultiplier` and `reward = tier` (linked model). New upgrades under Asteroids: **Asteroid Quality** (shifts per-chunk material distribution via `0.7^(t-1)` weighting, L0 drops Dirt only, L8 unlocks Diamond) and **Fall Speed** — kinematic, not gravity-based. Alive chunks have `gravityScale = 0` and are assigned `velocityY = fallSpeedMultiplier` each tick (L0 = `0.3` px/tick → ~40 sec arena crossing; `+0.3` per level; L9 = `3.0` px/tick → ~4 sec). Dead chunks reset to normal gravity so confetti snaps to the death line. Triangles removed; squares-only generator. Centroid chunk tagged `isCore` for future prestige wiring. Weld damping `0.4` + constraint iterations `16` reduce squish. Procedural canvas textures per material (gradients + borders + inset highlights + baked gem glow halos). Default starting loadout trimmed to Saw only (Laser / Missile / Black Hole shop-purchased). Weapon-count badge hides at 0. 77 vitest tests.
-6.5. **Compound-body asteroid rewrite** — **done (2026-04-16)**. Replaced per-chunk welded Matter bodies with one Matter compound body per connected component of live chunks. Killing a chunk extracts it as a loose confetti body with inherited world-frame velocity `v + ω × r`; when the kill disconnects the live graph, `applyKillAndSplit()` runs BFS and `CompoundAsteroid.split()` tears down the parent and spawns N child compounds inheriting pose, linear, and angular velocity. Pure-logic split helper tested (5 cases). New `ChunkTarget` interface lets laser/missile consume a unified query surface with stable IDs for target persistence; blackhole pulls whole-asteroid compound bodies (not individual parts) via `raw` access. `enforceWeaponBarriers()` deleted — Matter's native solver handles compound-vs-static collisions. Random spin kick (±0.005 rad/tick) on spawn for visible tumble. Channel walls thickened to 40px collider (visual stays 12px) to prevent pile penetration. Default L0 asteroid size tuned to 4 chunks. 82 vitest tests. Compound-body gotcha documented in CLAUDE.md: must create parts at local offsets and `setPosition` after `Body.create` — passing `position` at create-time plus pre-positioned parts produces corrupt bounds that defeat broadphase.
-7. **Save & offline** — **done (2026-04-16)**. `localStorage` autosave every 5s + `beforeunload` handler. Versioned schema (`v:1`) with null-safe deserialize and try/catch wrappers for Safari private-mode / quota. EMA cash/sec rate tracker (`tau = 60s`) persists as `emaCashPerSec`; offline elapsed capped at 8h, floored to integer, min 60s threshold. Welcome-back popup with Collect button that grants award silently (bypasses EMA). `gameplayState.loadSnapshot` + `cashEarned` event with `silent` opt so transactions (Collect, sell refund) don't pollute the rate. Cross-scene handoff via `game.registry` (`pendingSnapshot`, `offlineAward`, `offlineElapsedMs`) — consumed-once to survive scene restarts. 104 vitest tests.
-8. **Menu & HUD (MVP)** — **done (2026-04-16)**. Gear icon (top-right) + ESC open an options modal with Save Now, Show/Hide Debug Overlay, and Restart Game (confirm dialog). Backtick (`) toggles the debug HUD at runtime (FPS, body count, asteroid totals, cash breakdown, cash/sec EMA, effective params). Manual save writes instant + flashes a "Saved" toast. Restart detaches the autosave timer + `beforeunload` handler, clears localStorage, and hard-reloads. `window.__GAME__` + `window.__STATE__` exposed unconditionally for devtools. Key listeners cleaned up in scene shutdown. Shop styling + visual chrome deferred to Phase 11. 107 vitest tests, tsc clean.
-9. **Code review** — **done (2026-04-16)**. Fresh reviewer agent swept the repo. Two real findings landed: (1) `SawBehavior.createTextures` now guards the `arbor` texture against duplicate registration (latent trap if `preload` ever re-runs without a full reload); (2) `saveState.deserialize` now rejects non-finite/non-numeric values in `levels` and negative/non-numeric values in `weaponCounts`, preventing NaN injection from tampered or corrupt saves. 4 new vitest cases cover the save-validation paths. 111 tests green, tsc clean.
-10. **Final verification & remote deploy** — **done (2026-04-16)**. Full `tsc --noEmit` + `vite build` (1.5MB bundle, 356KB gzip — Phaser 3 is heavy, chunk-size warning is expected). 111 vitest tests green. Production `dist/` served via `vite preview` and validated live in Chrome: asteroid spawn/grinding loop, cash accrual, save/load roundtrip across reload (weapon instances + counts + cash all preserved), zero console errors/warnings beyond the Phaser banner. Repo already at `github.com/muwamath/asteroid-grinder`. **MVP shipped.**
-11. **Art & audio pass** — pending (post-MVP). Palette tuning, particle polish, shop-panel styling (typography, framing, icon art), grinder sprite overhaul, background pass (stars/nebula/parallax), lo-fi audio loop, chunky SFX.
-
-## Current todos (Phase 11)
-
-- [ ] **Phase 11 — Art & audio pass.** See phase description above; pick pieces off as desired. No hard ordering.
-
-## Backlog (future work)
-
-- **Text crispness on HiDPI displays.** Canvas is fixed at 1280×720 and `Scale.FIT` stretches it to fill the window, upscaling all text bitmaps without re-rasterization. Looks grainy/soft on retina screens, most noticeable on the `$cash` readout and the welcome-back popup (larger fonts → bigger visible mismatch). Cheapest fix: add a `crispText()` helper that sets `resolution: window.devicePixelRatio` on every text object so text rasterizes at device pixel density. Medium fix: bump game base to 2560×1440 and scale layout constants — keeps everything crisp under Scale.FIT. Biggest fix: switch to `Scale.RESIZE` with proportional layout — whole-file churn.
-- **Design invariants file + golden-path Playwright smoke.** Short `DESIGN_INVARIANTS.md` at repo root listing load-bearing behaviors (asteroids rotate on spawn, saw is slow, grinder chews bottom-up, gem halos, etc.), referenced from CLAUDE.md. Plus one Playwright test that boots the game, waits 10s, and asserts non-zero angle / non-zero saw hits / no console errors. Tripwire against refactor drift.
-- **Economy rebalance.** All costs are placeholder ($1 flat). Needs proper exponential scaling, per-weapon buy cost curves, sell refund formula, and upgrade cost tuning. Must come AFTER all weapons and money-touching features are implemented.
-- **Sell the last weapon of a type; link buy prices across types.** Currently the shop presumably prevents selling the final instance of a weapon type (or will once economy lands). Allow selling down to zero. Related: all weapon buy prices are linked together — the Nth weapon of any type costs the same globally, not per-type. Roll up with economy rebalance.
-- **Grinder visual overhaul.** Replace the plain circle with spinning saw teeth / conveyor-belt feel. Comes after weapons.
-- **Multi-saw collision routing.** `GameScene.handleContact` routes a blade-vs-chunk collision to the FIRST weapon instance with a `handleCompoundHit` method, regardless of which instance owns the blade. Harmless with one saw; with ≥2 saws the wrong instance's cooldown map + stats accumulate. Fix: match `otherBody.gameObject.getData('instanceId')` against `inst.id` before routing. Low priority until multi-saw is common gameplay.
-- **Zombie asteroid cleanup.** In `GameScene.damageLiveChunk`, when `components.length === 0` (last chunk killed) we rely on the next `update()` tick's `!ast.isAlive` guard to remove the asteroid from `liveAsteroids`. Causes a brief zombie where a dead asteroid is iterated once more. Fix: remove from the list explicitly in the 0-component branch.
-- **Saw `lastHitAt` unbounded growth.** `Map<chunkId, number>` never prunes entries. Few-KB leak per session, not a crash risk at realistic playtime. Fix: store cooldown keyed on `${asteroid.id}/${chunkId}` and drop entries older than ~1s each frame.
-- **Saw direction on double-click.** Replace CW/CCW menu toggle with double-click on the saw arbor to reverse direction. Simpler, more tactile.
-- **Saw shape library.** Unlock alternative blade silhouettes (circular, bladed, star, crescent) via a "Shape Library" purchase. Needs `SawShape` concept (sprite + collider profile per shape) and a selector UI.
-- Additional weapons beyond the four in Phase 5 (Tesla Coil, Freeze Ray, Flak Cannon, Gravity Well, Rail Gun, Drone Swarm — from the Unity project's `TODO.md`).
-- **Background pass.** The arena currently sits on a flat `#1a1a28` canvas. Needs a proper background: stars, nebula gradient, parallax layers, or a subtle animated field. Should read as "space" without distracting from the gameplay. Defer until art pass unless flagged earlier.
-- **Prestige / meta loop — asteroid cores.** Each asteroid has a **core chunk** (likely the centroid cell). Mining the core yields a prestige-tier resource. Prestige triggers after collecting enough cores — resets progress but unlocks random pathways, new zones where weapons can go, and deeper meta-progression (global upgrades that persist across runs). Phase 6 design should reserve the centroid cell as the core slot even though the mining mechanic ships later. Need to design a compelling reason to prestige (what do you gain that makes resetting feel worth it?).
-  - **Offline-earnings cap extender.** A prestige-tier upgrade that raises the `OFFLINE_CAP_MS` ceiling (default 8h from Phase 7). Tiers could go 8h → 12h → 24h → 48h, with steeply rising prestige cost. Lives alongside other meta upgrades that persist across prestige resets.
-- Mobile/portrait mode.
-- Achievements, cosmetics.
+Backlog below is grouped by **what it adds to the game**. Order is execution order: hygiene + QoL first (lock down the foundation before piling on), then the value-adds.
 
 ---
 
-## 📦 Post-port reference: Unity prototype roadmap (review AFTER Phase 2 ports the game)
+## 1. Tech hygiene
 
-The Unity prototype (local-only, not public) shipped through Phase 5 before being abandoned in favor of this Phaser port. Its roadmap is preserved verbatim below as a design reference — **do not merge these items into the phase list until the core loop is ported and running in Phaser**. Some items are already subsumed by the Phaser phase list above; others are genuine future work (tuning notes, paired-triangle refactor, menu polish) worth porting over once the basic game is playable.
+Doesn't add on its own — prevents regressions and future pain. Land first so the bigger adds don't compound existing rot.
 
-**How to use this section:** after Phase 2 is complete and asteroids fall / fracture / grind in Phaser, walk this list top-to-bottom, decide which items apply to the Phaser version, and either fold them into the main phase list or discard. Then delete this section.
+- **Design invariants + golden-path Playwright smoke.** Short `DESIGN_INVARIANTS.md` listing load-bearing behaviors (asteroids rotate on spawn, saw is slow, grinder chews bottom-up, gem halos, etc.), referenced from `CLAUDE.md`. One Playwright test that boots the game, waits 10s, asserts non-zero rotation / non-zero saw hits / no console errors. Tripwire against refactor drift.
+- **Multi-saw collision routing.** `GameScene.handleContact` routes blade-vs-chunk to the FIRST weapon instance with `handleCompoundHit`, regardless of which instance owns the blade. Harmless with one saw; wrong cooldowns/stats with ≥2. Fix: match `otherBody.gameObject.getData('instanceId')` against `inst.id` before routing.
+- **Zombie asteroid cleanup.** In `GameScene.damageLiveChunk`, when `components.length === 0`, removal waits for the next `update()` tick's `!ast.isAlive` guard — brief zombie iterated once more. Fix: remove from `liveAsteroids` explicitly in the 0-component branch.
+- **Saw `lastHitAt` unbounded growth.** `Map<chunkId, number>` never prunes; few-KB leak per session. Fix: key on `${asteroid.id}/${chunkId}` and drop entries older than ~1s each frame.
+- **CI action versions.** `actions/*@v4/v5` run on Node 20 (deprecated June 2026). Bump when replacements ship.
 
-### Phases (Unity prototype)
+## 2. Quality of life
 
-1. **Foundations** — done (2026-04-14). Local WebGL release build → `scripts/deploy.sh` → `gh-pages`. Edit Mode (2/2) + Play Mode (3/3) tests green. Empty arena scene with DropZone walls, Grinder trigger line at the floor, and left panel placeholder.
-2. **Chunk & asteroid core** — done (2026-04-14). Chunk entity (square + triangle types in code, square-only generation), connection graph with BFS connected-component tracking, fracture-into-N-rigid-bodies on chunk destruction, time-based spawner dropping asteroids into the arena. 17 EditMode + 12 PlayMode tests green.
-3. **Spinning Saw** — done (2026-04-15). Circular hub + orbiting/spinning triangular blade at the pinched waist of a new hourglass DropZone. Blade "chews" chunks via `OnCollisionStay2D` (no knockback), emits throttled yellow spark bursts on contact. AsteroidSpawner tuned to gravityScale 0.3, spawn width narrowed to 4. 24 EditMode + 14 PlayMode tests green.
-4. **Economy & Grinder** — done (2026-04-15). Grinder at the floor pays out cash on chunk entry ($1 per live chunk, `max(1, MaxHp × multiplier)` per dead chunk). `GameplayState` singleton ledger with `CashChanged` event. Left-panel screen-space Canvas (TextMeshPro) shows running cash and an interactive "+1 Blade" upgrade button ($10, cap 6). 41 EditMode + 28 PlayMode tests green.
-5. **Upgrade trees** — done (2026-04-15). 10-upgrade tree across 3 categories (Saw: Blade Count / Damage / Spin / Orbit / Size; Environment: Grinder DoT / Arena Width; Asteroid: Drop Rate / Chunk HP / Asteroid Size). `UpgradeCatalog` + `UpgradeState` + `UpgradeApplier` pure-C# data model with exponential `CostFormula`. Category drill-down UI. Vertical-walled arena (no more hourglass). Grinder reworked to damage-over-time with velocity-clamp block. `CircularShapeGenerator` produces roughly-round asteroid silhouettes with mixed square/triangle chunks. Random asteroid spin on spawn. Dev starting cash $5000 until debug overlay lands. 75 EditMode + 35 PlayMode tests green.
-6. **Save & offline** — not reached in Unity. Autosave, offline progression, welcome-back popup.
-7. **Debug overlay** — not reached. Stats, inspector, controls, visual overlays, event log. Includes toggle to zero out starting-cash dev cheat.
-8. **Art pass** — not reached. Chunk sprites, particles, palette, background.
-9. **Audio pass** — not reached. Lo-fi loop, chunky SFX.
+Smaller player-facing wins. Land before content so resolution/layout changes don't invalidate later art work.
 
-### Unity-era backlog (tuning notes worth keeping)
+- **Text crispness on HiDPI displays.** `Scale.FIT` upscales the 1280×720 canvas without re-rasterizing text — retina screens see grainy `$cash` and welcome-back text. Cheapest: `crispText()` helper setting `resolution: window.devicePixelRatio` on every Text object. Medium: bump base to 2560×1440. Biggest: switch to `Scale.RESIZE` with proportional layout.
+- **Chunk containment.** Dead chunks from high-velocity saw hits can escape the top of the arena. Options: raise walls, add a ceiling collider, clamp chunk velocity on death, or add drag post-death. Diagnose in play first.
+- **Saw direction on double-click.** Replace the CW/CCW menu toggle with double-click on the arbor to reverse. Tactile.
+- **Mobile / portrait mode.** Currently desktop-landscape only.
 
-#### Asteroid & arena tuning
-- **General asteroid improvements — including "larger sooner" on the upgrade curve.** The Unity `AsteroidSize` upgrade started at 4 chunks/level 0 and added 2 per level. Desired direction: asteroids should grow MORE and FASTER early in the curve so the game feels meaty quickly. Tune `BaseAsteroidChunkCount` and the per-level multiplier. Consider a non-linear curve (e.g. Fibonacci-like).
-- **Chunk containment — stop chunks from flying out of the arena.** Dead chunks from high-velocity saw hits sometimes escape through the top of the arena or over the walls. Options: raise walls, add a ceiling collider at spawn height, clamp chunk velocity on death, or give chunks drag post-death. Diagnose in play first.
-- **Paired triangles — two triangles in the same cell.** Unity `CircularShapeGenerator` allowed at most one shape per cell (Square or one of 4 Triangle rotations), so a triangle's hypotenuse never connects to anything. Desired direction: two triangles (e.g. NE + SW halves) share one cell with an internal diagonal split. Requires refactoring `AsteroidShape` from `Dictionary<ChunkCell, ChunkShape>` to a tile-indexed list so multiple chunks can share a cell coordinate. Touches generator, factory, fracture, tests. ~300-line refactor.
-- **Wall expansion should be much slower.** Arena Width upgrade widened by 1 unit per level (2 → 10 over 8 levels). Desired direction: progression should feel earned — widen by smaller increments (e.g. 0.25 per level, extend the cap), or scale cost much more aggressively.
+## 3. New gameplay systems
 
-#### Saw tree
-- **Buy and pick saw shape.** Saw is locked to one blade silhouette (triangular). Add a "Shape Library" purchase that unlocks alternatives (circular, bladed, star, crescent) and a selector UI. Needs a new `SawShape` concept (sprite + collider profile per shape) plus a "currently equipped" setter on the saw hub and UI for selection.
+Biggest adds — new reasons to keep playing.
 
-#### Menu/UX
-- **Visual overhaul of the menu system** — Unity left-panel Canvas was a functional MVP (cash readout + category rail + sub-panel). Needs proper visual design: typography, spacing, panel framing, hover/press feedback, category icon art.
-- **Live-demo category icons** — instead of glyph placeholders (★ ■ ●), render each category's hero entity into the button itself (e.g. a miniature spinning saw inside the Saw icon). Defer to art pass.
-- **Grinder sprite / visual polish.** Unity grinder was a flat light-blue bar — needs teeth, rotation animation, chew-effect particles, conveyor-belt feel.
+- **Prestige / meta loop — asteroid cores.** Each asteroid has a core chunk (centroid, already tagged `isCore` in Phase 6). Mining cores yields a prestige resource; prestige resets run progress and unlocks random pathways, new zones where weapons can go, and persistent global upgrades. Design question: what makes resetting feel worth it?
+  - **Offline-earnings cap extender.** Prestige-tier upgrade that raises `OFFLINE_CAP_MS` (default 8h → 12h → 24h → 48h) at steep prestige cost.
+- **More weapons.** Tesla Coil, Freeze Ray, Flak Cannon, Gravity Well, Rail Gun, Drone Swarm (from the Unity prototype backlog). One `WeaponBehavior` file + catalog entry each.
+- **Saw shape library.** Purchase unlocks alternate blade silhouettes (circular, bladed, star, crescent). Needs a `SawShape` concept (sprite + collider profile per shape) plus a selector UI.
 
-#### Polish backlog (art pass)
-- Triangle chunks need a more distinctive visual beyond a flat procedural 32×32 right-triangle sprite.
-- Spark bursts: swap procedural 1×1 white sprite for a small star/plus glyph, tint warmer toward centre.
-- Saw hub + blade: procedural 64×64 sprites look slightly chunky at large zoom — bump to 128 or ship proper sprite assets.
+## 4. Economy & balance
+
+Makes progression feel earned.
+
+- **Economy rebalance.** All costs are placeholder ($1 flat). Needs exponential scaling, per-weapon buy curves, sell refund formula, upgrade cost tuning. Must land before/with any of the new gameplay systems above.
+- **Sell the last weapon; link buy prices.** Allow selling down to zero. All weapon buy prices are linked globally — the Nth weapon of any type costs the same, not per-type. Roll into the rebalance.
+- **"Larger sooner" asteroid curve.** Current Asteroid Size upgrade starts at 4 chunks and adds linearly. Desired: grow more, faster early (non-linear, Fibonacci-ish) so the game feels meaty quickly.
+- **Slower wall expansion.** Channel Width upgrade should widen by smaller increments or scale cost more aggressively — progression should feel earned.
+
+## 5. Art & audio pass
+
+Visual and sonic polish.
+
+- Palette tuning, particle polish, general readability pass.
+- Shop-panel styling: typography, spacing, framing, hover/press feedback, category icon art.
+- **Live-demo category icons** — render each category's hero entity into the button (e.g. a miniature spinning saw inside the Saw icon).
+- **Grinder visual overhaul.** Replace the plain death line with teeth, rotation animation, conveyor-belt feel, chew-effect particles.
+- **Background pass.** Flat `#1a1a28` → stars / nebula gradient / parallax / subtle animated field. Should read as "space" without distracting.
+- Spark-burst upgrade: swap the procedural 1×1 white for a star/plus glyph, warmer toward centre.
+- Saw hub + blade sprites: bump procedural 64×64 art or ship proper assets.
+- **Lo-fi audio loop + chunky SFX.** New domain — no audio exists yet.
+
+## 6. Scope expansions
+
+Maybe-later.
+
+- Achievements, cosmetics.
