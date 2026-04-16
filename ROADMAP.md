@@ -31,6 +31,7 @@ Living document. Phases are strategic milestones; the todo list at the bottom tr
 
 - **Economy rebalance.** All costs are placeholder ($1 flat). Needs proper exponential scaling, per-weapon buy cost curves, sell refund formula, and upgrade cost tuning. Must come AFTER all weapons and money-touching features are implemented.
 - **Grinder visual overhaul.** Replace the plain circle with spinning saw teeth / conveyor-belt feel. Comes after weapons.
+- **Saw direction on double-click.** Replace CW/CCW menu toggle with double-click on the saw arbor to reverse direction. Simpler, more tactile.
 - Additional weapons beyond the four in Phase 5 (Tesla Coil, Freeze Ray, Flak Cannon, Gravity Well, Rail Gun, Drone Swarm — from the Unity project's `TODO.md`).
 - **Background pass.** The arena currently sits on a flat `#1a1a28` canvas. Needs a proper background: stars, nebula gradient, parallax layers, or a subtle animated field. Should read as "space" without distracting from the gameplay. Defer until art pass unless flagged earlier.
 - **Prestige / meta loop.** Prestige triggers after collecting enough "cores" (new resource). Resets progress but unlocks random pathways, new zones where weapons can go, and deeper meta-progression. Need to design a compelling reason to prestige (what do you gain that makes resetting feel worth it?).
