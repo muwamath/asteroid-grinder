@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import type { Asteroid } from '../asteroid';
+import type { CompoundAsteroid } from '../compoundAsteroid';
 import type { EffectiveGameplayParams } from '../upgradeApplier';
 
 export interface WeaponBehavior {
@@ -31,10 +32,11 @@ export interface WeaponBehavior {
     next: EffectiveGameplayParams,
   ): void;
 
-  /** Handle a saw-blade-to-chunk collision (only saw implements this). */
-  handleCollision?(
-    chunk: Phaser.Physics.Matter.Image,
-    blade: Phaser.Physics.Matter.Image,
+  /** Handle a collision between a weapon body and a compound-asteroid chunk part. */
+  handleCompoundHit?(
+    asteroid: CompoundAsteroid,
+    chunkId: string,
+    weaponBody: MatterJS.BodyType,
     params: EffectiveGameplayParams,
     scene: Phaser.Scene,
   ): { hit: boolean; killed: boolean };
@@ -46,7 +48,11 @@ export interface WeaponBehavior {
   destroy(): void;
 }
 
-/** Helper: damage a chunk via its asteroid reference. */
+/**
+ * Legacy helper used by laser/missile until Task 9 migrates them to the
+ * ChunkTarget-based API. Loose dead chunks retain `data('asteroid')` for
+ * backwards compatibility during the transition.
+ */
 export function damageChunk(
   chunk: Phaser.Physics.Matter.Image,
   amount: number,

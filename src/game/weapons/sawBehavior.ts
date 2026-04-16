@@ -1,12 +1,16 @@
 import Phaser from 'phaser';
+import type { CompoundAsteroid } from '../compoundAsteroid';
 import { gameplayState } from '../gameplayState';
 import type { EffectiveGameplayParams } from '../upgradeApplier';
 import { BASE_PARAMS } from '../upgradeApplier';
 import type { WeaponBehavior } from './weaponBehavior';
-import { damageChunk } from './weaponBehavior';
 
 const ARBOR_RADIUS = 20;
 const SAW_HIT_COOLDOWN_MS = 120;
+
+interface SceneWithDamage extends Phaser.Scene {
+  damageLiveChunk(ast: CompoundAsteroid, chunkId: string, amount: number): boolean;
+}
 
 export class SawBehavior implements WeaponBehavior {
   readonly textureKey = 'arbor';
@@ -15,7 +19,7 @@ export class SawBehavior implements WeaponBehavior {
 
   private orbitAngle = 0;
   private blades: Phaser.Physics.Matter.Image[] = [];
-  private lastHitAt = new WeakMap<Phaser.Physics.Matter.Image, number>();
+  private lastHitAt = new Map<string, number>();
   private hitCount = 0;
   private killCount = 0;
 
@@ -75,47 +79,57 @@ export class SawBehavior implements WeaponBehavior {
     }
   }
 
-  handleCollision(
-    chunk: Phaser.Physics.Matter.Image,
-    blade: Phaser.Physics.Matter.Image,
+  handleCompoundHit(
+    asteroid: CompoundAsteroid,
+    chunkId: string,
+    weaponBody: MatterJS.BodyType,
     params: EffectiveGameplayParams,
     scene: Phaser.Scene,
   ): { hit: boolean; killed: boolean } {
-    if (chunk.getData('dead')) return { hit: false, killed: false };
+    const chunk = asteroid.chunks.get(chunkId);
+    if (!chunk) return { hit: false, killed: false };
 
     const now = (scene as Phaser.Scene & { time: Phaser.Time.Clock }).time.now;
-    const last = this.lastHitAt.get(chunk) ?? -Infinity;
+    const last = this.lastHitAt.get(chunkId) ?? -Infinity;
     if (now - last < SAW_HIT_COOLDOWN_MS) return { hit: false, killed: false };
-    this.lastHitAt.set(chunk, now);
+    this.lastHitAt.set(chunkId, now);
 
-    const result = damageChunk(chunk, params.sawDamage);
+    const sceneTyped = scene as SceneWithDamage;
+    const killed = sceneTyped.damageLiveChunk(asteroid, chunkId, params.sawDamage);
     this.hitCount++;
 
-    // Tangential impulse
-    const dx = chunk.x - blade.x;
-    const dy = chunk.y - blade.y;
+    const cx = chunk.bodyPart.position.x;
+    const cy = chunk.bodyPart.position.y;
+    const bx = weaponBody.position.x;
+    const by = weaponBody.position.y;
+    const dx = cx - bx;
+    const dy = cy - by;
     const dist = Math.sqrt(dx * dx + dy * dy);
     if (dist > 0.1) {
       const dir = gameplayState.sawClockwise ? 1 : -1;
       const tx = (-dy / dist) * dir;
       const ty = (dx / dist) * dir;
-      const strength = params.bladeSpinSpeed * params.bladeRadius;
-      chunk.applyForce(new Phaser.Math.Vector2(tx * strength, ty * strength));
+      const strength = params.bladeSpinSpeed * params.bladeRadius * 0.0003;
+      const matterScene = scene as Phaser.Scene & { matter: Phaser.Physics.Matter.MatterPhysics };
+      matterScene.matter.body.applyForce(
+        asteroid.body,
+        { x: cx, y: cy },
+        { x: tx * strength, y: ty * strength },
+      );
     }
 
-    // Spark
     for (let i = 0; i < 3; i++) {
-      const s = scene.add.circle(chunk.x, chunk.y, 2, 0xffd166);
+      const s = scene.add.circle(cx, cy, 2, 0xffd166);
       const vx = (Math.random() - 0.5) * 80;
       const vy = (Math.random() - 0.5) * 80 - 20;
       scene.tweens.add({
-        targets: s, x: chunk.x + vx, y: chunk.y + vy, alpha: 0,
+        targets: s, x: cx + vx, y: cy + vy, alpha: 0,
         duration: 280, onComplete: () => s.destroy(),
       });
     }
 
-    if (result.killed) this.killCount++;
-    return { hit: true, killed: result.killed };
+    if (killed) this.killCount++;
+    return { hit: true, killed };
   }
 
   getBarrierBodies(): Array<{ x: number; y: number; radius: number }> {

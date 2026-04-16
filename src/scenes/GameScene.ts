@@ -7,6 +7,7 @@ import { WEAPON_TYPES } from '../game/weaponCatalog';
 import { type WeaponBehavior, createBehavior, allBehaviorPrototypes } from '../game/weapons';
 import { MATERIALS, type Material, textureKeyFor } from '../game/materials';
 import type { ChunkTarget } from '../game/chunkTarget';
+import type { ChunkPartPlugin } from '../game/compoundAsteroid';
 import { applyKillAndSplit } from '../game/asteroidGraph';
 
 const ARBOR_RADIUS = 20;
@@ -462,13 +463,39 @@ export class GameScene extends Phaser.Scene {
     this.spawnedChunks += asteroid.chunks.size;
   }
 
-  /**
-   * Stubbed until Task 8 rewrites it against plugin-based part routing.
-   * Collision wiring in wireCollisions still points at this method so the
-   * collisionstart/active listeners don't throw.
-   */
-  private handleContact(_bodyA: MatterJS.BodyType, _bodyB: MatterJS.BodyType): void {
-    // no-op during mid-refactor
+  private handleContact(bodyA: MatterJS.BodyType, bodyB: MatterJS.BodyType): void {
+    const pluginA = (bodyA as unknown as { plugin?: Partial<ChunkPartPlugin> }).plugin;
+    const pluginB = (bodyB as unknown as { plugin?: Partial<ChunkPartPlugin> }).plugin;
+
+    let chunkPart: MatterJS.BodyType | null = null;
+    let otherPart: MatterJS.BodyType | null = null;
+    let plugin: ChunkPartPlugin | null = null;
+
+    if (pluginA?.kind === 'chunk' && pluginA.asteroid && pluginA.chunkId) {
+      chunkPart = bodyA; otherPart = bodyB;
+      plugin = pluginA as ChunkPartPlugin;
+    } else if (pluginB?.kind === 'chunk' && pluginB.asteroid && pluginB.chunkId) {
+      chunkPart = bodyB; otherPart = bodyA;
+      plugin = pluginB as ChunkPartPlugin;
+    }
+    if (!chunkPart || !otherPart || !plugin) return;
+
+    const goOther = (otherPart as { gameObject?: Phaser.GameObjects.GameObject }).gameObject;
+    const otherKind = goOther?.getData?.('kind') as string | undefined;
+    if (otherKind !== 'saw') return;
+
+    for (const inst of this.weaponInstances) {
+      if (inst.behavior.handleCompoundHit) {
+        const result = inst.behavior.handleCompoundHit(
+          plugin.asteroid, plugin.chunkId, otherPart, this.effectiveParams, this,
+        );
+        if (result.hit) {
+          this.weaponHits++;
+          if (result.killed) this.killedBySaw++;
+        }
+        break;
+      }
+    }
   }
 
   // ── juice ──────────────────────────────────────────────────────────────
