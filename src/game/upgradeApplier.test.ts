@@ -125,6 +125,16 @@ describe('applyUpgrades', () => {
     expect(applyUpgrades({ 'blackhole.maxTargets': 4 }).blackholeMaxTargets).toBe(3 + 4);
   });
 
+  it('raises qualityLevel per asteroid-quality level', () => {
+    expect(applyUpgrades({}).qualityLevel).toBe(0);
+    expect(applyUpgrades({ 'asteroids.quality': 5 }).qualityLevel).toBe(5);
+  });
+
+  it('scales fallSpeedMultiplier per asteroid-fallSpeed level', () => {
+    expect(applyUpgrades({}).fallSpeedMultiplier).toBeCloseTo(0.15);
+    expect(applyUpgrades({ 'asteroids.fallSpeed': 3 }).fallSpeedMultiplier).toBeCloseTo(0.45);
+  });
+
   it('combines multiple upgrades independently', () => {
     const e = applyUpgrades({ 'saw.damage': 2, 'saw.bladeCount': 1, 'asteroids.chunkHp': 1 });
     expect(e.sawDamage).toBe(3);
@@ -162,8 +172,15 @@ describe('weaponCatalog + upgradeCatalog', () => {
         'asteroids.dropRate',
         'asteroids.chunkHp',
         'asteroids.asteroidSize',
+        'asteroids.quality',
+        'asteroids.fallSpeed',
       ]),
     );
+  });
+
+  it('includes asteroidQuality and asteroidFallSpeed in Asteroids category', () => {
+    expect(findUpgrade('asteroids.quality')?.category).toBe('asteroids');
+    expect(findUpgrade('asteroids.fallSpeed')?.category).toBe('asteroids');
   });
 
   it('findUpgrade looks up by dotted id', () => {

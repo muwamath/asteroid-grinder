@@ -1,3 +1,5 @@
+import { fallSpeedMultiplier as fallSpeedMultiplierFn } from './materials';
+
 export interface EffectiveGameplayParams {
   readonly sawDamage: number;
   readonly bladeCount: number;
@@ -23,6 +25,8 @@ export interface EffectiveGameplayParams {
   readonly blackholeCoreSize: number;
   readonly blackholeCoreDamage: number;
   readonly blackholeMaxTargets: number;
+  readonly qualityLevel: number;
+  readonly fallSpeedMultiplier: number;
 }
 
 // Level-0 defaults. Each upgrade adds to these via applyUpgrades.
@@ -51,6 +55,8 @@ export const BASE_PARAMS: EffectiveGameplayParams = {
   blackholeCoreSize: 15,
   blackholeCoreDamage: 1,
   blackholeMaxTargets: 3,
+  qualityLevel: 0,
+  fallSpeedMultiplier: 0.15,
 };
 
 // Per-level deltas. Tuning scaffolding — adjust after playtesting.
@@ -121,5 +127,7 @@ export function applyUpgrades(
     blackholeCoreSize: BASE_PARAMS.blackholeCoreSize + lv('blackhole.coreSize') * BLACKHOLE_CORE_SIZE_PER_LEVEL,
     blackholeCoreDamage: BASE_PARAMS.blackholeCoreDamage + lv('blackhole.coreDamage') * BLACKHOLE_CORE_DAMAGE_PER_LEVEL,
     blackholeMaxTargets: BASE_PARAMS.blackholeMaxTargets + lv('blackhole.maxTargets') * BLACKHOLE_MAX_TARGETS_PER_LEVEL,
+    qualityLevel: lv('asteroids.quality'),
+    fallSpeedMultiplier: fallSpeedMultiplierFn(lv('asteroids.fallSpeed')),
   };
 }
