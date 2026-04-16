@@ -38,6 +38,21 @@ describe('applyUpgrades', () => {
     expect(e.maxChunks).toBe(BASE_PARAMS.maxChunks + 6);
   });
 
+  it('increases bladeSpinSpeed per level', () => {
+    expect(applyUpgrades({}).bladeSpinSpeed).toBe(0.005);
+    expect(applyUpgrades({ 'saw.spinSpeed': 4 }).bladeSpinSpeed).toBeCloseTo(0.005 + 4 * 0.005);
+  });
+
+  it('increases orbitSpeed per level', () => {
+    expect(applyUpgrades({}).orbitSpeed).toBe(1);
+    expect(applyUpgrades({ 'saw.orbitSpeed': 5 }).orbitSpeed).toBeCloseTo(1 + 5 * 0.6);
+  });
+
+  it('increases bladeRadius per level', () => {
+    expect(applyUpgrades({}).bladeRadius).toBe(6);
+    expect(applyUpgrades({ 'saw.bladeSize': 3 }).bladeRadius).toBe(6 + 3 * 2);
+  });
+
   it('combines multiple upgrades independently', () => {
     const e = applyUpgrades({ 'saw.damage': 2, 'saw.bladeCount': 1, 'asteroids.chunkHp': 1 });
     expect(e.sawDamage).toBe(3);
@@ -54,6 +69,9 @@ describe('weaponCatalog + upgradeCatalog', () => {
       expect.arrayContaining([
         'saw.damage',
         'saw.bladeCount',
+        'saw.spinSpeed',
+        'saw.orbitSpeed',
+        'saw.bladeSize',
         'chute.channelWidth',
         'asteroids.dropRate',
         'asteroids.chunkHp',
