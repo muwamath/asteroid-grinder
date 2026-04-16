@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { GameScene } from './scenes/GameScene';
+import { UIScene } from './scenes/UIScene';
 
 const debug = new URLSearchParams(window.location.search).has('debug');
 
@@ -16,5 +17,5 @@ new Phaser.Game({
       debug,
     },
   },
-  scene: [GameScene],
+  scene: [GameScene, UIScene],
 });

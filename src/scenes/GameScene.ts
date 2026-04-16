@@ -2,36 +2,37 @@ import Phaser from 'phaser';
 import type { Asteroid } from '../game/asteroid';
 import { CHUNK_PIXEL_SIZE } from '../game/asteroid';
 import { AsteroidSpawner } from '../game/asteroidSpawner';
+import { gameplayState } from '../game/gameplayState';
+import { BASE_PARAMS, applyUpgrades, type EffectiveGameplayParams } from '../game/upgradeApplier';
 
 const STOPPER_RADIUS = 32;
 const SAW_ORBIT_RADIUS = 56;
 const SAW_ORBIT_RAD_PER_SEC = 4;
 const SAW_RADIUS = 18;
-const SAW_DAMAGE_PER_HIT = 1;
 const SAW_HIT_COOLDOWN_MS = 120;
 
-const SPAWN_INTERVAL_MS = 1800;
 const SPAWN_Y = -80;
 const DEATH_LINE_Y = 580;
 
-// Phase-2 prototype grind channel: two static vertical walls flank the
-// stopper/saw so asteroids can't fall past without being ground. Hardcoded
-// for now; Phase 5 will turn these into the Arena Width upgrade.
-const CHANNEL_HALF_WIDTH = 80;
 const CHANNEL_WALL_THICKNESS = 12;
 const CHANNEL_TOP_Y = 80;
 
 export class GameScene extends Phaser.Scene {
-  private cash = 0;
-  private cashText!: Phaser.GameObjects.Text;
-
   private stopper!: Phaser.Physics.Matter.Image;
-  private sawBlade!: Phaser.Physics.Matter.Image;
+  private sawBlades: Phaser.Physics.Matter.Image[] = [];
   private sawAngle = 0;
 
   private spawner!: AsteroidSpawner;
   private chunkImages = new Set<Phaser.Physics.Matter.Image>();
   private lastHitAt = new WeakMap<Phaser.Physics.Matter.Image, number>();
+
+  private effectiveParams: EffectiveGameplayParams = BASE_PARAMS;
+  private spawnTimer: Phaser.Time.TimerEvent | null = null;
+
+  private channelLeftBody: MatterJS.BodyType | null = null;
+  private channelRightBody: MatterJS.BodyType | null = null;
+  private channelLeftVisual: Phaser.GameObjects.Rectangle | null = null;
+  private channelRightVisual: Phaser.GameObjects.Rectangle | null = null;
 
   private debugMode = false;
   private debugText: Phaser.GameObjects.Text | null = null;
@@ -43,6 +44,8 @@ export class GameScene extends Phaser.Scene {
   private cashFromLine = 0;
   private spawnedCount = 0;
   private spawnedChunks = 0;
+
+  private unsubscribeUpgrade: (() => void) | null = null;
 
   constructor() {
     super('game');
@@ -56,31 +59,47 @@ export class GameScene extends Phaser.Scene {
   }
 
   create(): void {
+    gameplayState.reset();
+    this.effectiveParams = applyUpgrades(gameplayState.levels());
+
     const { width, height } = this.scale;
 
     this.buildArena(width, height);
-    this.buildStopperAndSaw(width);
+    this.buildStopper(width);
+    this.rebuildBlades(this.effectiveParams.bladeCount);
+    this.rebuildChannelWalls(this.effectiveParams.channelHalfWidth);
     this.buildHud(width);
     this.wireCollisions();
 
     this.spawner = new AsteroidSpawner(this, this.chunkImages);
+    this.rebuildSpawnTimer(this.effectiveParams.spawnIntervalMs);
+    this.spawnAsteroid();
 
-    this.time.addEvent({
-      delay: SPAWN_INTERVAL_MS,
-      loop: true,
-      callback: () => this.spawnAsteroid(),
+    this.unsubscribeUpgrade = gameplayState.on('upgradeLevelChanged', () => {
+      this.recomputeEffectiveParams();
     });
 
-    this.spawnAsteroid();
+    this.events.once('shutdown', () => {
+      this.unsubscribeUpgrade?.();
+      this.unsubscribeUpgrade = null;
+    });
+
+    this.scene.launch('ui');
   }
 
   update(_time: number, delta: number): void {
     this.sawAngle += (SAW_ORBIT_RAD_PER_SEC * delta) / 1000;
-    const sx = this.stopper.x + Math.cos(this.sawAngle) * SAW_ORBIT_RADIUS;
-    const sy = this.stopper.y + Math.sin(this.sawAngle) * SAW_ORBIT_RADIUS;
-    this.sawBlade.setPosition(sx, sy);
-    this.sawBlade.setVelocity(0, 0);
-    this.sawBlade.setRotation(this.sawBlade.rotation + delta * 0.02);
+
+    const bladeCount = this.sawBlades.length;
+    for (let i = 0; i < bladeCount; i++) {
+      const phase = this.sawAngle + (i * Math.PI * 2) / bladeCount;
+      const sx = this.stopper.x + Math.cos(phase) * SAW_ORBIT_RADIUS;
+      const sy = this.stopper.y + Math.sin(phase) * SAW_ORBIT_RADIUS;
+      const blade = this.sawBlades[i];
+      blade.setPosition(sx, sy);
+      blade.setVelocity(0, 0);
+      blade.setRotation(blade.rotation + delta * 0.02);
+    }
 
     for (const chunk of this.chunkImages) {
       if (!chunk.active) {
@@ -105,7 +124,8 @@ export class GameScene extends Phaser.Scene {
           `spawned ${this.spawnedCount} asteroids · ${this.spawnedChunks} chunks`,
           `saw hits ${this.sawHits}  ·  killed by saw ${this.killedBySaw}`,
           `collected dead ${this.collectedDead}  ·  collected alive ${this.collectedAlive}`,
-          `cash: $${this.cash}  (saw $${this.cashFromSaw}  +  line $${this.cashFromLine})`,
+          `cash ledger $${gameplayState.cash} (saw $${this.cashFromSaw} + line $${this.cashFromLine})`,
+          `blades ${this.sawBlades.length}  ·  dmg ${this.effectiveParams.sawDamage}  ·  spawn ${this.effectiveParams.spawnIntervalMs}ms`,
         ].join('\n'),
       );
     }
@@ -114,31 +134,11 @@ export class GameScene extends Phaser.Scene {
   // ── build ──────────────────────────────────────────────────────────────
 
   private buildArena(width: number, height: number): void {
-    // Outer side walls (catch-all so nothing leaves the canvas). No ceiling —
-    // asteroids spawn offscreen above (SPAWN_Y < 0) and fall in naturally.
+    // Outer side walls — catch-all so nothing leaves the canvas. No ceiling;
+    // asteroids spawn offscreen above and fall in naturally.
     const wallT = 20;
     this.matter.add.rectangle(-wallT / 2, height / 2, wallT, height * 2, { isStatic: true });
     this.matter.add.rectangle(width + wallT / 2, height / 2, wallT, height * 2, { isStatic: true });
-
-    // Inner grind-channel walls (Phase-2 prototype).
-    const channelTopY = CHANNEL_TOP_Y;
-    const channelHeight = DEATH_LINE_Y - channelTopY;
-    const channelMidY = channelTopY + channelHeight / 2;
-    const leftWallX = width / 2 - CHANNEL_HALF_WIDTH - CHANNEL_WALL_THICKNESS / 2;
-    const rightWallX = width / 2 + CHANNEL_HALF_WIDTH + CHANNEL_WALL_THICKNESS / 2;
-    this.matter.add.rectangle(leftWallX, channelMidY, CHANNEL_WALL_THICKNESS, channelHeight, {
-      isStatic: true,
-    });
-    this.matter.add.rectangle(rightWallX, channelMidY, CHANNEL_WALL_THICKNESS, channelHeight, {
-      isStatic: true,
-    });
-    // Visual for the channel walls so the player can see them.
-    this.add
-      .rectangle(leftWallX, channelMidY, CHANNEL_WALL_THICKNESS, channelHeight, 0x3a3a4c)
-      .setOrigin(0.5);
-    this.add
-      .rectangle(rightWallX, channelMidY, CHANNEL_WALL_THICKNESS, channelHeight, 0x3a3a4c)
-      .setOrigin(0.5);
 
     this.add.rectangle(width / 2, DEATH_LINE_Y, width, 3, 0xff3355, 0.9).setOrigin(0.5);
     this.add
@@ -149,7 +149,7 @@ export class GameScene extends Phaser.Scene {
       .setOrigin(1, 1);
   }
 
-  private buildStopperAndSaw(width: number): void {
+  private buildStopper(width: number): void {
     this.stopper = this.matter.add.image(width / 2, 500, 'stopper');
     this.stopper.setCircle(STOPPER_RADIUS);
     this.stopper.setStatic(true);
@@ -160,40 +160,87 @@ export class GameScene extends Phaser.Scene {
       Phaser.Input.Events.DRAG,
       (_pointer: Phaser.Input.Pointer, obj: Phaser.GameObjects.GameObject, dragX: number, dragY: number) => {
         if (obj !== this.stopper) return;
-        // Clamp to the grind channel so the stopper can't leave the saw slot.
         const halfW = this.scale.width / 2;
-        const minX = halfW - CHANNEL_HALF_WIDTH + STOPPER_RADIUS + 4;
-        const maxX = halfW + CHANNEL_HALF_WIDTH - STOPPER_RADIUS - 4;
+        const halfChannel = this.effectiveParams.channelHalfWidth;
+        const minX = halfW - halfChannel + STOPPER_RADIUS + 4;
+        const maxX = halfW + halfChannel - STOPPER_RADIUS - 4;
         const cx = Phaser.Math.Clamp(dragX, minX, maxX);
         const cy = Phaser.Math.Clamp(dragY, CHANNEL_TOP_Y + STOPPER_RADIUS + 4, DEATH_LINE_Y - STOPPER_RADIUS - 4);
         this.stopper.setPosition(cx, cy);
       },
     );
-
-    this.sawBlade = this.matter.add.image(width / 2 + SAW_ORBIT_RADIUS, 500, 'saw');
-    this.sawBlade.setCircle(SAW_RADIUS);
-    this.sawBlade.setSensor(true);
-    this.sawBlade.setIgnoreGravity(true);
-    this.sawBlade.setFrictionAir(0);
-    this.sawBlade.setMass(0.001);
-    this.sawBlade.setData('kind', 'saw');
   }
 
-  private buildHud(width: number): void {
-    this.cashText = this.add.text(14, 10, '$0', {
-      font: 'bold 26px ui-monospace',
-      color: '#ffd166',
+  private rebuildBlades(count: number): void {
+    for (const blade of this.sawBlades) blade.destroy();
+    this.sawBlades = [];
+    for (let i = 0; i < count; i++) {
+      const blade = this.matter.add.image(0, 0, 'saw');
+      blade.setCircle(SAW_RADIUS);
+      blade.setSensor(true);
+      blade.setIgnoreGravity(true);
+      blade.setFrictionAir(0);
+      blade.setMass(0.001);
+      blade.setData('kind', 'saw');
+      this.sawBlades.push(blade);
+    }
+  }
+
+  private rebuildChannelWalls(halfWidth: number): void {
+    if (this.channelLeftBody) this.matter.world.remove(this.channelLeftBody);
+    if (this.channelRightBody) this.matter.world.remove(this.channelRightBody);
+    this.channelLeftVisual?.destroy();
+    this.channelRightVisual?.destroy();
+
+    const width = this.scale.width;
+    const channelHeight = DEATH_LINE_Y - CHANNEL_TOP_Y;
+    const channelMidY = CHANNEL_TOP_Y + channelHeight / 2;
+    const leftWallX = width / 2 - halfWidth - CHANNEL_WALL_THICKNESS / 2;
+    const rightWallX = width / 2 + halfWidth + CHANNEL_WALL_THICKNESS / 2;
+
+    this.channelLeftBody = this.matter.add.rectangle(
+      leftWallX,
+      channelMidY,
+      CHANNEL_WALL_THICKNESS,
+      channelHeight,
+      { isStatic: true },
+    );
+    this.channelRightBody = this.matter.add.rectangle(
+      rightWallX,
+      channelMidY,
+      CHANNEL_WALL_THICKNESS,
+      channelHeight,
+      { isStatic: true },
+    );
+    this.channelLeftVisual = this.add
+      .rectangle(leftWallX, channelMidY, CHANNEL_WALL_THICKNESS, channelHeight, 0x3a3a4c)
+      .setOrigin(0.5);
+    this.channelRightVisual = this.add
+      .rectangle(rightWallX, channelMidY, CHANNEL_WALL_THICKNESS, channelHeight, 0x3a3a4c)
+      .setOrigin(0.5);
+
+    // If the stopper is outside the new channel, pull it in.
+    const halfW = this.scale.width / 2;
+    const minX = halfW - halfWidth + STOPPER_RADIUS + 4;
+    const maxX = halfW + halfWidth - STOPPER_RADIUS - 4;
+    this.stopper?.setPosition(
+      Phaser.Math.Clamp(this.stopper.x, minX, maxX),
+      this.stopper.y,
+    );
+  }
+
+  private rebuildSpawnTimer(delayMs: number): void {
+    this.spawnTimer?.remove();
+    this.spawnTimer = this.time.addEvent({
+      delay: delayMs,
+      loop: true,
+      callback: () => this.spawnAsteroid(),
     });
+  }
 
-    this.add
-      .text(width / 2, 12, 'drag the stopper · chop the asteroids · keep them off the red line', {
-        font: '13px ui-monospace',
-        color: '#888',
-      })
-      .setOrigin(0.5, 0);
-
+  private buildHud(_width: number): void {
     if (this.debugMode) {
-      this.debugText = this.add.text(14, this.scale.height - 76, '', {
+      this.debugText = this.add.text(14, this.scale.height - 92, '', {
         font: '11px ui-monospace',
         color: '#6cf',
         backgroundColor: '#0008',
@@ -212,14 +259,34 @@ export class GameScene extends Phaser.Scene {
     this.matter.world.on('collisionactive', handler);
   }
 
+  // ── upgrades ──────────────────────────────────────────────────────────
+
+  private recomputeEffectiveParams(): void {
+    const prev = this.effectiveParams;
+    this.effectiveParams = applyUpgrades(gameplayState.levels());
+
+    if (this.effectiveParams.bladeCount !== prev.bladeCount) {
+      this.rebuildBlades(this.effectiveParams.bladeCount);
+    }
+    if (this.effectiveParams.channelHalfWidth !== prev.channelHalfWidth) {
+      this.rebuildChannelWalls(this.effectiveParams.channelHalfWidth);
+    }
+    if (this.effectiveParams.spawnIntervalMs !== prev.spawnIntervalMs) {
+      this.rebuildSpawnTimer(this.effectiveParams.spawnIntervalMs);
+    }
+  }
+
   // ── gameplay ───────────────────────────────────────────────────────────
 
   private spawnAsteroid(): void {
     const beforeSize = this.chunkImages.size;
-    // Drop asteroids into the middle of the grind channel with a small jitter.
     const halfW = this.scale.width / 2;
-    const jitter = (Math.random() - 0.5) * (CHANNEL_HALF_WIDTH * 0.6);
-    this.spawner.spawnOne(halfW + jitter, SPAWN_Y);
+    const jitter = (Math.random() - 0.5) * (this.effectiveParams.channelHalfWidth * 0.6);
+    this.spawner.spawnOne(halfW + jitter, SPAWN_Y, {
+      minChunks: this.effectiveParams.minChunks,
+      maxChunks: this.effectiveParams.maxChunks,
+      maxHpPerChunk: this.effectiveParams.maxHpPerChunk,
+    });
     this.spawnedCount++;
     this.spawnedChunks += this.chunkImages.size - beforeSize;
   }
@@ -230,9 +297,9 @@ export class GameScene extends Phaser.Scene {
     if (!goA || !goB) return;
 
     let chunk: Phaser.Physics.Matter.Image | null = null;
-    if (goA === this.sawBlade && goB.getData('kind') === 'chunk') {
+    if (goA.getData('kind') === 'saw' && goB.getData('kind') === 'chunk') {
       chunk = goB as Phaser.Physics.Matter.Image;
-    } else if (goB === this.sawBlade && goA.getData('kind') === 'chunk') {
+    } else if (goB.getData('kind') === 'saw' && goA.getData('kind') === 'chunk') {
       chunk = goA as Phaser.Physics.Matter.Image;
     }
     if (!chunk) return;
@@ -246,7 +313,7 @@ export class GameScene extends Phaser.Scene {
     const asteroid = chunk.getData('asteroid') as Asteroid | undefined;
     if (!asteroid) return;
 
-    const result = asteroid.damageChunkByImage(chunk, SAW_DAMAGE_PER_HIT);
+    const result = asteroid.damageChunkByImage(chunk, this.effectiveParams.sawDamage);
     this.sawHits++;
     this.spawnSpark(chunk.x, chunk.y);
 
@@ -259,8 +326,6 @@ export class GameScene extends Phaser.Scene {
     const asteroid = chunk.getData('asteroid') as Asteroid | undefined;
     const dead = chunk.getData('dead') as boolean;
 
-    // Live chunk still welded to an asteroid: sever welds before destroying so
-    // Matter doesn't keep constraints pointing at a deleted body.
     if (!dead && asteroid) {
       asteroid.damageChunkByImage(chunk, Number.POSITIVE_INFINITY);
     }
@@ -268,29 +333,18 @@ export class GameScene extends Phaser.Scene {
     if (dead) {
       const maxHp = (chunk.getData('maxHp') as number) ?? 1;
       const amount = Math.max(1, maxHp * 2);
-      this.earn(amount);
+      gameplayState.addCash(amount);
       this.cashFromSaw += amount;
       this.collectedDead++;
       this.spawnConfetti(chunk.x, chunk.y);
     } else {
-      this.earn(1);
+      gameplayState.addCash(1);
       this.cashFromLine += 1;
       this.collectedAlive++;
     }
 
     this.chunkImages.delete(chunk);
     chunk.destroy();
-  }
-
-  private earn(amount: number): void {
-    this.cash += amount;
-    this.cashText.setText(`$${this.cash}`);
-    this.tweens.add({
-      targets: this.cashText,
-      scale: { from: 1.15, to: 1 },
-      duration: 160,
-      ease: 'Quad.out',
-    });
   }
 
   // ── juice ──────────────────────────────────────────────────────────────
@@ -339,7 +393,6 @@ export class GameScene extends Phaser.Scene {
   private makeChunkTextures(): void {
     const size = CHUNK_PIXEL_SIZE;
 
-    // Square.
     {
       const g = this.make.graphics({ x: 0, y: 0 }, false);
       g.fillStyle(0xffffff);
@@ -350,13 +403,7 @@ export class GameScene extends Phaser.Scene {
       g.destroy();
     }
 
-    // Four right-triangle orientations. The name denotes which corner the
-    // right-angle sits in; the two legs run along the edges adjacent to that
-    // corner (so a triNE can connect to N and/or E neighbors).
-    const tri = (
-      key: string,
-      verts: [number, number][],
-    ): void => {
+    const tri = (key: string, verts: [number, number][]): void => {
       const g = this.make.graphics({ x: 0, y: 0 }, false);
       g.fillStyle(0xffffff);
       g.beginPath();
