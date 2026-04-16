@@ -9,9 +9,8 @@ import { MissileLauncher, MissileProjectile } from '../game/missile';
 import { WEAPON_TYPES } from '../game/weaponCatalog';
 
 const ARBOR_RADIUS = 20;
+const TURRET_RADIUS = 10;  // laser + missile turrets: 1/4 area of saw arbor
 const SAW_HIT_COOLDOWN_MS = 120;
-const LASER_TURRET_SIZE = ARBOR_RADIUS * 2;
-const MISSILE_TURRET_SIZE = ARBOR_RADIUS * 2;
 
 // Hard barrier enforcement — pushes alive chunks out of weapon collision
 // zones every frame so pile pressure can't defeat the physics solver.
@@ -30,6 +29,7 @@ interface WeaponInstance {
   sprite: Phaser.Physics.Matter.Image;
   orbitAngle: number;
   blades: Phaser.Physics.Matter.Image[];
+  bodyRadius: number;
   laser?: Laser;
   beamGfx?: Phaser.GameObjects.Graphics;
   missileLauncher?: MissileLauncher;
@@ -236,7 +236,8 @@ export class GameScene extends Phaser.Scene {
       : typeId;
 
     const sprite = this.matter.add.image(x, y, texKey);
-    sprite.setCircle(ARBOR_RADIUS);
+    const bodyRadius = (typeId === 'laser' || typeId === 'missile') ? TURRET_RADIUS : ARBOR_RADIUS;
+    sprite.setCircle(bodyRadius);
     sprite.setStatic(true);
     sprite.setDepth(1);
     sprite.setFriction(0.2);
@@ -249,6 +250,7 @@ export class GameScene extends Phaser.Scene {
       id,
       type: typeId,
       sprite,
+      bodyRadius,
       orbitAngle: 0,
       blades: [],
     };
@@ -295,11 +297,11 @@ export class GameScene extends Phaser.Scene {
         if (!inst) return;
         const halfW = this.scale.width / 2;
         const halfChannel = this.effectiveParams.channelHalfWidth;
-        const radius = ARBOR_RADIUS;
-        const minX = halfW - halfChannel + radius + 4;
-        const maxX = halfW + halfChannel - radius - 4;
+        const r = inst.bodyRadius;
+        const minX = halfW - halfChannel + r + 4;
+        const maxX = halfW + halfChannel - r - 4;
         const cx = Phaser.Math.Clamp(dragX, minX, maxX);
-        const cy = Phaser.Math.Clamp(dragY, CHANNEL_TOP_Y + radius + 4, DEATH_LINE_Y - radius - 4);
+        const cy = Phaser.Math.Clamp(dragY, CHANNEL_TOP_Y + r + 4, DEATH_LINE_Y - r - 4);
         inst.sprite.setPosition(cx, cy);
     };
     this.input.on(Phaser.Input.Events.DRAG, this.dragHandler);
@@ -342,7 +344,7 @@ export class GameScene extends Phaser.Scene {
     const halfW = this.scale.width / 2;
     for (const inst of this.weaponInstances) {
       inst.sprite.setPosition(
-        Phaser.Math.Clamp(inst.sprite.x, halfW - halfWidth + ARBOR_RADIUS + 4, halfW + halfWidth - ARBOR_RADIUS - 4),
+        Phaser.Math.Clamp(inst.sprite.x, halfW - halfWidth + inst.bodyRadius + 4, halfW + halfWidth - inst.bodyRadius - 4),
         inst.sprite.y,
       );
     }
@@ -516,7 +518,7 @@ export class GameScene extends Phaser.Scene {
       // ── weapon bodies ──
       for (const inst of this.weaponInstances) {
         this.pushOutOfCircle(chunk, inst.sprite.x, inst.sprite.y,
-          ARBOR_RADIUS + CHUNK_HALF + BARRIER_BUFFER);
+          inst.bodyRadius + CHUNK_HALF + BARRIER_BUFFER);
         for (const blade of inst.blades) {
           this.pushOutOfCircle(chunk, blade.x, blade.y,
             this.effectiveParams.bladeRadius + CHUNK_HALF + BARRIER_BUFFER);
@@ -580,7 +582,7 @@ export class GameScene extends Phaser.Scene {
     gfx.clear();
 
     if (laser.firing && laser.target && laser.target.active) {
-      const emit = laser.emitPoint(inst.sprite.x, inst.sprite.y, ARBOR_RADIUS);
+      const emit = laser.emitPoint(inst.sprite.x, inst.sprite.y, inst.bodyRadius);
       gfx.lineStyle(2, 0xff3333, 0.8);
       gfx.beginPath();
       gfx.moveTo(emit.x, emit.y);
@@ -610,7 +612,7 @@ export class GameScene extends Phaser.Scene {
     inst.sprite.setRotation(launcher.aimAngle + Math.PI / 2);
 
     if (fireCmd) {
-      const emit = launcher.emitPoint(inst.sprite.x, inst.sprite.y, ARBOR_RADIUS);
+      const emit = launcher.emitPoint(inst.sprite.x, inst.sprite.y, inst.bodyRadius);
       const proj = new MissileProjectile(
         emit.x, emit.y,
         fireCmd.dirX, fireCmd.dirY,
@@ -631,7 +633,7 @@ export class GameScene extends Phaser.Scene {
 
     for (let i = this.missiles.length - 1; i >= 0; i--) {
       const m = this.missiles[i];
-      const detonation = m.proj.update(delta, this.chunkImages, channelLeft, channelRight);
+      const detonation = m.proj.update(delta, this.chunkImages, channelLeft, channelRight, DEATH_LINE_Y);
 
       if (detonation) {
         const r2 = m.proj.blastRadius * m.proj.blastRadius;
@@ -831,7 +833,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private makeLaserTexture(): void {
-    const s = LASER_TURRET_SIZE;
+    const s = TURRET_RADIUS * 2;
     const g = this.make.graphics({ x: 0, y: 0 }, false);
     g.fillStyle(0x442222);
     g.fillRect(0, 0, s, s);
@@ -846,7 +848,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private makeMissileTexture(): void {
-    const s = MISSILE_TURRET_SIZE;
+    const s = TURRET_RADIUS * 2;
     const g = this.make.graphics({ x: 0, y: 0 }, false);
     g.fillStyle(0x224422);
     g.fillRect(0, 0, s, s);

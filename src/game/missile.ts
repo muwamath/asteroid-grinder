@@ -171,7 +171,6 @@ export class MissileProjectile {
   homing: number;
   target: Phaser.Physics.Matter.Image | null;
   age = 0;
-  alive = true;
 
   constructor(
     x: number,
@@ -204,13 +203,13 @@ export class MissileProjectile {
     chunks: Set<Phaser.Physics.Matter.Image>,
     channelLeft: number,
     channelRight: number,
+    channelBottom: number,
   ): { x: number; y: number } | null {
     const dt = deltaMs / 1000;
     this.age += dt;
 
     // ── timeout ──
     if (this.age >= MISSILE_MAX_LIFETIME_S) {
-      this.alive = false;
       return { x: this.x, y: this.y };
     }
 
@@ -238,8 +237,7 @@ export class MissileProjectile {
     this.y += this.dirY * this.speed * dt;
 
     // ── wall detonation ──
-    if (this.x < channelLeft || this.x > channelRight || this.y < -100 || this.y > 800) {
-      this.alive = false;
+    if (this.x < channelLeft || this.x > channelRight || this.y < -100 || this.y > channelBottom) {
       return { x: this.x, y: this.y };
     }
 
@@ -248,7 +246,6 @@ export class MissileProjectile {
     for (const chunk of chunks) {
       if (!chunk.active || chunk.getData('dead')) continue;
       if (Math.abs(this.x - chunk.x) <= halfChunk && Math.abs(this.y - chunk.y) <= halfChunk) {
-        this.alive = false;
         return { x: this.x, y: this.y };
       }
     }
