@@ -32,11 +32,11 @@ class GameplayState {
     return this._cash;
   }
 
-  addCash(amount: number): void {
+  addCash(amount: number, opts?: { silent?: boolean }): void {
     if (amount === 0) return;
     this._cash += amount;
     this.emit('cashChanged', this._cash, amount);
-    if (amount > 0) this.emit('cashEarned', amount);
+    if (amount > 0 && !opts?.silent) this.emit('cashEarned', amount);
   }
 
   trySpend(amount: number): boolean {

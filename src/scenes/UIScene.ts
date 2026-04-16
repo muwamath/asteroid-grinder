@@ -27,7 +27,9 @@ export class UIScene extends Phaser.Scene {
   }
 
   create(): void {
-    this.cashText = this.add.text(BAR_X, 10, '$0', {
+    // Seed from current state — GameScene's loadSnapshot fires cashChanged
+    // before UIScene is launched, so a cold subscription would miss it.
+    this.cashText = this.add.text(BAR_X, 10, `$${gameplayState.cash}`, {
       font: 'bold 26px ui-monospace',
       color: '#ffd166',
     });
@@ -72,6 +74,81 @@ export class UIScene extends Phaser.Scene {
     this.events.once('shutdown', () => {
       for (const u of this.unsubs) u();
       this.unsubs = [];
+    });
+
+    const award = (this.game.registry.get('offlineAward') as number | undefined) ?? 0;
+    const elapsed = (this.game.registry.get('offlineElapsedMs') as number | undefined) ?? 0;
+    if (award > 0 && elapsed > 0) {
+      this.showWelcomeBack(award, elapsed);
+      this.game.registry.set('offlineAward', 0);
+      this.game.registry.set('offlineElapsedMs', 0);
+    }
+  }
+
+  private showWelcomeBack(award: number, elapsedMs: number): void {
+    const { width, height } = this.scale;
+    const layer: Phaser.GameObjects.GameObject[] = [];
+    const overlay = this.add
+      .rectangle(0, 0, width, height, 0x000000, 0.65)
+      .setOrigin(0, 0)
+      .setInteractive()
+      .setDepth(1000);
+    const panelW = 440;
+    const panelH = 220;
+    const panel = this.add
+      .rectangle(width / 2, height / 2, panelW, panelH, 0x1f1f30)
+      .setStrokeStyle(2, 0xffffff, 0.3)
+      .setDepth(1001);
+
+    const hours = Math.floor(elapsedMs / 3_600_000);
+    const minutes = Math.floor((elapsedMs % 3_600_000) / 60_000);
+    const away = hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
+
+    const title = this.add
+      .text(width / 2, height / 2 - 70, 'Welcome back!', {
+        fontFamily: 'sans-serif',
+        fontSize: '28px',
+        color: '#ffd166',
+      })
+      .setOrigin(0.5)
+      .setDepth(1002);
+
+    const body = this.add
+      .text(
+        width / 2,
+        height / 2 - 15,
+        `Away for ${away}.\nYour saws earned $${award.toLocaleString()}.`,
+        {
+          fontFamily: 'sans-serif',
+          fontSize: '18px',
+          color: '#cccccc',
+          align: 'center',
+        },
+      )
+      .setOrigin(0.5)
+      .setDepth(1002);
+
+    const btn = this.add
+      .rectangle(width / 2, height / 2 + 60, 160, 44, 0x2d7a3d)
+      .setStrokeStyle(2, 0xffffff, 0.5)
+      .setInteractive({ useHandCursor: true })
+      .setDepth(1002);
+    const btnText = this.add
+      .text(width / 2, height / 2 + 60, 'Collect', {
+        fontFamily: 'sans-serif',
+        fontSize: '20px',
+        color: '#ffffff',
+      })
+      .setOrigin(0.5)
+      .setDepth(1003);
+
+    layer.push(overlay, panel, title, body, btn, btnText);
+
+    btn.on('pointerdown', () => {
+      // Silent: offline award is not organic earnings — don't let it spike
+      // the rolling cash-rate EMA, which would inflate the next offline payout.
+      gameplayState.addCash(award, { silent: true });
+      for (const obj of layer) obj.destroy();
     });
   }
 

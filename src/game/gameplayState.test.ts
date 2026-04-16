@@ -22,6 +22,17 @@ describe('gameplayState', () => {
       gameplayState.trySpend(30);
       expect(earned).not.toHaveBeenCalled();
     });
+
+    it('suppresses cashEarned when silent flag is set', () => {
+      const earned = vi.fn();
+      const changed = vi.fn();
+      gameplayState.on('cashEarned', earned);
+      gameplayState.on('cashChanged', changed);
+      gameplayState.addCash(500, { silent: true });
+      expect(earned).not.toHaveBeenCalled();
+      expect(changed).toHaveBeenCalled();
+      expect(gameplayState.cash).toBe(500);
+    });
   });
 
   describe('loadSnapshot', () => {
