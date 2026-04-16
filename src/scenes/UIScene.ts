@@ -469,7 +469,7 @@ class SubPanel {
   private onSell(): void {
     const wDef = this.def as WeaponTypeDef;
     if (gameplayState.sellWeapon(wDef.id)) {
-      gameplayState.addCash(1);
+      gameplayState.addCash(1, { silent: true });
     }
   }
 }
