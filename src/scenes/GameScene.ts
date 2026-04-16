@@ -148,6 +148,12 @@ export class GameScene extends Phaser.Scene {
     const maxY = this.scale.height + 120;
     const fall = this.effectiveParams.fallSpeedMultiplier;
 
+    // Channel wall inner faces — kinematic barrier safety net below.
+    const halfW = this.scale.width / 2;
+    const halfCh = this.effectiveParams.channelHalfWidth;
+    const wallInnerL = halfW - halfCh;
+    const wallInnerR = halfW + halfCh;
+
     for (let i = this.liveAsteroids.length - 1; i >= 0; i--) {
       const ast = this.liveAsteroids[i];
       if (!ast.isAlive) {
@@ -156,6 +162,12 @@ export class GameScene extends Phaser.Scene {
         continue;
       }
       ast.applyKinematicFall(fall);
+      // Kinematic wall barrier: Matter's solver can't always keep a heavy
+      // pile inside a thin channel. After physics steps, find the chunk
+      // part that's penetrated the wall deepest and shove the whole
+      // compound body back until no part escapes. Zero the inward x
+      // velocity so the pile doesn't keep pressing outward.
+      ast.enforceWalls(wallInnerL, wallInnerR);
       ast.syncSprites();
 
       // Grinder line: any chunk part below DEATH_LINE_Y gets chewed.

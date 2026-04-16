@@ -165,6 +165,39 @@ export class CompoundAsteroid {
     return this.compoundBody.position.y > maxY;
   }
 
+  /**
+   * Kinematic wall safety net. Finds the worst x-axis penetration of any
+   * chunk part past the channel inner faces and shoves the whole compound
+   * body back by that amount. Zeroes the outward x velocity if pushing
+   * against a wall, so the pile doesn't keep pressing outward next tick.
+   */
+  enforceWalls(wallInnerL: number, wallInnerR: number): void {
+    const half = CHUNK_PIXEL_SIZE / 2;
+    let worstLeft = 0;  // positive = chunk pokes past left wall
+    let worstRight = 0; // positive = chunk pokes past right wall
+    for (const chunk of this.chunks.values()) {
+      const px = chunk.bodyPart.position.x;
+      const leftPen = wallInnerL - (px - half);
+      if (leftPen > worstLeft) worstLeft = leftPen;
+      const rightPen = (px + half) - wallInnerR;
+      if (rightPen > worstRight) worstRight = rightPen;
+    }
+    if (worstLeft <= 0 && worstRight <= 0) return;
+
+    const body = this.compoundBody;
+    const dx = worstLeft > worstRight ? worstLeft : -worstRight;
+    if (dx === 0) return;
+
+    this.scene.matter.body.setPosition(body, {
+      x: body.position.x + dx, y: body.position.y,
+    });
+    // Zero the outward x component so the pile doesn't keep pressing.
+    const outward = dx > 0 ? body.velocity.x < 0 : body.velocity.x > 0;
+    if (outward) {
+      this.scene.matter.body.setVelocity(body, { x: 0, y: body.velocity.y });
+    }
+  }
+
   damageChunk(chunkId: string, amount: number): { killed: boolean; hp: number } {
     const chunk = this.chunks.get(chunkId);
     if (!chunk) return { killed: false, hp: 0 };
