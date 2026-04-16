@@ -1,3 +1,5 @@
+import type { SeededRng } from './rng';
+
 export type MaterialBand = 'earth' | 'metal' | 'gem';
 
 export interface Material {
@@ -77,4 +79,30 @@ export function materialByName(name: string): Material | undefined {
 
 export function textureKeyFor(material: Material): string {
   return `chunk-${material.name}`;
+}
+
+const DECAY = 0.7;
+const MAX_QUALITY = 8;
+
+export function materialDistribution(qualityLevel: number): number[] {
+  const q = Math.max(0, Math.min(MAX_QUALITY, Math.floor(qualityLevel)));
+  const maxTier = 1 + q;
+  const weights: number[] = [];
+  let sum = 0;
+  for (let t = 1; t <= 9; t++) {
+    const w = t <= maxTier ? Math.pow(DECAY, t - 1) : 0;
+    weights.push(w);
+    sum += w;
+  }
+  return weights.map((w) => w / sum);
+}
+
+export function chooseMaterial(qualityLevel: number, rng: SeededRng): Material {
+  const dist = materialDistribution(qualityLevel);
+  let roll = rng.next();
+  for (let i = 0; i < dist.length; i++) {
+    roll -= dist[i];
+    if (roll <= 0) return MATERIALS[i];
+  }
+  return MATERIALS[MATERIALS.length - 1];
 }

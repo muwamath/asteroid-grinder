@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { MATERIALS, materialByTier, materialByName } from './materials';
+import { MATERIALS, materialByTier, materialByName, chooseMaterial, materialDistribution } from './materials';
+import { SeededRng } from './rng';
 
 describe('MATERIALS ladder', () => {
   it('has 9 tiers in ascending order 1..9', () => {
@@ -37,5 +38,68 @@ describe('MATERIALS ladder', () => {
   it('materialByName looks up by name', () => {
     expect(materialByName('copper')?.tier).toBe(3);
     expect(materialByName('nope')).toBeUndefined();
+  });
+});
+
+describe('materialDistribution', () => {
+  it('at quality 0, only Dirt (tier 1) has nonzero probability', () => {
+    const d = materialDistribution(0);
+    expect(d[0]).toBeCloseTo(1.0, 6);
+    for (let i = 1; i < 9; i++) expect(d[i]).toBe(0);
+  });
+
+  it('at quality 1, Dirt ~59% / Stone ~41%', () => {
+    const d = materialDistribution(1);
+    expect(d[0]).toBeCloseTo(1 / 1.7, 3);
+    expect(d[1]).toBeCloseTo(0.7 / 1.7, 3);
+    for (let i = 2; i < 9; i++) expect(d[i]).toBe(0);
+  });
+
+  it('at quality 8, all 9 tiers appear and diamond is smallest', () => {
+    const d = materialDistribution(8);
+    d.forEach((p) => expect(p).toBeGreaterThan(0));
+    expect(d[8]).toBeLessThan(d[0]);
+    expect(d[8]).toBeCloseTo(Math.pow(0.7, 8) / ((1 - Math.pow(0.7, 9)) / (1 - 0.7)), 3);
+  });
+
+  it('clamps quality above 8 to the same max distribution', () => {
+    const d8 = materialDistribution(8);
+    const d99 = materialDistribution(99);
+    expect(d99).toEqual(d8);
+  });
+
+  it('all distributions sum to ~1', () => {
+    for (let q = 0; q <= 8; q++) {
+      const sum = materialDistribution(q).reduce((a, b) => a + b, 0);
+      expect(sum).toBeCloseTo(1.0, 6);
+    }
+  });
+});
+
+describe('chooseMaterial', () => {
+  it('at quality 0 always returns dirt', () => {
+    const rng = new SeededRng(1);
+    for (let i = 0; i < 20; i++) {
+      expect(chooseMaterial(0, rng).name).toBe('dirt');
+    }
+  });
+
+  it('at quality 8 produces all 9 materials over many rolls', () => {
+    const rng = new SeededRng(42);
+    const counts = new Map<string, number>();
+    for (let i = 0; i < 5000; i++) {
+      const m = chooseMaterial(8, rng);
+      counts.set(m.name, (counts.get(m.name) ?? 0) + 1);
+    }
+    expect(counts.size).toBe(9);
+    expect((counts.get('diamond') ?? 0)).toBeGreaterThan(50);
+  });
+
+  it('is deterministic for the same seed', () => {
+    const a = new SeededRng(7);
+    const b = new SeededRng(7);
+    for (let i = 0; i < 50; i++) {
+      expect(chooseMaterial(5, a).name).toBe(chooseMaterial(5, b).name);
+    }
   });
 });
