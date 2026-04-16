@@ -26,10 +26,10 @@ Living document. Phases are strategic milestones; the todo list at the bottom tr
 - [x] **Saw upgrade tree expansion.** — **done (2026-04-16)**. Three new upgrades: Spin Speed (tangential impulse pushes chunks), Orbit Speed (base 1 rad/s, was 4), Blade Size (blade radius scales, arbor fixed). 5 total saw upgrades matching Unity prototype tree. 43 vitest tests green.
 - [x] **Laser weapon.** — **done (2026-04-16)**. Draggable turret (40px square, static blocker) with sticky auto-targeting, angular preference, 15-degree fire cone, cooldown between targets, continuous DPS beam. 4 upgrades: Aim Speed, Range, Damage, Cooldown. `Laser` class in `src/game/laser.ts`. 47 vitest tests green.
 - [x] **Missile weapon.** — **done (2026-04-16)**. Draggable launcher turret with lead targeting (quadratic intercept), homing projectiles, AOE flat damage on detonation (live chunks only). 5 upgrades: Fire Rate, Damage, Blast Radius, Speed, Homing. `MissileLauncher` + `MissileProjectile` in `src/game/missile.ts`. 52 vitest tests green.
+- [x] **Black Hole weapon.** — **done (2026-04-16)**. Gravity vortex that pulls live chunks inward (inverse-distance force) and repels dead chunks outward. Core damage zone deals continuous DPS. 5 upgrades: Pull Range, Pull Force, Core Size, Core Damage, Max Targets. `BlackHole` class in `src/game/blackhole.ts`. 57 vitest tests green.
 
 ## Current todos (Phase 5 — Weapons)
 
-- [ ] Design and implement Black Hole weapon (gravity vortex)
 - [ ] Create `Weapon` interface / base abstraction that Grinder and Saw refactor onto
 
 ## Backlog (future work)
