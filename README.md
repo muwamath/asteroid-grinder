@@ -6,11 +6,11 @@ Phaser 3 + Matter.js + TypeScript + Vite. 1280×720 (16:9) with auto-scaling.
 
 ## Status
 
-**Phase 6 — Asteroid Overhaul, done (2026-04-16).** Replaced flat pastel "party colors" with a 9-tier material ladder (Dirt → Stone → Copper → Silver → Gold → Ruby → Emerald → Sapphire → Diamond). HP and reward both scale with tier. Two new upgrades under Asteroids: **Asteroid Quality** (shifts the per-chunk material distribution upward), **Fall Speed** (base drift is very slow; scales up with level). Triangles removed — squares-only chunk system. Centroid chunk tagged `isCore` for the future prestige mechanic. Weld damping + bumped Matter solver iterations reduce pile squish. 77 vitest tests.
+**Phase 8 — Menu & HUD (MVP), done (2026-04-16).** Options modal (gear button top-right or ESC) with Save Now, Show/Hide Debug Overlay, and Restart Game (confirm dialog). Debug overlay toggles at runtime via backtick (`) and shows FPS, body count, asteroid/chunk totals, cash breakdown, cash/sec EMA rate, and effective weapon params. `window.__GAME__` + `window.__STATE__` are always exposed for devtools poking (no longer gated on `?debug=1`). Manual save writes an instant snapshot and flashes a "Saved" toast. Restart clears `localStorage` and hard-reloads. Shop styling deferred to the art pass. 107 vitest tests.
 
-Previous phases: Phase 5 (Weapons — Saw, Laser, Missile, Black Hole with `WeaponBehavior` interface); Phase 4 (weapon shop + multi-instance); Phase 3 (economy + upgrades); Phase 2 (round asteroids + fracture); Phase 1 (engine spike).
+Previous phases: Phase 7 (save & offline — autosave, welcome-back, EMA rate tracker, per-instance weapon positions); Phase 6.5 (compound-body asteroid rewrite — one Matter body per live connected component, native broadphase pile handling); Phase 6 (asteroid overhaul — 9-tier material ladder, Quality + Fall Speed upgrades); Phase 5 (weapons — Saw, Laser, Missile, Black Hole behind `WeaponBehavior`); Phase 4 (weapon shop + multi-instance); Phase 3 (economy + upgrades); Phase 2 (round asteroids + fracture); Phase 1 (engine spike).
 
-Next up: compound-body asteroid refactor (eliminate residual weld squish), then Phase 7 (Asteroid Variants or Save/Offline). See [ROADMAP.md](ROADMAP.md).
+Next up: Phase 9 (code review) → Phase 10 (final verification + remote deploy, MVP ships) → Phase 11 (art & audio pass, post-MVP). See [ROADMAP.md](ROADMAP.md).
 
 ## Run locally
 
@@ -19,7 +19,7 @@ npm install
 npm run dev
 ```
 
-Open http://127.0.0.1:5173. Append `?debug=1` for the Matter wireframe overlay + stats HUD.
+Open http://127.0.0.1:5173. Press **`** (backtick) in-game to toggle the stats HUD, or **ESC** / the gear icon for the options menu. `?debug=1` additionally enables Matter's wireframe overlay.
 
 ## Scripts
 
