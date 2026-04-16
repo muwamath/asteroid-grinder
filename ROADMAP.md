@@ -8,29 +8,18 @@ Living document. Phases are strategic milestones; the todo list at the bottom tr
 2. **Core loop parity — round asteroids** — **done (2026-04-15)**. Ported `CircularShapeGenerator` + `ConnectedComponents` + `SeededRng` + `AsteroidShape` to TS. `Asteroid` class builds welded-chunk rigid bodies from a shape, damage routes through `damageChunkByImage`, fracture severs weld constraints on kill. `AsteroidSpawner` drops random asteroids (9–14 chunks, random triangle prob, random palette color) into a grind channel flanked by two static walls — verified in Chrome that the channel produces the intended grinding loop (saw chews chunks, dead chunks fall as confetti debris through the death line, cash accrues). Vitest installed, 9 pure-logic tests green. Procedural textures for square + 4 triangle orientations.
 3. **Economy & upgrades** — **done (2026-04-15)**. `gameplayState` singleton ledger with `cashChanged` + `upgradeLevelChanged` events. Data-driven `UpgradeCatalog` with 6 upgrades (Saw Damage, Blade Count, Channel Width, Drop Rate, Chunk HP, Asteroid Size), exponential `costAtLevel`. Pure `applyUpgrades(levels) → EffectiveGameplayParams` with vitest coverage. `GameScene` consumes effective params live — subscribes to `upgradeLevelChanged` and rebuilds the multi-blade saw fleet, channel walls, and spawn timer when their dependent params change. Dedicated pure-Phaser `UIScene` running in parallel with `GameScene` renders the side panel with category-striped buttons, level/cost/desc text, affordability tinting, and max-level disabling. 25 vitest tests green. Verified end-to-end in Chrome: earn → buy → gameplay changes → earn more. Code review pass fixed two latent issues (`reset()` listener clobber + unstored collision handler).
 4. **Weapon shop & multi-instance weapons** — **done (2026-04-15)**. Weapon-centric shop with left-side weapon bar (Chute, Asteroids categories + Grinder, Saw + 3 locked placeholders). Sub-panels for buy/sell/upgrade. Multiple draggable saw instances — arbor (center disc) + orbiting pinwheel blade, CW/CCW toggle. Grinder is the death line (upgrades only, no arena spawn). Edge-to-edge asteroid chunk connections with paired triangle support, chunkId-based adjacency. 1280×720 16:9 with Scale.FIT. Chunk 12px, arbor r=20, blade r=6. Placeholder economy ($1 flat). 40 vitest tests green. Verified in Chrome.
-5. **Weapons** — pending. Port the remaining weapon types beyond Grinder + Saw:
-   - Laser (beam + continuous energy damage)
-   - Missile (homing AOE with lead targeting)
-   - Black Hole (gravity vortex)
-   Each with its own upgrade slots and unique arena behavior. Weapon bar UI is already in place from Phase 4 — unlock the locked buttons and wire up behaviors.
-6. **Asteroid variants** — pending. Basic / Armored / Shielded / Swift / Heavy with per-variant resistances and reward multipliers.
+5. **Weapons** — **done (2026-04-16)**. Four weapons live behind the `WeaponBehavior` interface: Saw (5 upgrades), Laser (4), Missile (5), Black Hole (5). GameScene is weapon-agnostic — adding a weapon = one behavior file + one catalog entry. Physics barrier enforcement prevents chunks pushing through weapons/walls.
+6. **Asteroid Overhaul** — **done (2026-04-16)**. Replaced random pastel rocks with a 9-tier material ladder (Dirt, Stone, Copper, Silver, Gold, Ruby, Emerald, Sapphire, Diamond) where `HP = tier × hpMultiplier` and `reward = tier` (linked model). New upgrades under Asteroids: **Asteroid Quality** (shifts per-chunk material distribution via `0.7^(t-1)` weighting, L0 drops Dirt only, L8 unlocks Diamond) and **Fall Speed** (base drift `0.03×`, `+0.10×` per level). Triangles removed; squares-only generator. Centroid chunk tagged `isCore` for future prestige wiring. Weld damping `0.4` + constraint iterations `16` reduce squish. Procedural canvas textures per material (gradients + borders + inset highlights + baked gem glow halos). 77 vitest tests.
 7. **Save & offline** — pending. `localStorage` autosave every N seconds, welcome-back offline-progression popup.
 8. **Menu & HUD polish** — pending. Options menu, manual save, restart, debug overlay, shop styling.
 9. **Art & audio pass** — pending. Palette, particle polish, lo-fi loop, chunky SFX.
 10. **Code review** — pending. Fresh reviewer agent, findings, fixes. (Required phase per global conventions.)
 11. **Final verification & remote deploy** — pending. Full typecheck + build, live validation in Chrome, push to a new GitHub repo, optional GH Pages setup.
 
-## Immediate next
+## Current todos (post-Phase 6)
 
-- [x] **Fix physics: chunks pushing through the saw.** — **done (2026-04-16)**. Active barrier enforcement in `update()` pushes alive chunks out of arbor, blade, and channel wall collision zones every frame so pile pressure can never defeat the Matter solver. Dead chunks are excluded so they can still slip through to the death line.
-- [x] **Saw upgrade tree expansion.** — **done (2026-04-16)**. Three new upgrades: Spin Speed (tangential impulse pushes chunks), Orbit Speed (base 1 rad/s, was 4), Blade Size (blade radius scales, arbor fixed). 5 total saw upgrades matching Unity prototype tree. 43 vitest tests green.
-- [x] **Laser weapon.** — **done (2026-04-16)**. Draggable turret (40px square, static blocker) with sticky auto-targeting, angular preference, 15-degree fire cone, cooldown between targets, continuous DPS beam. 4 upgrades: Aim Speed, Range, Damage, Cooldown. `Laser` class in `src/game/laser.ts`. 47 vitest tests green.
-- [x] **Missile weapon.** — **done (2026-04-16)**. Draggable launcher turret with lead targeting (quadratic intercept), homing projectiles, AOE flat damage on detonation (live chunks only). 5 upgrades: Fire Rate, Damage, Blast Radius, Speed, Homing. `MissileLauncher` + `MissileProjectile` in `src/game/missile.ts`. 52 vitest tests green.
-- [x] **Black Hole weapon.** — **done (2026-04-16)**. Gravity vortex that pulls live chunks inward (inverse-distance force) and repels dead chunks outward. Core damage zone deals continuous DPS. 5 upgrades: Pull Range, Pull Force, Core Size, Core Damage, Max Targets. `BlackHole` class in `src/game/blackhole.ts`. 57 vitest tests green.
-
-## Current todos (Phase 5 — Weapons)
-
-- [x] **Weapon abstraction refactor.** — **done (2026-04-16)**. `WeaponBehavior` interface with `createTextures`, `init`, `update`, `onUpgrade`, `destroy`. Four implementations: `SawBehavior`, `LaserBehavior`, `MissileBehavior`, `BlackholeBehavior`. GameScene is now weapon-agnostic — adding a new weapon = one file + catalog entry.
+- [ ] **Compound-body asteroid refactor** (next priority — see Backlog for detail). Eliminate residual weld squish.
+- [ ] **Phase 7 — Save & offline.** `localStorage` autosave + welcome-back popup.
 
 ## Backlog (future work)
 

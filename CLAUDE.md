@@ -64,10 +64,13 @@ This project is a **port of an earlier Unity prototype** (local-only, not public
 - **Matter doesn't generate pairs between two static bodies.** No collision between the static saw blade and the static arbor even though they overlap geometrically.
 - **`body.gameObject` is only populated when the body was created through Phaser's matter wrappers** (`this.matter.add.image/sprite/...`). Raw `this.matter.add.rectangle({ isStatic: true })` arena walls do NOT have a `gameObject` reference — check for `undefined` in collision handlers.
 - **Pile pressure defeats the Matter solver.** Many welded chunks pressing on a static body (saw, walls) overwhelm the collision solver even at 20/14 position/velocity iterations — weld constraints fight collision resolution. Fix: `enforceWeaponBarriers()` in `update()` actively pushes alive chunks out of arbor, blade, and wall collision zones every frame. Dead chunks are excluded so they fall through to the death line.
+- **Per-body `gravityScale` is `{ x, y }`, not a scalar.** Mutate via `(body as unknown as { gravityScale: { x, y } }).gravityScale = { x: 0, y: multiplier }`. Phaser wraps most body setters but not this one. Used by the Phase 6 Fall Speed upgrade: live chunks get a low `y` multiplier, dead chunks get reset to `1` so confetti stays snappy.
+- **`CanvasRenderingContext2D` via `this.textures.createCanvas(key, w, h).getContext()`.** Phaser's `Graphics` primitive doesn't support linear/radial gradients; use the canvas 2D context directly for gradient fills. After drawing, call `ct.refresh()` so Phaser uploads the canvas to the GPU texture. Used for per-material chunk textures + baked gem glow halos (textures are 18×18 with 3px glow padding around the 12×12 body).
+- **Weld `damping` goes in the `options` bag of `matter.add.constraint(a, b, length, stiffness, { pointA, pointB, damping: 0.4 })`.** Phaser's typings don't expose it — use a narrowed `unknown`-cast factory. Damping alone doesn't eliminate squish at stiffness 1; combine with high `constraintIterations` (16+) for best effect. Fully rigid asteroids need a compound-body rewrite (backlog).
 
 ## Tests
 
-- **Vitest** for pure logic (cost formulas, economy math, weapon catalog, upgrade appliers, gameplayState, shape generator) — lives under `src/**/*.test.ts`. 40 tests across 4 files. Run with `npm test`.
+- **Vitest** for pure logic (cost formulas, economy math, weapon catalog, upgrade appliers, gameplayState, shape generator, material ladder + distribution) — lives under `src/**/*.test.ts`. 77 tests across 5 files. Run with `npm test`.
 - **Playwright** for scene smoke tests (planned, not yet implemented) — will live under `tests/e2e/`.
 
 ## Deploy

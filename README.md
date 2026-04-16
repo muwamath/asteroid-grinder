@@ -6,9 +6,11 @@ Phaser 3 + Matter.js + TypeScript + Vite. 1280×720 (16:9) with auto-scaling.
 
 ## Status
 
-**Phase 4 — weapon shop & multi-instance weapons, done (2026-04-15).** Weapon-centric shop with left-side weapon bar (Chute, Asteroids categories + Grinder, Saw weapons + locked placeholders for Laser, Missile, Black Hole). Sub-panels for buy/sell/upgrade. Multiple draggable weapon instances per type. Saw has arbor (center disc) + orbiting pinwheel blade with CW/CCW toggle. Grinder is the death line (upgrades only, no arena spawn). Edge-to-edge asteroid chunk connections with paired triangle support. 40 vitest tests.
+**Phase 6 — Asteroid Overhaul, done (2026-04-16).** Replaced flat pastel "party colors" with a 9-tier material ladder (Dirt → Stone → Copper → Silver → Gold → Ruby → Emerald → Sapphire → Diamond). HP and reward both scale with tier. Two new upgrades under Asteroids: **Asteroid Quality** (shifts the per-chunk material distribution upward), **Fall Speed** (base drift is very slow; scales up with level). Triangles removed — squares-only chunk system. Centroid chunk tagged `isCore` for the future prestige mechanic. Weld damping + bumped Matter solver iterations reduce pile squish. 77 vitest tests.
 
-Next up: asteroid creator refinement + Phase 5 weapons. See [ROADMAP.md](ROADMAP.md).
+Previous phases: Phase 5 (Weapons — Saw, Laser, Missile, Black Hole with `WeaponBehavior` interface); Phase 4 (weapon shop + multi-instance); Phase 3 (economy + upgrades); Phase 2 (round asteroids + fracture); Phase 1 (engine spike).
+
+Next up: compound-body asteroid refactor (eliminate residual weld squish), then Phase 7 (Asteroid Variants or Save/Offline). See [ROADMAP.md](ROADMAP.md).
 
 ## Run locally
 
