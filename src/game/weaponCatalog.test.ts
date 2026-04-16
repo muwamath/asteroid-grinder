@@ -34,10 +34,9 @@ describe('weaponCatalog', () => {
     }
   });
 
-  it('each unlocked weapon type has at least one upgrade', () => {
-    for (const w of WEAPON_TYPES.filter((w) => !w.locked)) {
-      expect(w.upgrades.length).toBeGreaterThan(0);
-    }
+  it('saw has at least one upgrade', () => {
+    const saw = findWeaponType('saw')!;
+    expect(saw.upgrades.length).toBeGreaterThan(0);
   });
 
   it('each category has at least one upgrade', () => {

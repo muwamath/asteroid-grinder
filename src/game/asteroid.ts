@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import type { AsteroidShape, ChunkShape } from './shape';
-import { canonicalEdge, cellKey } from './shape';
+import { canonicalEdge } from './shape';
 
 function lightenColor(color: number, amount: number): number {
   const r = (color >> 16) & 0xff;
@@ -206,9 +206,5 @@ export class Asteroid {
       mkConstraint({ x: -half, y: sign * half }, { x: -half, y: -sign * half }),
       mkConstraint({ x: half, y: sign * half }, { x: half, y: -sign * half }),
     ];
-  }
-
-  static cellKeyFor(x: number, y: number): string {
-    return cellKey(x, y);
   }
 }

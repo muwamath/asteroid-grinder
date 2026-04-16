@@ -7,7 +7,7 @@ This file is read automatically by Claude Code at session start. It documents pr
 - **Phaser 3** (Matter.js physics) + **TypeScript** + **Vite**.
 - Dev server: `npm run dev` → http://127.0.0.1:5173.
 - Target platform: desktop + mobile web browsers. No native packaging, no WebGL-engine gymnastics.
-- Node 22+ / npm 10+ assumed. No lockfile committed yet (will add `package-lock.json` once Phase 1 lands).
+- Node 22+ / npm 10+ assumed.
 
 ## Layout
 
@@ -66,12 +66,12 @@ This project is a **port of an earlier Unity prototype** (local-only, not public
 
 ## Tests
 
-- **Vitest** for pure logic (cost formulas, economy math, weapon catalog, upgrade appliers, gameplayState) — lives under `src/**/*.test.ts`. 38 tests across 4 files. Run with `npm test`.
+- **Vitest** for pure logic (cost formulas, economy math, weapon catalog, upgrade appliers, gameplayState, shape generator) — lives under `src/**/*.test.ts`. 40 tests across 4 files. Run with `npm test`.
 - **Playwright** for scene smoke tests (planned, not yet implemented) — will live under `tests/e2e/`.
 
 ## Deploy
 
-Not yet. Phase 11 will add a GitHub repo and optional GH Pages deploy. For now: local dev only.
+Repo at https://github.com/muwamath/asteroid-grinder. No hosted deploy yet — local dev only. GH Pages setup deferred to final phase.
 
 ## Commit messages
 

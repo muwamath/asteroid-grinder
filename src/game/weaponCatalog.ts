@@ -23,17 +23,7 @@ export const WEAPON_TYPES: readonly WeaponTypeDef[] = [
     icon: 'grinder',
     locked: false,
     startCount: 1,
-    upgrades: [
-      {
-        id: 'grinder.damage',
-        name: 'Grinder Damage',
-        description: '+1 damage on contact',
-        category: 'grinder',
-        baseCost: 1,
-        growthRate: 1,
-        maxLevel: 20,
-      },
-    ],
+    upgrades: [],
   },
   {
     id: 'saw',

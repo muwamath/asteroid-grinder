@@ -9,10 +9,6 @@ export function cellKey(x: number, y: number): CellKey {
   return `${x},${y}`;
 }
 
-export function keyForCell(cell: ChunkCell): CellKey {
-  return cellKey(cell.x, cell.y);
-}
-
 export type ChunkShape = 'square' | 'triNE' | 'triNW' | 'triSE' | 'triSW';
 
 /** A single chunk within a cell. A cell may hold 1 square or 1–2 triangles. */
