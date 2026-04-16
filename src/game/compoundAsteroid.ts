@@ -152,6 +152,63 @@ export class CompoundAsteroid {
     return this.compoundBody.position.y > maxY;
   }
 
+  damageChunk(chunkId: string, amount: number): { killed: boolean; hp: number } {
+    const chunk = this.chunks.get(chunkId);
+    if (!chunk) return { killed: false, hp: 0 };
+    chunk.hp -= amount;
+    if (chunk.hp <= 0) return { killed: true, hp: 0 };
+    return { killed: false, hp: chunk.hp };
+  }
+
+  extractDeadChunk(chunkId: string): {
+    worldX: number; worldY: number;
+    velocityX: number; velocityY: number;
+    material: Material;
+    textureKey: string;
+    isCore: boolean;
+  } | null {
+    const chunk = this.chunks.get(chunkId);
+    if (!chunk) return null;
+
+    const body = this.compoundBody;
+    const angle = body.angle;
+    const cos = Math.cos(angle);
+    const sin = Math.sin(angle);
+    const ox = chunk.localOffset.x;
+    const oy = chunk.localOffset.y;
+    const worldX = body.position.x + (ox * cos - oy * sin);
+    const worldY = body.position.y + (ox * sin + oy * cos);
+
+    const w = body.angularVelocity;
+    const tvx = -w * (ox * sin + oy * cos);
+    const tvy =  w * (ox * cos - oy * sin);
+    const velocityX = body.velocity.x + tvx;
+    const velocityY = body.velocity.y + tvy;
+
+    const remainingParts: MatterJS.BodyType[] = [];
+    for (const c of this.chunks.values()) {
+      if (c.chunkId !== chunkId) remainingParts.push(c.bodyPart);
+    }
+    if (remainingParts.length > 0) {
+      this.scene.matter.body.setParts(this.compoundBody, remainingParts, false);
+    }
+
+    chunk.sprite.destroy();
+    this.chunks.delete(chunkId);
+
+    return {
+      worldX, worldY, velocityX, velocityY,
+      material: chunk.material,
+      textureKey: textureKeyFor(chunk.material),
+      isCore: chunk.isCore,
+    };
+  }
+
+  setAdjacency(adjacency: Map<string, Set<string>>): void {
+    this.adjacency.clear();
+    for (const [k, v] of adjacency) this.adjacency.set(k, new Set(v));
+  }
+
   destroy(): void {
     this.scene.matter.world.remove(this.compoundBody);
     for (const chunk of this.chunks.values()) {
