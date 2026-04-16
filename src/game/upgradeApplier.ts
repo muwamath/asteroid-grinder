@@ -13,6 +13,11 @@ export interface EffectiveGameplayParams {
   readonly laserRange: number;
   readonly laserDamage: number;
   readonly laserCooldown: number;
+  readonly missileFireInterval: number;
+  readonly missileDamage: number;
+  readonly missileBlastRadius: number;
+  readonly missileSpeed: number;
+  readonly missileHoming: number;
 }
 
 // Level-0 defaults. Each upgrade adds to these via applyUpgrades.
@@ -31,6 +36,11 @@ export const BASE_PARAMS: EffectiveGameplayParams = {
   laserRange: 60,
   laserDamage: 1,
   laserCooldown: 2,
+  missileFireInterval: 5,
+  missileDamage: 2,
+  missileBlastRadius: 20,
+  missileSpeed: 80,
+  missileHoming: 0,
 };
 
 // Per-level deltas. Tuning scaffolding — adjust after playtesting.
@@ -49,6 +59,12 @@ const LASER_RANGE_PER_LEVEL = 20;
 const LASER_DAMAGE_PER_LEVEL = 0.5;
 const LASER_COOLDOWN_PER_LEVEL = 0.095;
 const LASER_MIN_COOLDOWN = 0.1;
+const MISSILE_FIRE_INTERVAL_PER_LEVEL = 0.225;
+const MISSILE_MIN_FIRE_INTERVAL = 0.5;
+const MISSILE_DAMAGE_PER_LEVEL = 1.5;
+const MISSILE_BLAST_RADIUS_PER_LEVEL = 4;
+const MISSILE_SPEED_PER_LEVEL = 12;
+const MISSILE_HOMING_PER_LEVEL = 0.5;
 
 export function applyUpgrades(
   levels: Readonly<Record<string, number>>,
@@ -77,5 +93,13 @@ export function applyUpgrades(
       LASER_MIN_COOLDOWN,
       BASE_PARAMS.laserCooldown - lv('laser.cooldown') * LASER_COOLDOWN_PER_LEVEL,
     ),
+    missileFireInterval: Math.max(
+      MISSILE_MIN_FIRE_INTERVAL,
+      BASE_PARAMS.missileFireInterval - lv('missile.fireRate') * MISSILE_FIRE_INTERVAL_PER_LEVEL,
+    ),
+    missileDamage: BASE_PARAMS.missileDamage + lv('missile.damage') * MISSILE_DAMAGE_PER_LEVEL,
+    missileBlastRadius: BASE_PARAMS.missileBlastRadius + lv('missile.blastRadius') * MISSILE_BLAST_RADIUS_PER_LEVEL,
+    missileSpeed: BASE_PARAMS.missileSpeed + lv('missile.speed') * MISSILE_SPEED_PER_LEVEL,
+    missileHoming: BASE_PARAMS.missileHoming + lv('missile.homing') * MISSILE_HOMING_PER_LEVEL,
   };
 }

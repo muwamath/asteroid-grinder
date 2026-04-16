@@ -74,6 +74,32 @@ describe('applyUpgrades', () => {
     expect(applyUpgrades({ 'laser.cooldown': 99 }).laserCooldown).toBe(0.1);
   });
 
+  it('decreases missileFireInterval per level with floor', () => {
+    expect(applyUpgrades({}).missileFireInterval).toBe(5);
+    expect(applyUpgrades({ 'missile.fireRate': 4 }).missileFireInterval).toBeCloseTo(5 - 4 * 0.225);
+    expect(applyUpgrades({ 'missile.fireRate': 99 }).missileFireInterval).toBe(0.5);
+  });
+
+  it('increases missileDamage per level', () => {
+    expect(applyUpgrades({}).missileDamage).toBe(2);
+    expect(applyUpgrades({ 'missile.damage': 3 }).missileDamage).toBeCloseTo(2 + 3 * 1.5);
+  });
+
+  it('increases missileBlastRadius per level', () => {
+    expect(applyUpgrades({}).missileBlastRadius).toBe(20);
+    expect(applyUpgrades({ 'missile.blastRadius': 5 }).missileBlastRadius).toBe(20 + 5 * 4);
+  });
+
+  it('increases missileSpeed per level', () => {
+    expect(applyUpgrades({}).missileSpeed).toBe(80);
+    expect(applyUpgrades({ 'missile.speed': 4 }).missileSpeed).toBe(80 + 4 * 12);
+  });
+
+  it('increases missileHoming per level', () => {
+    expect(applyUpgrades({}).missileHoming).toBe(0);
+    expect(applyUpgrades({ 'missile.homing': 6 }).missileHoming).toBeCloseTo(6 * 0.5);
+  });
+
   it('combines multiple upgrades independently', () => {
     const e = applyUpgrades({ 'saw.damage': 2, 'saw.bladeCount': 1, 'asteroids.chunkHp': 1 });
     expect(e.sawDamage).toBe(3);
