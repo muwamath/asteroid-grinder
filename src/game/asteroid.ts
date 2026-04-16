@@ -1,16 +1,7 @@
 import Phaser from 'phaser';
-import type { AsteroidShape, ChunkShape } from './shape';
+import type { AsteroidShape } from './shape';
 import { canonicalEdge } from './shape';
-
-function lightenColor(color: number, amount: number): number {
-  const r = (color >> 16) & 0xff;
-  const g = (color >> 8) & 0xff;
-  const b = color & 0xff;
-  const lr = Math.round(r + (255 - r) * amount);
-  const lg = Math.round(g + (255 - g) * amount);
-  const lb = Math.round(b + (255 - b) * amount);
-  return (lr << 16) | (lg << 8) | lb;
-}
+import { type Material, textureKeyFor } from './materials';
 
 export const CHUNK_PIXEL_SIZE = 12;
 
@@ -19,21 +10,12 @@ interface ChunkState {
   hp: number;
   maxHp: number;
   dead: boolean;
-  baseColor: number;
-  deadColor: number;
+  material: Material;
+  isCore: boolean;
 }
-
-const TEXTURE_KEY_BY_SHAPE: Record<ChunkShape, string> = {
-  square: 'chunk-square',
-  triNE: 'chunk-tri-NE',
-  triNW: 'chunk-tri-NW',
-  triSE: 'chunk-tri-SE',
-  triSW: 'chunk-tri-SW',
-};
 
 export class Asteroid {
   private readonly scene: Phaser.Scene;
-  // Keyed by chunkId (not cellKey) to support multiple chunks per cell.
   private readonly chunks = new Map<string, ChunkState>();
   private readonly adjacency = new Map<string, Set<string>>();
   private readonly constraintsByEdge = new Map<string, unknown[]>();
@@ -43,18 +25,17 @@ export class Asteroid {
     shape: AsteroidShape,
     spawnX: number,
     spawnY: number,
-    maxHpPerChunk: number,
-    color: number,
+    hpMultiplier: number,
+    fallSpeedMultiplier: number,
+    materialsByChunk: ReadonlyMap<string, Material>,
     chunkRegistry: Set<Phaser.Physics.Matter.Image>,
   ) {
     this.scene = scene;
 
-    // Clone adjacency into a mutable structure the asteroid owns.
     for (const [k, v] of shape.adjacency) {
       this.adjacency.set(k, new Set(v));
     }
 
-    // Center the asteroid cloud on (spawnX, spawnY) via the cell centroid.
     let sumX = 0;
     let sumY = 0;
     for (const c of shape.cells) {
@@ -66,40 +47,48 @@ export class Asteroid {
     const originX = spawnX - avgX * CHUNK_PIXEL_SIZE;
     const originY = spawnY + avgY * CHUNK_PIXEL_SIZE;
 
-    // Spawn a Matter.Image for every chunk entry.
     for (const [, entries] of shape.chunksByCell) {
       for (const entry of entries) {
+        const material = materialsByChunk.get(entry.chunkId);
+        if (!material) continue;
+        const maxHp = material.tier * hpMultiplier;
+        const isCore = entry.chunkId === shape.coreChunkId;
+
         const wx = originX + entry.cell.x * CHUNK_PIXEL_SIZE;
         const wy = originY - entry.cell.y * CHUNK_PIXEL_SIZE;
 
-        const image = scene.matter.add.image(wx, wy, TEXTURE_KEY_BY_SHAPE[entry.shape]);
+        const image = scene.matter.add.image(wx, wy, textureKeyFor(material));
         image.setRectangle(CHUNK_PIXEL_SIZE, CHUNK_PIXEL_SIZE);
-        image.setTint(color);
         image.setMass(0.25);
         image.setFriction(0.1);
         image.setFrictionAir(0.005);
         image.setBounce(0);
         (image.body as unknown as { slop: number }).slop = 0.005;
+        (image.body as unknown as { gravityScale: { x: number; y: number } }).gravityScale = {
+          x: 0, y: fallSpeedMultiplier,
+        };
         image.setData('kind', 'chunk');
         image.setData('asteroid', this);
         image.setData('chunkId', entry.chunkId);
-        image.setData('hp', maxHpPerChunk);
-        image.setData('maxHp', maxHpPerChunk);
+        image.setData('hp', maxHp);
+        image.setData('maxHp', maxHp);
+        image.setData('tier', material.tier);
+        image.setData('material', material);
+        image.setData('isCore', isCore);
         image.setData('dead', false);
 
         this.chunks.set(entry.chunkId, {
           image,
-          hp: maxHpPerChunk,
-          maxHp: maxHpPerChunk,
+          hp: maxHp,
+          maxHp,
           dead: false,
-          baseColor: color,
-          deadColor: lightenColor(color, 0.35),
+          material,
+          isCore,
         });
         chunkRegistry.add(image);
       }
     }
 
-    // Weld each adjacent pair with two rigid constraints.
     const seen = new Set<string>();
     for (const [aId, neighbors] of this.adjacency) {
       for (const bId of neighbors) {
@@ -132,13 +121,25 @@ export class Asteroid {
     if (state.hp <= 0) {
       state.dead = true;
       image.setData('dead', true);
-      image.setTint(state.deadColor);
+      image.setAlpha(0.55);
       image.setScale(0.8);
+      (image.body as unknown as { gravityScale: { x: number; y: number } }).gravityScale = {
+        x: 0, y: 1,
+      };
       this.detachChunk(chunkId);
       return { hp: 0, killed: true, key: chunkId };
     }
 
     return { hp: state.hp, killed: false, key: chunkId };
+  }
+
+  refreshFallSpeed(multiplier: number): void {
+    for (const state of this.chunks.values()) {
+      if (state.dead) continue;
+      (state.image.body as unknown as { gravityScale: { x: number; y: number } }).gravityScale = {
+        x: 0, y: multiplier,
+      };
+    }
   }
 
   private detachChunk(chunkId: string): void {
@@ -181,17 +182,15 @@ export class Asteroid {
           bodyB: unknown,
           length: number,
           stiffness: number,
-          options: { pointA: { x: number; y: number }; pointB: { x: number; y: number } },
+          options: {
+            pointA: { x: number; y: number };
+            pointB: { x: number; y: number };
+            damping?: number;
+          },
         ) => unknown;
       };
-      return factory.constraint(a, b, 0, 1, { pointA, pointB });
+      return factory.constraint(a, b, 0, 1, { pointA, pointB, damping: 0.1 });
     };
-
-    // For chunks in the same cell (paired triangles), dx and dy are both 0.
-    // Use a center-to-center constraint.
-    if (Math.abs(dx) < 1 && Math.abs(dy) < 1) {
-      return [mkConstraint({ x: 0, y: 0 }, { x: 0, y: 0 })];
-    }
 
     if (Math.abs(dx) > Math.abs(dy)) {
       const sign = dx > 0 ? 1 : -1;
