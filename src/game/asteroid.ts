@@ -138,12 +138,6 @@ export class Asteroid {
     return { hp: state.hp, killed: false, key: chunkId };
   }
 
-  // Kept for callers that still diff fallSpeedMultiplier; no-op under the
-  // kinematic model since GameScene.update() applies velocityY directly.
-  refreshFallSpeed(_multiplier: number): void {
-    void _multiplier;
-  }
-
   private detachChunk(chunkId: string): void {
     const neighbors = this.adjacency.get(chunkId);
     if (!neighbors) return;

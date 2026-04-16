@@ -141,8 +141,14 @@ export class GameScene extends Phaser.Scene {
       inst.behavior.update(this, inst.sprite, delta, this.chunkImages, this.effectiveParams);
     }
 
-    this.enforceWeaponBarriers();
+    // Order matters: apply the kinematic fall FIRST so the per-tick target
+    // velocity is set, then let enforceWeaponBarriers have the last word —
+    // it spatially ejects chunks from weapon bodies AND zeros inward
+    // velocity components. If we ran them in the opposite order, the
+    // kinematic write would re-assert downward velocity after a barrier
+    // zeroed it, driving chunks back into the arbor every frame.
     this.applyKinematicFall();
+    this.enforceWeaponBarriers();
 
     for (const chunk of this.chunkImages) {
       if (!chunk.active) {
@@ -329,20 +335,9 @@ export class GameScene extends Phaser.Scene {
     if (this.effectiveParams.spawnIntervalMs !== prev.spawnIntervalMs) {
       this.rebuildSpawnTimer(this.effectiveParams.spawnIntervalMs);
     }
-    if (this.effectiveParams.fallSpeedMultiplier !== prev.fallSpeedMultiplier) {
-      this.refreshAllAsteroidsFallSpeed(this.effectiveParams.fallSpeedMultiplier);
-    }
-  }
-
-  private refreshAllAsteroidsFallSpeed(multiplier: number): void {
-    const seen = new Set<Asteroid>();
-    for (const chunk of this.chunkImages) {
-      const a = chunk.getData('asteroid') as Asteroid | undefined;
-      if (a && !seen.has(a)) {
-        a.refreshFallSpeed(multiplier);
-        seen.add(a);
-      }
-    }
+    // fallSpeedMultiplier doesn't need a per-asteroid refresh: applyKinematicFall()
+    // reads effectiveParams.fallSpeedMultiplier every tick, so upgrades take
+    // effect immediately without touching individual bodies.
   }
 
   // ── gameplay ───────────────────────────────────────────────────────────
