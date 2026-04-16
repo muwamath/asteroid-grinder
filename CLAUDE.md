@@ -99,14 +99,18 @@ This project is a **port of an earlier Unity prototype** (local-only, not public
 - **Parallel scenes launch AFTER `create()` completes — subscribers don't see events fired during the launcher's `create()`.** In `main.ts`, GameScene is added first with `{ active: true }`, and GameScene.create() calls `this.scene.launch('ui')` at the end. UIScene's `create()` runs on the NEXT tick, so any event emitted inside GameScene.create (e.g. `gameplayState.loadSnapshot` → `cashChanged`) is lost on UIScene. Fix: seed UI state from the current authoritative value at UIScene create-time (`cashText = ${gameplayState.cash}`), then subscribe for subsequent events. Don't assume "event fired in sibling scene = received."
 - **`CanvasRenderingContext2D` via `this.textures.createCanvas(key, w, h).getContext()`.** Phaser's `Graphics` primitive doesn't support linear/radial gradients; use the canvas 2D context directly for gradient fills. After drawing, call `ct.refresh()` so Phaser uploads the canvas to the GPU texture. Used for per-material chunk textures + baked gem glow halos (textures are 18×18 with 3px glow padding around the 12×12 body).
 
+## Design invariants
+
+Load-bearing behaviors that are easy to silently break are documented in [DESIGN_INVARIANTS.md](DESIGN_INVARIANTS.md) at the repo root. When touching physics, collision routing, weapons, or save/load code, read the relevant section and verify you're not violating an invariant. Add new invariants there as load-bearing decisions land.
+
 ## Tests
 
 - **Vitest** for pure logic (cost formulas, economy math, weapon catalog, upgrade appliers, gameplayState, shape generator, material ladder + distribution, asteroid graph split, save state, offline progress, cash rate) — lives under `src/**/*.test.ts`. 111 tests across 10 files. Run with `npm test`. **Bump the count here when you add or remove tests** — it drifts otherwise.
-- **Playwright** for scene smoke tests (planned, not yet implemented) — will live under `tests/e2e/`.
+- **Playwright** for golden-path smoke — `tests/e2e/smoke.spec.ts` boots the game, waits 10s, asserts non-zero saw hits, rotating asteroids, and no console errors. Run with `npm run test:e2e`. Tripwire against refactor drift — a subset of `DESIGN_INVARIANTS.md`.
 
 ## Deploy
 
-Repo at https://github.com/muwamath/asteroid-grinder. No hosted deploy yet — local dev only. GH Pages setup deferred to final phase.
+Repo at https://github.com/muwamath/asteroid-grinder. Live build at https://muwamath.github.io/asteroid-grinder/ via `.github/workflows/deploy.yml` — deploys on every push to `main`. `vite.config.ts` sets `base: './'` so assets resolve on any subpath.
 
 ## Commit messages
 
