@@ -22,7 +22,7 @@ Living document. Phases are strategic milestones; the todo list at the bottom tr
 
 ## Immediate next
 
-- [ ] **Fix physics: chunks pushing through the saw.** Asteroid chunks can push through the saw blade/arbor instead of being blocked. Diagnose whether this is a solver iteration issue, body size mismatch, or velocity problem. The saw blade and arbor are both static — chunks should not penetrate them.
+- [x] **Fix physics: chunks pushing through the saw.** — **done (2026-04-16)**. Active barrier enforcement in `update()` pushes alive chunks out of arbor, blade, and channel wall collision zones every frame so pile pressure can never defeat the Matter solver. Dead chunks are excluded so they can still slip through to the death line.
 
 ## Current todos (Phase 5 — Weapons)
 

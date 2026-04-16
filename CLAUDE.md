@@ -63,6 +63,7 @@ This project is a **port of an earlier Unity prototype** (local-only, not public
 - **Saw blades are static (not sensors).** They block chunks physically AND deal damage via `collisionstart`/`collisionactive`. The arbor is also static and blocks but doesn't damage (kind `'arbor'` is not routed in the collision handler).
 - **Matter doesn't generate pairs between two static bodies.** No collision between the static saw blade and the static arbor even though they overlap geometrically.
 - **`body.gameObject` is only populated when the body was created through Phaser's matter wrappers** (`this.matter.add.image/sprite/...`). Raw `this.matter.add.rectangle({ isStatic: true })` arena walls do NOT have a `gameObject` reference — check for `undefined` in collision handlers.
+- **Pile pressure defeats the Matter solver.** Many welded chunks pressing on a static body (saw, walls) overwhelm the collision solver even at 20/14 position/velocity iterations — weld constraints fight collision resolution. Fix: `enforceWeaponBarriers()` in `update()` actively pushes alive chunks out of arbor, blade, and wall collision zones every frame. Dead chunks are excluded so they fall through to the death line.
 
 ## Tests
 

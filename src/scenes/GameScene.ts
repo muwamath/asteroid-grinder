@@ -11,6 +11,11 @@ const SAW_BLADE_RADIUS = 6;
 const SAW_ORBIT_RAD_PER_SEC = 4;
 const SAW_HIT_COOLDOWN_MS = 120;
 
+// Hard barrier enforcement — pushes alive chunks out of weapon collision
+// zones every frame so pile pressure can't defeat the physics solver.
+const CHUNK_HALF = CHUNK_PIXEL_SIZE * 0.5;
+const BARRIER_BUFFER = 1;  // px buffer so chunks don't re-enter immediately
+
 const SPAWN_Y = -80;
 const DEATH_LINE_Y = 652;
 
@@ -144,6 +149,8 @@ export class GameScene extends Phaser.Scene {
         }
       }
     }
+
+    this.enforceWeaponBarriers();
 
     for (const chunk of this.chunkImages) {
       if (!chunk.active) {
@@ -417,6 +424,78 @@ export class GameScene extends Phaser.Scene {
 
     if (result.killed) {
       this.killedBySaw++;
+    }
+  }
+
+  /** Push alive chunks out of weapon collision zones AND channel walls so
+   *  pile pressure can never defeat the Matter solver. Dead chunks are
+   *  ignored so they can slip through to the death line. */
+  private enforceWeaponBarriers(): void {
+    const halfW = this.scale.width / 2;
+    const halfCh = this.effectiveParams.channelHalfWidth;
+    const wallLeft = halfW - halfCh;    // inner edge of left wall
+    const wallRight = halfW + halfCh;   // inner edge of right wall
+
+    for (const chunk of this.chunkImages) {
+      if (!chunk.active || chunk.getData('dead')) continue;
+
+      // ── channel walls ──
+      const minX = wallLeft + CHUNK_HALF + BARRIER_BUFFER;
+      const maxX = wallRight - CHUNK_HALF - BARRIER_BUFFER;
+      if (chunk.x < minX) {
+        chunk.setPosition(minX, chunk.y);
+        const body = chunk.body as MatterJS.BodyType;
+        if (body.velocity.x < 0) chunk.setVelocityX(0);
+      } else if (chunk.x > maxX) {
+        chunk.setPosition(maxX, chunk.y);
+        const body = chunk.body as MatterJS.BodyType;
+        if (body.velocity.x > 0) chunk.setVelocityX(0);
+      }
+
+      // ── weapon bodies ──
+      for (const inst of this.weaponInstances) {
+        this.pushOutOfCircle(chunk, inst.sprite.x, inst.sprite.y,
+          ARBOR_RADIUS + CHUNK_HALF + BARRIER_BUFFER);
+        for (const blade of inst.blades) {
+          this.pushOutOfCircle(chunk, blade.x, blade.y,
+            SAW_BLADE_RADIUS + CHUNK_HALF + BARRIER_BUFFER);
+        }
+      }
+    }
+  }
+
+  private pushOutOfCircle(
+    chunk: Phaser.Physics.Matter.Image,
+    cx: number,
+    cy: number,
+    minDist: number,
+  ): void {
+    const dx = chunk.x - cx;
+    const dy = chunk.y - cy;
+    const distSq = dx * dx + dy * dy;
+    if (distSq >= minDist * minDist) return;
+
+    const dist = Math.sqrt(distSq);
+    if (dist < 0.1) {
+      // Chunk dead-center — push straight up.
+      chunk.setPosition(cx, cy - minDist);
+      chunk.setVelocityY(0);
+      return;
+    }
+
+    const nx = dx / dist;
+    const ny = dy / dist;
+    const overlap = minDist - dist;
+    chunk.setPosition(chunk.x + nx * overlap, chunk.y + ny * overlap);
+
+    // Zero the inward velocity component so the chunk doesn't re-enter.
+    const body = chunk.body as MatterJS.BodyType;
+    const vDot = body.velocity.x * nx + body.velocity.y * ny;
+    if (vDot < 0) {
+      chunk.setVelocity(
+        body.velocity.x - vDot * nx,
+        body.velocity.y - vDot * ny,
+      );
     }
   }
 
