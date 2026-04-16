@@ -71,11 +71,14 @@ export class CompoundAsteroid {
         const isCore = entry.chunkId === shape.coreChunkId;
         const localX = (entry.cell.x - avgX) * CHUNK_PIXEL_SIZE;
         const localY = -(entry.cell.y - avgY) * CHUNK_PIXEL_SIZE;
-        const worldX = spawnX + localX;
-        const worldY = spawnY + localY;
 
+        // Create parts at local (centered around 0,0). Matter.Body.create
+        // with `position` below places the compound at spawn and translates
+        // parts accordingly. Pre-positioning parts here causes a double-offset
+        // bug where the parent body's vertices/bounds end up at 2x the
+        // intended position, making broadphase miss all collisions.
         const part = matterBodies.rectangle(
-          worldX, worldY, CHUNK_PIXEL_SIZE, CHUNK_PIXEL_SIZE,
+          localX, localY, CHUNK_PIXEL_SIZE, CHUNK_PIXEL_SIZE,
           {
             friction: 0.1, frictionAir: 0.005, restitution: 0,
             mass: 0.25, slop: 0.005,
@@ -91,7 +94,6 @@ export class CompoundAsteroid {
 
     const body = scene.matter.body.create({
       parts,
-      position: { x: spawnX, y: spawnY },
       frictionAir: 0.005,
     });
     this.compoundBody = body;
@@ -99,6 +101,10 @@ export class CompoundAsteroid {
     (body as unknown as { gravityScale: { x: number; y: number } }).gravityScale = {
       x: 0, y: 0,
     };
+
+    // Parts were created at local offsets (centered around 0,0), so the
+    // compound's centroid is at origin. Move it to the spawn location.
+    scene.matter.body.setPosition(body, { x: spawnX, y: spawnY });
 
     scene.matter.world.add(body);
 
@@ -288,8 +294,6 @@ export class CompoundAsteroid {
 
     const matterBodies = args.scene.matter.bodies;
     const newParts: MatterJS.BodyType[] = [];
-    const cos = Math.cos(args.parentAngle);
-    const sin = Math.sin(args.parentAngle);
     const componentSet = new Set(args.component);
 
     for (const id of args.component) {
@@ -297,11 +301,12 @@ export class CompoundAsteroid {
       if (!parentChunk) throw new Error(`fromPartsOfParent: missing ${id}`);
       const localX = parentChunk.localOffset.x - args.parentCentroidOffset.x;
       const localY = parentChunk.localOffset.y - args.parentCentroidOffset.y;
-      const worldX = args.newCenter.x + (localX * cos - localY * sin);
-      const worldY = args.newCenter.y + (localX * sin + localY * cos);
 
+      // Parts created at local (0,0)-centered offsets; Body.create + setAngle
+      // below places the compound at newCenter with the parent's angle.
+      // See main constructor for why pre-positioning parts is wrong.
       const part = matterBodies.rectangle(
-        worldX, worldY, CHUNK_PIXEL_SIZE, CHUNK_PIXEL_SIZE,
+        localX, localY, CHUNK_PIXEL_SIZE, CHUNK_PIXEL_SIZE,
         {
           friction: 0.1, frictionAir: 0.005, restitution: 0,
           mass: 0.25, slop: 0.005,
@@ -335,12 +340,12 @@ export class CompoundAsteroid {
 
     const body = args.scene.matter.body.create({
       parts: newParts,
-      position: args.newCenter,
       frictionAir: 0.005,
     });
     (body as unknown as { gravityScale: { x: number; y: number } }).gravityScale = {
       x: 0, y: 0,
     };
+    args.scene.matter.body.setPosition(body, args.newCenter);
     args.scene.matter.body.setAngle(body, args.parentAngle);
     args.scene.matter.body.setVelocity(body, args.velocity);
     args.scene.matter.body.setAngularVelocity(body, args.angularVelocity);
