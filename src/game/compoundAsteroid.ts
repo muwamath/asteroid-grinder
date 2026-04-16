@@ -209,6 +209,143 @@ export class CompoundAsteroid {
     for (const [k, v] of adjacency) this.adjacency.set(k, new Set(v));
   }
 
+  split(components: readonly string[][]): CompoundAsteroid[] {
+    if (components.length < 2) {
+      throw new Error('split() requires at least 2 components');
+    }
+
+    const parent = this.compoundBody;
+    const px = parent.position.x;
+    const py = parent.position.y;
+    const pAngle = parent.angle;
+    const pVx = parent.velocity.x;
+    const pVy = parent.velocity.y;
+    const pW = parent.angularVelocity;
+
+    const results: CompoundAsteroid[] = [];
+
+    for (const component of components) {
+      let cox = 0;
+      let coy = 0;
+      for (const id of component) {
+        const chunk = this.chunks.get(id);
+        if (!chunk) throw new Error(`split: missing chunk ${id}`);
+        cox += chunk.localOffset.x;
+        coy += chunk.localOffset.y;
+      }
+      cox /= component.length;
+      coy /= component.length;
+
+      const cos = Math.cos(pAngle);
+      const sin = Math.sin(pAngle);
+      const newCenterX = px + (cox * cos - coy * sin);
+      const newCenterY = py + (cox * sin + coy * cos);
+
+      const tvx = -pW * (cox * sin + coy * cos);
+      const tvy =  pW * (cox * cos - coy * sin);
+      const newVx = pVx + tvx;
+      const newVy = pVy + tvy;
+
+      const child = CompoundAsteroid.fromPartsOfParent({
+        scene: this.scene,
+        parent: this,
+        component,
+        newCenter: { x: newCenterX, y: newCenterY },
+        parentAngle: pAngle,
+        parentCentroidOffset: { x: cox, y: coy },
+        velocity: { x: newVx, y: newVy },
+        angularVelocity: pW,
+      });
+      results.push(child);
+    }
+
+    this.scene.matter.world.remove(this.compoundBody);
+    this.chunks.clear();
+    this.adjacency.clear();
+
+    return results;
+  }
+
+  private static fromPartsOfParent(args: {
+    scene: Phaser.Scene;
+    parent: CompoundAsteroid;
+    component: readonly string[];
+    newCenter: { x: number; y: number };
+    parentAngle: number;
+    parentCentroidOffset: { x: number; y: number };
+    velocity: { x: number; y: number };
+    angularVelocity: number;
+  }): CompoundAsteroid {
+    const child = Object.create(CompoundAsteroid.prototype) as CompoundAsteroid;
+    (child as unknown as { scene: Phaser.Scene }).scene = args.scene;
+    (child as unknown as { chunks: Map<string, ChunkPart> }).chunks = new Map();
+    (child as unknown as { adjacency: Map<string, Set<string>> }).adjacency = new Map();
+
+    const matterBodies = args.scene.matter.bodies;
+    const newParts: MatterJS.BodyType[] = [];
+    const cos = Math.cos(args.parentAngle);
+    const sin = Math.sin(args.parentAngle);
+    const componentSet = new Set(args.component);
+
+    for (const id of args.component) {
+      const parentChunk = args.parent.chunks.get(id);
+      if (!parentChunk) throw new Error(`fromPartsOfParent: missing ${id}`);
+      const localX = parentChunk.localOffset.x - args.parentCentroidOffset.x;
+      const localY = parentChunk.localOffset.y - args.parentCentroidOffset.y;
+      const worldX = args.newCenter.x + (localX * cos - localY * sin);
+      const worldY = args.newCenter.y + (localX * sin + localY * cos);
+
+      const part = matterBodies.rectangle(
+        worldX, worldY, CHUNK_PIXEL_SIZE, CHUNK_PIXEL_SIZE,
+        {
+          friction: 0.1, frictionAir: 0.005, restitution: 0,
+          mass: 0.25, slop: 0.005,
+        },
+      );
+      newParts.push(part);
+
+      const plugin: ChunkPartPlugin = { kind: 'chunk', asteroid: child, chunkId: id };
+      (part as unknown as { plugin: ChunkPartPlugin }).plugin = plugin;
+
+      child.chunks.set(id, {
+        chunkId: id,
+        material: parentChunk.material,
+        isCore: parentChunk.isCore,
+        localOffset: { x: localX, y: localY },
+        bodyPart: part,
+        sprite: parentChunk.sprite,
+        hp: parentChunk.hp,
+        maxHp: parentChunk.maxHp,
+      });
+
+      const parentNeighbors = args.parent.adjacency.get(id);
+      if (parentNeighbors) {
+        const kept = new Set<string>();
+        for (const n of parentNeighbors) {
+          if (componentSet.has(n)) kept.add(n);
+        }
+        child.adjacency.set(id, kept);
+      }
+    }
+
+    const body = args.scene.matter.body.create({
+      parts: newParts,
+      position: args.newCenter,
+      frictionAir: 0.005,
+    });
+    (body as unknown as { gravityScale: { x: number; y: number } }).gravityScale = {
+      x: 0, y: 0,
+    };
+    args.scene.matter.body.setAngle(body, args.parentAngle);
+    args.scene.matter.body.setVelocity(body, args.velocity);
+    args.scene.matter.body.setAngularVelocity(body, args.angularVelocity);
+    args.scene.matter.world.add(body);
+    (child as unknown as { compoundBody: MatterJS.BodyType }).compoundBody = body;
+
+    child.syncSprites();
+    return child;
+  }
+
   destroy(): void {
     this.scene.matter.world.remove(this.compoundBody);
     for (const chunk of this.chunks.values()) {
