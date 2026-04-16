@@ -202,6 +202,7 @@ export class GameScene extends Phaser.Scene {
     const sprite = this.matter.add.image(x, y, texKey);
     sprite.setCircle(ARBOR_RADIUS);
     sprite.setStatic(true);
+    sprite.setDepth(1);
     sprite.setFriction(0.2);
     sprite.setInteractive({ draggable: true });
     this.input.setDraggable(sprite);
@@ -235,6 +236,7 @@ export class GameScene extends Phaser.Scene {
       blade.setIgnoreGravity(true);
       blade.setFrictionAir(0);
       blade.setMass(0.001);
+      blade.setDepth(0);
       blade.setData('kind', 'saw');
       instance.blades.push(blade);
     }
