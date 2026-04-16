@@ -56,7 +56,7 @@ export const BASE_PARAMS: EffectiveGameplayParams = {
   blackholeCoreDamage: 1,
   blackholeMaxTargets: 3,
   qualityLevel: 0,
-  fallSpeedMultiplier: 0.15,
+  fallSpeedMultiplier: 0.03,
 };
 
 // Per-level deltas. Tuning scaffolding — adjust after playtesting.

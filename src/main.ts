@@ -24,7 +24,7 @@ new Phaser.Game({
       // the welded-cluster + static-channel pressure combo.
       positionIterations: 20,
       velocityIterations: 14,
-      constraintIterations: 8,
+      constraintIterations: 16,
     },
   },
   scene: [GameScene, UIScene],

@@ -189,7 +189,7 @@ export class Asteroid {
           },
         ) => unknown;
       };
-      return factory.constraint(a, b, 0, 1, { pointA, pointB, damping: 0.1 });
+      return factory.constraint(a, b, 0, 1, { pointA, pointB, damping: 0.4 });
     };
 
     if (Math.abs(dx) > Math.abs(dy)) {

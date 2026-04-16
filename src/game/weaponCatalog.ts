@@ -268,7 +268,7 @@ export const CATEGORY_DEFS: readonly CategoryDef[] = [
       {
         id: 'asteroids.chunkHp',
         name: 'Chunk HP',
-        description: '+1 HP per chunk, bigger kill payout',
+        description: 'HP multiplier per chunk (higher tiers gain more)',
         category: 'asteroids',
         baseCost: 1,
         growthRate: 1,
@@ -290,7 +290,7 @@ export const CATEGORY_DEFS: readonly CategoryDef[] = [
         category: 'asteroids',
         baseCost: 1,
         growthRate: 1,
-        maxLevel: 9,
+        maxLevel: 8,
       },
       {
         id: 'asteroids.fallSpeed',

@@ -463,21 +463,19 @@ export class GameScene extends Phaser.Scene {
   }
 
   private collectAtDeathLine(chunk: Phaser.Physics.Matter.Image): void {
-    const asteroid = chunk.getData('asteroid') as Asteroid | undefined;
-    const dead = chunk.getData('dead') as boolean;
+    const wasAlreadyDead = chunk.getData('dead') as boolean;
     const tier = (chunk.getData('tier') as number | undefined) ?? 1;
 
-    if (!dead && asteroid) {
-      asteroid.damageChunkByImage(chunk, Number.POSITIVE_INFINITY);
-    }
-
-    if (dead) {
-      const amount = tier;
-      gameplayState.addCash(amount);
-      this.cashFromSaw += amount;
+    if (wasAlreadyDead) {
+      // Weapon-killed chunk arrived — full tier reward + confetti.
+      gameplayState.addCash(tier);
+      this.cashFromSaw += tier;
       this.collectedDead++;
       this.spawnConfetti(chunk.x, chunk.y);
     } else {
+      // Grinder caught an alive chunk — flat $1 consolation, no confetti.
+      const asteroid = chunk.getData('asteroid') as Asteroid | undefined;
+      asteroid?.damageChunkByImage(chunk, Number.POSITIVE_INFINITY);
       gameplayState.addCash(1);
       this.cashFromLine += 1;
       this.collectedAlive++;

@@ -105,17 +105,17 @@ describe('chooseMaterial', () => {
 });
 
 describe('fallSpeedMultiplier', () => {
-  it('L0 = 0.15×', () => {
-    expect(fallSpeedMultiplier(0)).toBeCloseTo(0.15, 6);
+  it('L0 = 0.03×', () => {
+    expect(fallSpeedMultiplier(0)).toBeCloseTo(0.03, 6);
   });
-  it('L9 = 1.05×', () => {
-    expect(fallSpeedMultiplier(9)).toBeCloseTo(1.05, 6);
+  it('L9 = 0.93×', () => {
+    expect(fallSpeedMultiplier(9)).toBeCloseTo(0.93, 6);
   });
   it('linear +0.10 per level', () => {
-    expect(fallSpeedMultiplier(3)).toBeCloseTo(0.45, 6);
-    expect(fallSpeedMultiplier(5)).toBeCloseTo(0.65, 6);
+    expect(fallSpeedMultiplier(3)).toBeCloseTo(0.33, 6);
+    expect(fallSpeedMultiplier(5)).toBeCloseTo(0.53, 6);
   });
   it('clamps negative levels to L0 minimum', () => {
-    expect(fallSpeedMultiplier(-5)).toBeCloseTo(0.15, 6);
+    expect(fallSpeedMultiplier(-5)).toBeCloseTo(0.03, 6);
   });
 });
