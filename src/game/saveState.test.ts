@@ -33,6 +33,7 @@ const sample: SaveStateV1 = {
   cash: 123,
   levels: { sawDamage: 2, dropRate: 1 },
   weaponCounts: { saw: 1 },
+  weaponInstances: [{ typeId: 'saw', x: 640, y: 500 }],
   sawClockwise: true,
   emaCashPerSec: 4.5,
   savedAt: 1_700_000_000_000,
@@ -71,5 +72,27 @@ describe('saveState', () => {
 
   it('loadFromLocalStorage returns null when empty', () => {
     expect(loadFromLocalStorage()).toBeNull();
+  });
+
+  it('returns null when weaponInstances is missing', () => {
+    const { weaponInstances: _w, ...rest } = sample;
+    void _w;
+    expect(deserialize(JSON.stringify(rest))).toBeNull();
+  });
+
+  it('returns null when a weaponInstance entry is malformed', () => {
+    const bad = { ...sample, weaponInstances: [{ typeId: 'saw', x: 'nope', y: 0 }] };
+    expect(deserialize(JSON.stringify(bad))).toBeNull();
+  });
+
+  it('round-trips multiple weapon instances', () => {
+    const multi: SaveStateV1 = {
+      ...sample,
+      weaponInstances: [
+        { typeId: 'saw', x: 400, y: 500 },
+        { typeId: 'laser', x: 700, y: 300 },
+      ],
+    };
+    expect(deserialize(serialize(multi))).toEqual(multi);
   });
 });

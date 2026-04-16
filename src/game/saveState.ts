@@ -1,8 +1,15 @@
+export interface SavedWeaponInstance {
+  typeId: string;
+  x: number;
+  y: number;
+}
+
 export interface SaveStateV1 {
   v: 1;
   cash: number;
   levels: Record<string, number>;
   weaponCounts: Record<string, number>;
+  weaponInstances: SavedWeaponInstance[];
   sawClockwise: boolean;
   emaCashPerSec: number;
   savedAt: number;
@@ -29,6 +36,12 @@ export function deserialize(json: string): SaveStateV1 | null {
   if (typeof p.cash !== 'number') return null;
   if (!p.levels || typeof p.levels !== 'object') return null;
   if (!p.weaponCounts || typeof p.weaponCounts !== 'object') return null;
+  if (!Array.isArray(p.weaponInstances)) return null;
+  for (const inst of p.weaponInstances) {
+    if (!inst || typeof inst !== 'object') return null;
+    if (typeof inst.typeId !== 'string') return null;
+    if (typeof inst.x !== 'number' || typeof inst.y !== 'number') return null;
+  }
   if (typeof p.sawClockwise !== 'boolean') return null;
   if (typeof p.emaCashPerSec !== 'number') return null;
   if (typeof p.savedAt !== 'number') return null;

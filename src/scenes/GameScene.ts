@@ -110,17 +110,25 @@ export class GameScene extends Phaser.Scene {
     this.wireCollisions();
     this.wireDrag();
 
-    // Spawn initial weapon instances, spaced out vertically. When restoring
-    // a snapshot, use the persisted counts; otherwise seed from catalog.
+    // Spawn initial weapon instances. Priority:
+    //   1) Saved per-instance positions (from snapshot) — restores drag state.
+    //   2) Saved counts (legacy snapshot) — stacked default positions.
+    //   3) Fresh game — catalog startCount at stacked defaults.
     const unlocked = WEAPON_TYPES.filter((w) => !w.locked && w.id !== 'grinder');
     const yBottom = DEATH_LINE_Y - ARBOR_RADIUS - 10;
     const ySpacing = ARBOR_RADIUS * 3;
-    for (let wi = 0; wi < unlocked.length; wi++) {
-      const wt = unlocked[wi];
-      const spawnY = yBottom - wi * ySpacing;
-      const count = snap ? (snap.weaponCounts[wt.id] ?? 0) : wt.startCount;
-      for (let i = 0; i < count; i++) {
-        this.spawnWeaponInstance(wt.id, width / 2, spawnY);
+    if (snap && snap.weaponInstances.length > 0) {
+      for (const si of snap.weaponInstances) {
+        this.spawnWeaponInstance(si.typeId, si.x, si.y);
+      }
+    } else {
+      for (let wi = 0; wi < unlocked.length; wi++) {
+        const wt = unlocked[wi];
+        const spawnY = yBottom - wi * ySpacing;
+        const count = snap ? (snap.weaponCounts[wt.id] ?? 0) : wt.startCount;
+        for (let i = 0; i < count; i++) {
+          this.spawnWeaponInstance(wt.id, width / 2, spawnY);
+        }
       }
     }
     if (!snap) {
@@ -440,11 +448,17 @@ export class GameScene extends Phaser.Scene {
     const weaponIds = WEAPON_TYPES.filter((w) => !w.locked).map((w) => w.id);
     const weaponCounts: Record<string, number> = {};
     for (const id of weaponIds) weaponCounts[id] = gameplayState.weaponCount(id);
+    const weaponInstances = this.weaponInstances.map((inst) => ({
+      typeId: inst.type,
+      x: inst.sprite.x,
+      y: inst.sprite.y,
+    }));
     const snap: SaveStateV1 = {
       v: 1,
       cash: gameplayState.cash,
       levels: gameplayState.levels(),
       weaponCounts,
+      weaponInstances,
       sawClockwise: gameplayState.sawClockwise,
       emaCashPerSec: this.rateTracker.rate(),
       savedAt: Date.now(),
