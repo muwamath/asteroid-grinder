@@ -17,10 +17,10 @@ describe('weaponCatalog', () => {
     expect(findWeaponType('saw')?.locked).toBe(false);
   });
 
-  it('defines blackhole as locked, laser and missile as unlocked', () => {
+  it('defines all weapons as unlocked', () => {
     expect(findWeaponType('laser')?.locked).toBe(false);
     expect(findWeaponType('missile')?.locked).toBe(false);
-    expect(findWeaponType('blackhole')?.locked).toBe(true);
+    expect(findWeaponType('blackhole')?.locked).toBe(false);
   });
 
   it('defines chute and asteroids categories', () => {
