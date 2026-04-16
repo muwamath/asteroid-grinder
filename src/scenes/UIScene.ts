@@ -174,7 +174,7 @@ class WeaponBarButton {
       })
       .setOrigin(0.5);
 
-    if (isWeapon && !this.isLocked) {
+    if (isWeapon && !this.isLocked && def.id !== 'grinder') {
       this.countText = scene.add
         .text(x + BAR_BUTTON_SIZE - 4, y + 3, '×1', {
           font: 'bold 9px ui-monospace',
@@ -237,8 +237,9 @@ class SubPanel {
     this.container.add(this.headerText);
     yOff += 22;
 
-    // Buy/Sell for weapons.
-    if (isWeapon) {
+    // Buy/Sell for weapons (not grinder — it IS the death line).
+    const showBuySell = isWeapon && def.id !== 'grinder';
+    if (showBuySell) {
       const btnW = (SUBPANEL_W - 22) / 2;
       const btnH = 30;
 
@@ -330,7 +331,7 @@ class SubPanel {
     if (this.isWeapon) {
       const wDef = this.def as WeaponTypeDef;
       const count = gameplayState.weaponCount(wDef.id);
-      this.headerText.setText(`${wDef.name} ×${count}`);
+      this.headerText.setText(wDef.id === 'grinder' ? wDef.name : `${wDef.name} ×${count}`);
       const buyCost = count + 1;
       this.buyText?.setText(`Buy $${buyCost}`);
       const canBuy = gameplayState.cash >= buyCost;
@@ -366,7 +367,7 @@ class SubPanel {
 
   private estimateHeight(): number {
     let h = 8 + 22; // padding + header
-    if (this.isWeapon) h += 38; // buy/sell row
+    if (this.isWeapon && this.def.id !== 'grinder') h += 38; // buy/sell row
     if (this.def.id === 'saw') h += 30; // CW/CCW toggle
     if (this.def.upgrades.length > 0) {
       h += 16; // upgrades label

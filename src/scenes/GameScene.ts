@@ -63,7 +63,6 @@ export class GameScene extends Phaser.Scene {
 
   preload(): void {
     this.makeChunkTextures();
-    this.makeGrinderTexture();
     this.makeArborTexture();
     this.makeSawBladeTexture();
   }
@@ -83,7 +82,7 @@ export class GameScene extends Phaser.Scene {
 
     // Spawn initial weapon instances (one per unlocked type).
     for (const wt of WEAPON_TYPES) {
-      if (wt.locked) continue;
+      if (wt.locked || wt.id === 'grinder') continue;
       for (let i = 0; i < wt.startCount; i++) {
         const jitter = (Math.random() - 0.5) * 40;
         this.spawnWeaponInstance(wt.id, width / 2 + jitter, 500);
@@ -198,7 +197,7 @@ export class GameScene extends Phaser.Scene {
 
   private spawnWeaponInstance(typeId: string, x: number, y: number): WeaponInstance {
     const id = `${typeId}-${this.nextInstanceId++}`;
-    const texKey = typeId === 'saw' ? 'arbor' : typeId === 'grinder' ? 'grinder' : typeId;
+    const texKey = typeId === 'saw' ? 'arbor' : typeId;
 
     const sprite = this.matter.add.image(x, y, texKey);
     sprite.setCircle(ARBOR_RADIUS);
@@ -553,19 +552,6 @@ export class GameScene extends Phaser.Scene {
       [0, size],
       [size, size],
     ]);
-  }
-
-  private makeGrinderTexture(): void {
-    const d = ARBOR_RADIUS * 2;
-    const g = this.make.graphics({ x: 0, y: 0 }, false);
-    g.fillStyle(0x8a8aa0);
-    g.fillCircle(ARBOR_RADIUS, ARBOR_RADIUS, ARBOR_RADIUS);
-    g.lineStyle(2, 0xc8c8dc);
-    g.strokeCircle(ARBOR_RADIUS, ARBOR_RADIUS, ARBOR_RADIUS - 1);
-    g.fillStyle(0x5a5a70);
-    g.fillCircle(ARBOR_RADIUS, ARBOR_RADIUS, 4);
-    g.generateTexture('grinder', d, d);
-    g.destroy();
   }
 
   private makeArborTexture(): void {
