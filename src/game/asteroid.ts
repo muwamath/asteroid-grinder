@@ -12,7 +12,7 @@ function lightenColor(color: number, amount: number): number {
   return (lr << 16) | (lg << 8) | lb;
 }
 
-export const CHUNK_PIXEL_SIZE = 20;
+export const CHUNK_PIXEL_SIZE = 12;
 
 interface ChunkState {
   image: Phaser.Physics.Matter.Image;

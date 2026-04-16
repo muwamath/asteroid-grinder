@@ -6,8 +6,8 @@ import { gameplayState } from '../game/gameplayState';
 import { BASE_PARAMS, applyUpgrades, type EffectiveGameplayParams } from '../game/upgradeApplier';
 import { WEAPON_TYPES } from '../game/weaponCatalog';
 
-const ARBOR_RADIUS = 32;
-const SAW_BLADE_RADIUS = 18;
+const ARBOR_RADIUS = 20;
+const SAW_BLADE_RADIUS = 6;
 const SAW_ORBIT_RAD_PER_SEC = 4;
 const SAW_HIT_COOLDOWN_MS = 120;
 

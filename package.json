@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "description": "An idle physics sandbox: pinatas fall, weapons chop, upgrades compound. Phaser 3 port of Pinata Grinder.",
+  "description": "An idle physics sandbox: asteroids fall, weapons chop, upgrades compound.",
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
