@@ -1,28 +1,25 @@
 import Phaser from 'phaser';
 import { gameplayState } from '../game/gameplayState';
 import {
-  UPGRADE_CATALOG,
-  costAtLevel,
-  isMaxed,
-  type UpgradeCategory,
-  type UpgradeDef,
-} from '../game/upgradeCatalog';
+  WEAPON_TYPES,
+  CATEGORY_DEFS,
+  type WeaponTypeDef,
+  type CategoryDef,
+} from '../game/weaponCatalog';
+import { costAtLevel, isMaxed, type UpgradeDef } from '../game/upgradeCatalog';
 
-const PANEL_X = 14;
-const PANEL_Y = 50;
-const PANEL_W = 260;
-const BUTTON_H = 52;
-const BUTTON_GAP = 8;
-
-const CATEGORY_COLORS: Record<UpgradeCategory, number> = {
-  saw: 0x4a3a2c,
-  environment: 0x2a3a4a,
-  asteroid: 0x3a2a4a,
-};
+const BAR_X = 8;
+const BAR_Y = 44;
+const BAR_BUTTON_SIZE = 52;
+const BAR_GAP = 6;
+const SUBPANEL_X = BAR_X + BAR_BUTTON_SIZE + 6;
+const SUBPANEL_W = 170;
 
 export class UIScene extends Phaser.Scene {
   private cashText!: Phaser.GameObjects.Text;
-  private buttons: UpgradeButton[] = [];
+  private barButtons: WeaponBarButton[] = [];
+  private activePanel: SubPanel | null = null;
+  private selectedId: string | null = null;
   private unsubs: Array<() => void> = [];
 
   constructor() {
@@ -30,19 +27,12 @@ export class UIScene extends Phaser.Scene {
   }
 
   create(): void {
-    this.cashText = this.add.text(14, 10, '$0', {
+    this.cashText = this.add.text(BAR_X, 10, '$0', {
       font: 'bold 26px ui-monospace',
       color: '#ffd166',
     });
 
-    this.add
-      .text(this.scale.width / 2, 12, 'drag the stopper · chop the asteroids · keep them off the red line', {
-        font: '13px ui-monospace',
-        color: '#888',
-      })
-      .setOrigin(0.5, 0);
-
-    this.buildUpgradePanel();
+    this.buildWeaponBar();
 
     this.unsubs.push(
       gameplayState.on('cashChanged', (cash) => {
@@ -53,12 +43,24 @@ export class UIScene extends Phaser.Scene {
           duration: 160,
           ease: 'Quad.out',
         });
-        this.refreshButtons();
+        this.activePanel?.refresh();
       }),
     );
     this.unsubs.push(
       gameplayState.on('upgradeLevelChanged', () => {
-        this.refreshButtons();
+        this.activePanel?.refresh();
+      }),
+    );
+    this.unsubs.push(
+      gameplayState.on('weaponCountChanged', (id) => {
+        // Update the count badge on the matching bar button.
+        const allDefs: Array<WeaponTypeDef | CategoryDef> = [...CATEGORY_DEFS, ...WEAPON_TYPES];
+        for (let i = 0; i < allDefs.length; i++) {
+          if (allDefs[i].id === id && this.barButtons[i]) {
+            this.barButtons[i].updateCount(gameplayState.weaponCount(id));
+          }
+        }
+        this.activePanel?.refresh();
       }),
     );
 
@@ -66,27 +68,274 @@ export class UIScene extends Phaser.Scene {
       for (const u of this.unsubs) u();
       this.unsubs = [];
     });
-
-    this.refreshButtons();
   }
 
-  private buildUpgradePanel(): void {
-    this.add
-      .text(PANEL_X, PANEL_Y - 22, 'UPGRADES', {
-        font: 'bold 11px ui-monospace',
-        color: '#a0a0b8',
-      });
+  private buildWeaponBar(): void {
+    let y = BAR_Y;
 
-    UPGRADE_CATALOG.forEach((def, i) => {
-      const y = PANEL_Y + i * (BUTTON_H + BUTTON_GAP);
-      this.buttons.push(new UpgradeButton(this, PANEL_X, y, PANEL_W, BUTTON_H, def));
+    // Categories first (Chute, Asteroids).
+    for (const cat of CATEGORY_DEFS) {
+      const btn = new WeaponBarButton(
+        this, BAR_X, y, cat, false,
+        () => this.togglePanel(cat.id, cat, false),
+      );
+      this.barButtons.push(btn);
+      y += BAR_BUTTON_SIZE + BAR_GAP;
+    }
+
+    // Divider.
+    this.add.text(BAR_X, y + 2, '─WEAPONS─', {
+      font: 'bold 8px ui-monospace',
+      color: '#606078',
     });
+    y += 18;
+
+    // Weapons.
+    for (const wt of WEAPON_TYPES) {
+      const btn = new WeaponBarButton(
+        this, BAR_X, y, wt, true,
+        () => this.togglePanel(wt.id, wt, true),
+      );
+      this.barButtons.push(btn);
+      y += BAR_BUTTON_SIZE + BAR_GAP;
+    }
   }
 
-  private refreshButtons(): void {
-    for (const b of this.buttons) b.refresh();
+  private togglePanel(id: string, def: WeaponTypeDef | CategoryDef, isWeapon: boolean): void {
+    if (this.selectedId === id) {
+      // Close current panel.
+      this.activePanel?.destroy();
+      this.activePanel = null;
+      this.selectedId = null;
+      for (const btn of this.barButtons) btn.setSelected(false);
+      return;
+    }
+
+    // Close old, open new.
+    this.activePanel?.destroy();
+    this.selectedId = id;
+    for (const btn of this.barButtons) btn.setSelected(false);
+
+    const allDefs: Array<WeaponTypeDef | CategoryDef> = [...CATEGORY_DEFS, ...WEAPON_TYPES];
+    const idx = allDefs.findIndex((d) => d.id === id);
+    if (idx >= 0 && this.barButtons[idx]) {
+      this.barButtons[idx].setSelected(true);
+    }
+
+    this.activePanel = new SubPanel(this, def, isWeapon);
+    this.activePanel.refresh();
   }
 }
+
+// ── WeaponBarButton ──────────────────────────────────────────────────────
+
+class WeaponBarButton {
+  private readonly bg: Phaser.GameObjects.Rectangle;
+  private readonly countText: Phaser.GameObjects.Text | null;
+  private readonly isLocked: boolean;
+
+  constructor(
+    scene: Phaser.Scene,
+    x: number,
+    y: number,
+    def: WeaponTypeDef | CategoryDef,
+    isWeapon: boolean,
+    onClick: () => void,
+  ) {
+    this.isLocked = isWeapon && (def as WeaponTypeDef).locked;
+
+    this.bg = scene.add
+      .rectangle(x, y, BAR_BUTTON_SIZE, BAR_BUTTON_SIZE, this.isLocked ? 0x141420 : 0x202030)
+      .setOrigin(0, 0)
+      .setStrokeStyle(1, 0x4a4a5c);
+
+    if (!this.isLocked) {
+      this.bg.setInteractive({ useHandCursor: true });
+      this.bg.on('pointerdown', () => onClick());
+    }
+
+    // Icon placeholder — first letter of name, large.
+    scene.add
+      .text(x + BAR_BUTTON_SIZE / 2, y + BAR_BUTTON_SIZE / 2 - 4, def.name.charAt(0), {
+        font: 'bold 20px ui-monospace',
+        color: this.isLocked ? '#303040' : '#8080a0',
+      })
+      .setOrigin(0.5);
+
+    scene.add
+      .text(x + BAR_BUTTON_SIZE / 2, y + BAR_BUTTON_SIZE - 6, def.name, {
+        font: '7px ui-monospace',
+        color: this.isLocked ? '#404050' : '#a0a0b8',
+      })
+      .setOrigin(0.5);
+
+    if (isWeapon && !this.isLocked) {
+      this.countText = scene.add
+        .text(x + BAR_BUTTON_SIZE - 4, y + 3, '×1', {
+          font: 'bold 9px ui-monospace',
+          color: '#b0ffa8',
+        })
+        .setOrigin(1, 0);
+    } else {
+      this.countText = null;
+    }
+  }
+
+  setSelected(selected: boolean): void {
+    if (this.isLocked) return;
+    this.bg.setStrokeStyle(selected ? 2 : 1, selected ? 0xff6666 : 0x4a4a5c);
+    this.bg.setFillStyle(selected ? 0x2a1a1a : 0x202030);
+  }
+
+  updateCount(count: number): void {
+    this.countText?.setText(`×${count}`);
+  }
+}
+
+// ── SubPanel ─────────────────────────────────────────────────────────────
+
+class SubPanel {
+  private container: Phaser.GameObjects.Container;
+  private upgradeButtons: UpgradeButton[] = [];
+  private buyButton: Phaser.GameObjects.Rectangle | null = null;
+  private sellButton: Phaser.GameObjects.Rectangle | null = null;
+  private buyText: Phaser.GameObjects.Text | null = null;
+  private sellText: Phaser.GameObjects.Text | null = null;
+  private headerText: Phaser.GameObjects.Text;
+
+  constructor(
+    scene: Phaser.Scene,
+    private readonly def: WeaponTypeDef | CategoryDef,
+    private readonly isWeapon: boolean,
+  ) {
+    this.container = scene.add.container(SUBPANEL_X, BAR_Y);
+    let yOff = 0;
+
+    // Background panel.
+    const bgH = this.estimateHeight();
+    const bg = scene.add
+      .rectangle(0, 0, SUBPANEL_W, bgH, 0x1a1a28, 0.92)
+      .setOrigin(0, 0)
+      .setStrokeStyle(1, 0x3a3a4c);
+    this.container.add(bg);
+    yOff += 8;
+
+    // Header.
+    this.headerText = scene.add.text(8, yOff, def.name, {
+      font: 'bold 12px ui-monospace',
+      color: '#e8e8f0',
+    });
+    this.container.add(this.headerText);
+    yOff += 22;
+
+    // Buy/Sell for weapons.
+    if (isWeapon) {
+      const btnW = (SUBPANEL_W - 22) / 2;
+      const btnH = 30;
+
+      this.buyButton = scene.add
+        .rectangle(8, yOff, btnW, btnH, 0x233024)
+        .setOrigin(0, 0)
+        .setStrokeStyle(1, 0x4a5c4a)
+        .setInteractive({ useHandCursor: true });
+      this.buyText = scene.add
+        .text(8 + btnW / 2, yOff + btnH / 2, 'Buy $1', {
+          font: 'bold 10px ui-monospace',
+          color: '#b0ffa8',
+        })
+        .setOrigin(0.5);
+      this.buyButton.on('pointerdown', () => this.onBuy());
+      this.container.add([this.buyButton, this.buyText]);
+
+      this.sellButton = scene.add
+        .rectangle(8 + btnW + 6, yOff, btnW, btnH, 0x302323)
+        .setOrigin(0, 0)
+        .setStrokeStyle(1, 0x5c4a4a)
+        .setInteractive({ useHandCursor: true });
+      this.sellText = scene.add
+        .text(8 + btnW + 6 + btnW / 2, yOff + btnH / 2, 'Sell $1', {
+          font: 'bold 10px ui-monospace',
+          color: '#ffa0a0',
+        })
+        .setOrigin(0.5);
+      this.sellButton.on('pointerdown', () => this.onSell());
+      this.container.add([this.sellButton, this.sellText]);
+
+      yOff += btnH + 8;
+    }
+
+    // Upgrades.
+    if (def.upgrades.length > 0) {
+      const upgLabel = scene.add.text(8, yOff, 'UPGRADES', {
+        font: 'bold 9px ui-monospace',
+        color: '#a0a0b8',
+      });
+      this.container.add(upgLabel);
+      yOff += 16;
+
+      for (const upgDef of def.upgrades) {
+        const btn = new UpgradeButton(scene, 8, yOff, SUBPANEL_W - 16, 40, upgDef, this.container);
+        this.upgradeButtons.push(btn);
+        yOff += 44;
+      }
+    }
+  }
+
+  refresh(): void {
+    if (this.isWeapon) {
+      const wDef = this.def as WeaponTypeDef;
+      const count = gameplayState.weaponCount(wDef.id);
+      this.headerText.setText(`${wDef.name} ×${count}`);
+      const buyCost = count + 1;
+      this.buyText?.setText(`Buy $${buyCost}`);
+      const canBuy = gameplayState.cash >= buyCost;
+      this.buyButton?.setFillStyle(canBuy ? 0x233024 : 0x1a1a20);
+      this.buyText?.setColor(canBuy ? '#b0ffa8' : '#606068');
+
+      const canSell = count > 1;
+      this.sellButton?.setFillStyle(canSell ? 0x302323 : 0x1a1a20);
+      this.sellText?.setColor(canSell ? '#ffa0a0' : '#606068');
+      if (canSell) {
+        this.sellButton?.setInteractive({ useHandCursor: true });
+      } else {
+        this.sellButton?.disableInteractive();
+      }
+    }
+    for (const btn of this.upgradeButtons) btn.refresh();
+  }
+
+  destroy(): void {
+    this.container.destroy();
+  }
+
+  private estimateHeight(): number {
+    let h = 8 + 22; // padding + header
+    if (this.isWeapon) h += 38; // buy/sell row
+    if (this.def.upgrades.length > 0) {
+      h += 16; // upgrades label
+      h += this.def.upgrades.length * 44; // upgrade rows
+    }
+    return h + 8; // bottom padding
+  }
+
+  private onBuy(): void {
+    const wDef = this.def as WeaponTypeDef;
+    const count = gameplayState.weaponCount(wDef.id);
+    const cost = count + 1;
+    if (gameplayState.trySpend(cost)) {
+      gameplayState.buyWeapon(wDef.id);
+    }
+  }
+
+  private onSell(): void {
+    const wDef = this.def as WeaponTypeDef;
+    if (gameplayState.sellWeapon(wDef.id)) {
+      gameplayState.addCash(1);
+    }
+  }
+}
+
+// ── UpgradeButton ────────────────────────────────────────────────────────
 
 class UpgradeButton {
   private readonly bg: Phaser.GameObjects.Rectangle;
@@ -102,6 +351,7 @@ class UpgradeButton {
     w: number,
     h: number,
     private readonly def: UpgradeDef,
+    container: Phaser.GameObjects.Container,
   ) {
     this.bg = scene.add
       .rectangle(x, y, w, h, 0x202030)
@@ -118,24 +368,20 @@ class UpgradeButton {
       this.applyFill();
     });
 
-    // Left category stripe.
-    scene.add
-      .rectangle(x, y, 4, h, CATEGORY_COLORS[def.category])
-      .setOrigin(0, 0)
-      .setStrokeStyle(0);
-
-    this.nameText = scene.add.text(x + 12, y + 6, def.name, {
-      font: 'bold 14px ui-monospace',
+    this.nameText = scene.add.text(x + 8, y + 4, def.name, {
+      font: 'bold 11px ui-monospace',
       color: '#e8e8f0',
     });
-    this.statsText = scene.add.text(x + 12, y + 23, '', {
-      font: '11px ui-monospace',
+    this.statsText = scene.add.text(x + 8, y + 18, '', {
+      font: '9px ui-monospace',
       color: '#a0a0b8',
     });
-    this.descText = scene.add.text(x + 12, y + 36, def.description, {
-      font: '10px ui-monospace',
+    this.descText = scene.add.text(x + 8, y + 28, def.description, {
+      font: '9px ui-monospace',
       color: '#707088',
     });
+
+    container.add([this.bg, this.nameText, this.statsText, this.descText]);
   }
 
   refresh(): void {
