@@ -33,12 +33,6 @@ describe('applyUpgrades', () => {
     expect(applyUpgrades({ 'saw.bladeCount': 4 }).bladeCount).toBe(BASE_PARAMS.bladeCount + 4);
   });
 
-  it('widens the channel per level', () => {
-    expect(applyUpgrades({ 'chute.channelWidth': 5 }).channelHalfWidth).toBe(
-      BASE_PARAMS.channelHalfWidth + 5 * 14,
-    );
-  });
-
   it('shortens spawn interval per drop-rate level but clamps at 300ms', () => {
     expect(applyUpgrades({ 'asteroids.dropRate': 2 }).spawnIntervalMs).toBe(1800 - 260);
     expect(applyUpgrades({ 'asteroids.dropRate': 99 }).spawnIntervalMs).toBe(300);
@@ -184,7 +178,6 @@ describe('weaponCatalog + upgradeCatalog', () => {
         'blackhole.coreSize',
         'blackhole.coreDamage',
         'blackhole.maxTargets',
-        'chute.channelWidth',
         'asteroids.dropRate',
         'asteroids.chunkHp',
         'asteroids.asteroidSize',

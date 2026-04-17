@@ -3,6 +3,10 @@ import { fallSpeedMultiplier as fallSpeedMultiplierFn } from './materials';
 export interface EffectiveGameplayParams {
   readonly sawDamage: number;
   readonly bladeCount: number;
+  // Phase-4-TODO: channelHalfWidth is a transitional placeholder. The
+  // chute.channelWidth upgrade is removed, so this never scales from levels;
+  // it's a constant read from BASE_PARAMS until Task 10 replaces all call
+  // sites with the arena layout's actual wall geometry.
   readonly channelHalfWidth: number;
   readonly spawnIntervalMs: number;
   readonly maxHpPerChunk: number;
@@ -46,7 +50,7 @@ export interface EffectiveGameplayParams {
 export const BASE_PARAMS: EffectiveGameplayParams = {
   sawDamage: 1,
   bladeCount: 1,
-  channelHalfWidth: 44,
+  channelHalfWidth: 600, // Phase-4-TODO: removed when buildArenaFromLayout lands.
   spawnIntervalMs: 1800,
   maxHpPerChunk: 1,
   minChunks: 4,
@@ -86,7 +90,6 @@ export const BASE_PARAMS: EffectiveGameplayParams = {
 // Per-level deltas. Tuning scaffolding — adjust after playtesting.
 const SAW_DAMAGE_PER_LEVEL = 1;
 const BLADE_COUNT_PER_LEVEL = 1;
-const CHANNEL_WIDTH_PER_LEVEL = 14;
 const DROP_RATE_MS_PER_LEVEL = 130;
 const DROP_RATE_MIN_MS = 300;
 const CHUNK_HP_PER_LEVEL = 1;
@@ -122,8 +125,7 @@ export function applyUpgrades(
   return {
     sawDamage: BASE_PARAMS.sawDamage + lv('saw.damage') * SAW_DAMAGE_PER_LEVEL,
     bladeCount: BASE_PARAMS.bladeCount + lv('saw.bladeCount') * BLADE_COUNT_PER_LEVEL,
-    channelHalfWidth:
-      BASE_PARAMS.channelHalfWidth + lv('chute.channelWidth') * CHANNEL_WIDTH_PER_LEVEL,
+    channelHalfWidth: BASE_PARAMS.channelHalfWidth,
     spawnIntervalMs: Math.max(
       DROP_RATE_MIN_MS,
       BASE_PARAMS.spawnIntervalMs - lv('asteroids.dropRate') * DROP_RATE_MS_PER_LEVEL,

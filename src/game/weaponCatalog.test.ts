@@ -24,9 +24,9 @@ describe('weaponCatalog', () => {
     expect(findWeaponType('blackhole')?.locked).toBe(false);
   });
 
-  it('defines chute and asteroids categories', () => {
+  it('defines the asteroids category (chute category removed with channelWidth upgrade)', () => {
     const ids = CATEGORY_DEFS.map((c) => c.id);
-    expect(ids).toEqual(['chute', 'asteroids']);
+    expect(ids).toEqual(['asteroids']);
   });
 
   it('grinder and saw start at 1; other weapons start at 0', () => {
@@ -84,7 +84,7 @@ describe('weaponCatalog', () => {
   });
 
   it('findCategory resolves by id', () => {
-    expect(findCategory('chute')?.name).toBe('Chute');
+    expect(findCategory('asteroids')?.name).toBe('Asteroids');
     expect(findCategory('nope')).toBeUndefined();
   });
 });

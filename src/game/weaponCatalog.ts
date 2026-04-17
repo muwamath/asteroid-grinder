@@ -264,22 +264,6 @@ export const WEAPON_TYPES: readonly WeaponTypeDef[] = [
 
 export const CATEGORY_DEFS: readonly CategoryDef[] = [
   {
-    id: 'chute',
-    name: 'Chute',
-    icon: 'chute',
-    upgrades: [
-      {
-        id: 'chute.channelWidth',
-        name: 'Channel Width',
-        description: 'Widen the grind channel',
-        category: 'chute',
-        baseCost: 1,
-        growthRate: 1,
-        maxLevel: 10,
-      },
-    ],
-  },
-  {
     id: 'asteroids',
     name: 'Asteroids',
     icon: 'asteroids',
