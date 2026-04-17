@@ -195,9 +195,14 @@ export class GameScene extends Phaser.Scene {
       }
     } else {
       // No saved installations — could be a fresh boot, a post-prestige run,
-      // or a Start Run with a new seed. Auto-install each weapon's
-      // startCount at the closest-to-center unlocked slots so every run
-      // begins with its default weapon(s) already placed.
+      // or a Start Run with a new seed. Seed weapon counts from the catalog
+      // FIRST, then auto-install at closest-to-center unlocked slots. Do NOT
+      // call `buyWeapon` in the install loop — that would inflate
+      // `instancesBoughtThisRun` and consume prestige free-weapon slots even
+      // though the player never opened the picker.
+      gameplayState.initWeaponCounts(
+        Object.fromEntries(WEAPON_TYPES.filter((w) => !w.locked).map((w) => [w.id, w.startCount])),
+      );
       void yBottom; void ySpacing;
       const sortedSlots = [...this.arenaLayout.slots]
         .filter((s) => gameplayState.isSlotUnlocked(s.id))
@@ -213,15 +218,11 @@ export class GameScene extends Phaser.Scene {
           const slot = sortedSlots[slotCursor++];
           const inst = this.spawnWeaponInstance(wt.id, slot.x, slot.y);
           if (!inst) continue;
-          gameplayState.buyWeapon(wt.id);
           gameplayState.installWeapon(slot.id, wt.id, inst.id);
         }
       }
     }
     if (!snap) {
-      gameplayState.initWeaponCounts(
-        Object.fromEntries(WEAPON_TYPES.filter((w) => !w.locked).map((w) => [w.id, w.startCount])),
-      );
       if (this.effectiveParams.startingCash > 0) {
         gameplayState.addCash(this.effectiveParams.startingCash, { silent: true });
       }
@@ -677,8 +678,11 @@ export class GameScene extends Phaser.Scene {
     inst.sprite.destroy();
     this.weaponInstances = this.weaponInstances.filter((w) => w !== inst);
     gameplayState.uninstallWeapon(slotId);
-    gameplayState.sellWeapon(installed.typeId);
-    gameplayState.addCash(1, { silent: true });
+    // Only refund cash if the count actually decremented. Prevents a $1
+    // exploit when the count was already at the floor.
+    if (gameplayState.sellWeapon(installed.typeId)) {
+      gameplayState.addCash(1, { silent: true });
+    }
     // Re-draw the slot marker so its yellow ring comes back.
     const slot = this.arenaLayout?.slots.find((s) => s.id === slotId);
     const g = this.slotMarkers.get(slotId);

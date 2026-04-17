@@ -109,6 +109,16 @@ describe('gameplayState', () => {
       expect(gameplayState.isSlotUnlocked('a')).toBe(false);
     });
 
+    it('sellWeapon returns false when count is 0 and does not underflow', () => {
+      gameplayState.initWeaponCounts({ saw: 0, missile: 1 });
+      expect(gameplayState.sellWeapon('saw')).toBe(false);
+      expect(gameplayState.weaponCount('saw')).toBe(0);
+      // Can sell down to zero now.
+      expect(gameplayState.sellWeapon('missile')).toBe(true);
+      expect(gameplayState.weaponCount('missile')).toBe(0);
+      expect(gameplayState.sellWeapon('missile')).toBe(false);
+    });
+
     it('installWeapon + uninstallWeapon maintain install map and emit events', () => {
       gameplayState.initArenaSlots(['a']);
       const installs: string[] = [];

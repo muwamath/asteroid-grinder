@@ -58,7 +58,11 @@ Makes progression feel earned.
 
 - **Upgrade audit — every item, every stat.** Walk through every entry in `weaponCatalog.ts` (saw / laser / missile / blackhole / grinder) and the `asteroids.*` category. For each: confirm the upgrade exists, its per-level delta feels right, its max level is coherent, and its cost curve is something other than placeholder `$1`. Explicitly include the **spawner** — add upgrades for spawn interval, spawn amplitude, and anything else that governs the asteroid-incoming pipeline (currently only `asteroids.dropRate` exists). This audit is the single source of truth feeding the rebalance below.
 - **Economy rebalance.** All costs are placeholder ($1 flat). Needs exponential scaling, per-weapon buy curves, sell refund formula, upgrade cost tuning. Must land before/with any of the new gameplay systems above.
-- **Sell the last weapon; link buy prices.** Allow selling down to zero. All weapon buy prices are linked globally — the Nth weapon of any type costs the same, not per-type. Roll into the rebalance.
+- **Sell the last weapon; link buy prices.** ✅ Selling-to-zero shipped 2026-04-17 with the code-review fix pass. *Remaining:* link buy prices globally — the Nth weapon of any type costs the same, not per-type. Roll into the rebalance.
+- **Code-review follow-ups (deferred to later polish, 2026-04-17):**
+  - `startNewRun` should call `ui.closeAllPanels()` before `stop+start` so any open Phaser-canvas sub-panel doesn't dangle briefly during the transition.
+  - Run Config map preview assumes `scale.width/height` matches the arena's generation dimensions — document this in a comment so a scale-mode change doesn't silently break the preview.
+  - Re-roll button double-fires on desktop (`pointerdown` + `click` both call `rerollFn`), causing the shown seed to differ from the first-displayed one. Remove one listener.
 - **"Larger sooner" asteroid curve.** Current Asteroid Size upgrade starts at 4 chunks and adds linearly. Desired: grow more, faster early (non-linear, Fibonacci-ish) so the game feels meaty quickly.
 - **Slower wall expansion.** Channel Width upgrade should widen by smaller increments or scale cost more aggressively — progression should feel earned. *(Note: Channel Width was removed with the procedural arena; this may be obsolete — revisit during the audit.)*
 

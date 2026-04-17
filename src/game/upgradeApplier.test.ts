@@ -274,15 +274,18 @@ describe('gameplayState', () => {
     expect(events).toEqual([['saw', 2]]);
   });
 
-  it('sellWeapon decrements count but not below 1', () => {
+  it('sellWeapon decrements count down to zero and refuses below', () => {
     gameplayState.reset();
     gameplayState.initWeaponCounts({ saw: 2 });
     const events: Array<[string, number]> = [];
     gameplayState.on('weaponCountChanged', (id, count) => events.push([id, count]));
     expect(gameplayState.sellWeapon('saw')).toBe(true);
     expect(gameplayState.weaponCount('saw')).toBe(1);
+    expect(gameplayState.sellWeapon('saw')).toBe(true);
+    expect(gameplayState.weaponCount('saw')).toBe(0);
+    // Below zero is refused.
     expect(gameplayState.sellWeapon('saw')).toBe(false);
-    expect(gameplayState.weaponCount('saw')).toBe(1);
-    expect(events).toEqual([['saw', 1]]);
+    expect(gameplayState.weaponCount('saw')).toBe(0);
+    expect(events).toEqual([['saw', 1], ['saw', 0]]);
   });
 });

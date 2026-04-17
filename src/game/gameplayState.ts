@@ -153,7 +153,9 @@ class GameplayState {
 
   sellWeapon(id: string): boolean {
     const current = this.weaponCount(id);
-    if (current <= 1) return false;
+    if (current <= 0) return false;
+    // Can sell down to zero in the procedural-arena world — weapons live at
+    // slots, not as mandatory fixtures. Previous `<= 1` guard was legacy.
     this._weaponCounts.set(id, current - 1);
     this.emit('weaponCountChanged', id, current - 1);
     return true;
