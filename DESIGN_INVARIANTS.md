@@ -34,6 +34,15 @@ Paired with the Playwright golden-path smoke test (`tests/e2e/smoke.spec.ts`), w
 - **Saw direction is per-instance, not global.** Each `SawBehavior` owns its own `_clockwise` flag (default true). Read it directly inside the behavior — there is no `gameplayState.sawClockwise`. Persisted per-instance via `SavedWeaponInstance.clockwise` (optional; absent = CW). Toggled by double-clicking the arbor.
 - **`input.dragDistanceThreshold = 6`** (set in `wireDrag`). The Phaser default of 0 turns any sub-pixel mouse jitter on a click into a `dragstart`, which routes the release through `dragend` and bypasses the arbor's double-click handler. Don't lower it.
 
+## Grinder
+
+- **Grinder is a singleton `WeaponBehavior`, not a draggable weapon.** Always exactly one instance, spawned unconditionally in `GameScene.spawnGrinder()`. Not draggable, not buy/sell-able, excluded from save-state `weaponInstances` serialization. The player cannot have more or fewer than one grinder.
+- **Grinder blades are a row of counter-rotating rectangles tiled across channel width.** Blade count `n = ceil(channelWidth / BLADE_WIDTH_BASE)` and widens with the Channel Width upgrade. Alternating direction per blade index is load-bearing for the "chewing" feel — don't unify direction.
+- **Grinder blades are static Matter bodies with `plugin.kind = 'grinder'`.** Created via `matter.add.rectangle` (not `matter.add.image`), so they have NO `gameObject`. `handleContact` falls back to `body.plugin.{kind,instanceId}` when `gameObject` is absent. Don't assume a blade has a gameObject.
+- **Grinder kills pay flat $1; other weapon kills pay tier-scaled reward.** Attribution uses last-hit via a `killerType` tag stored on the dead chunk (`chunk.setData('killerType', ...)`), read at collection time in `collectDeadAtDeathLine`. Adding a new weapon requires passing its type into `damageLiveChunk(..., killerType)` and into the `ChunkTarget.damage(amount, killer)` callback.
+- **Dead chunks carry `CAT_DEAD_CHUNK` collision category and pass through grinder blades.** Live chunks use the default category and collide. The filter is applied inside `spawnDeadConfettiChunk` — missing it would lock corpses on top of blades. Never omit the filter at the death transition.
+- **Grinder width always equals channel width.** Blade Size scales individual blade dimensions; Channel Width triggers retile. There is NO separate grinder-width constant — don't introduce one.
+
 ## Collision routing
 
 - **Collision handler filters by `body.plugin.kind`.** Kinds: `'liveChunk'`, `'blade'`, `'arbor'`, and arena walls (raw bodies with no `gameObject` — must be handled as `undefined`).

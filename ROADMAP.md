@@ -34,10 +34,7 @@ Biggest adds — new reasons to keep playing.
   - **Offline-earnings cap extender.** Prestige-tier upgrade that raises `OFFLINE_CAP_MS` (default 8h → 12h → 24h → 48h) at steep prestige cost.
 - **More weapons.** Tesla Coil, Freeze Ray, Flak Cannon, Gravity Well, Rail Gun, Drone Swarm (from the Unity prototype backlog). One `WeaponBehavior` file + catalog entry each.
 - **Saw shape library.** Purchase unlocks alternate blade silhouettes (circular, bladed, star, crescent). Needs a `SawShape` concept (sprite + collider profile per shape) plus a selector UI.
-- **Grinder overhaul.** Currently the grinder is a plain red death line — any chunk crossing it dies for cash. Full rebuild:
-  - **Creation** — model the grinder as a proper entity at the death line position, not a hardcoded `DEATH_LINE_Y` constant + ad-hoc chunk-below-Y check. Same `WeaponBehavior` pattern as saws/laser.
-  - **Upgrades** — ties into the existing `grinder` weapon type in the catalog. Needs real per-level upgrades (damage, throughput, teeth count, chew speed, width).
-  - **Visuals** — teeth, rotation animation, conveyor-belt feel, chew particles. Subsumes the §5 "Grinder visual overhaul" bullet.
+- ✅ **Grinder overhaul.** Shipped 2026-04-16. Replaced the red-line death boundary with a `GrinderBehavior` — a row of counter-rotating rectangular blades (16w × 48h) tiled across the channel bottom. Live chunks collide with blades; dead chunks pass through via `CAT_DEAD_CHUNK` collision category. Three upgrades: Grinder Damage / Spin Speed / Blade Size. Kill-attribution plumbing added (`killerType` on dead chunks) so grinder kills pay flat $1 while weapon kills keep tier-scaled reward. Death line retained as visual failsafe behind blades. Chew particles deferred to §5 art pass.
 
 ## 4. Economy & balance
 
@@ -65,4 +62,4 @@ Visual and sonic polish.
 Maybe-later.
 
 - Achievements, cosmetics.
-- **Per-weapon DPS / contribution overlay.** Kill-attribution plumbing (added in the grinder overhaul — tracks `killerType` on every chunk death) unlocks a dev/player overlay showing cash/sec and kill share by weapon type. Useful for balance tuning and for players comparing loadouts.
+- **Per-weapon DPS / contribution overlay.** Kill-attribution plumbing (added in the grinder overhaul — tracks `killerType` on every chunk death) unlocks a dev/player overlay showing cash/sec and kill share by weapon type. Useful for balance tuning and for players comparing loadouts. Would also be a natural moment to rename the stale `cashFromSaw` / `cashFromLine` / `killedBySaw` debug counters in `GameScene.ts` to per-weapon maps.
