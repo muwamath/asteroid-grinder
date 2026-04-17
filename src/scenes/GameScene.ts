@@ -12,6 +12,7 @@ import { MATERIALS, type Material, textureKeyFor } from '../game/materials';
 import type { ChunkTarget } from '../game/chunkTarget';
 import type { ChunkPartPlugin } from '../game/compoundAsteroid';
 import { applyKillAndSplit } from '../game/asteroidGraph';
+import { CAT_DEAD_CHUNK, MASK_DEAD_CHUNK } from '../game/collisionCategories';
 
 const ARBOR_RADIUS = 12;
 
@@ -415,6 +416,8 @@ export class GameScene extends Phaser.Scene {
     chunk.setData('material', info.material);
     chunk.setData('isCore', info.isCore);
     chunk.setData('killerType', killerType);
+    chunk.setCollisionCategory(CAT_DEAD_CHUNK);
+    chunk.setCollidesWith(MASK_DEAD_CHUNK);
     this.deadChunks.add(chunk);
   }
 
