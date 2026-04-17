@@ -25,7 +25,6 @@ Smaller player-facing wins. Land before content so resolution/layout changes don
 - ✅ **Text crispness on HiDPI displays.** Shipped 2026-04-16. Bumped base canvas to 2560×1440 (1:1 on retina) and swept all UI/arena/weapon layout constants; added fullscreen toggle (F key + options menu). Font sizes, panel sizes, death line, channel top, weapon radii all doubled. `channelHalfWidth` + gravity left untouched by explicit call — channel reads narrower and chunks fall slightly slower, tolerated for now.
 - **Chunk containment.** Intentional — flying chunks from high-velocity saw hits stay in the game. (Confirmed 2026-04-16: not a bug, won't fix.)
 - ✅ **Saw direction on double-click.** Shipped 2026-04-16. Each saw owns its direction (per-instance, no global setting); double-click the arbor to reverse THIS saw. Drag-distance threshold raised to 6px so click jitter no longer eats the toggle. CW/CCW menu buttons removed. Save/load round-trips per-saw direction.
-- **Mobile / portrait mode.** Currently desktop-landscape only.
 
 ## 3. New gameplay systems
 
@@ -66,3 +65,4 @@ Visual and sonic polish.
 Maybe-later.
 
 - Achievements, cosmetics.
+- **Per-weapon DPS / contribution overlay.** Kill-attribution plumbing (added in the grinder overhaul — tracks `killerType` on every chunk death) unlocks a dev/player overlay showing cash/sec and kill share by weapon type. Useful for balance tuning and for players comparing loadouts.
