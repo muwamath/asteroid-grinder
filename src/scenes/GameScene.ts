@@ -240,6 +240,18 @@ export class GameScene extends Phaser.Scene {
     // already taken by the HUD/debug-text toggle — don't double-bind.
     this.input.keyboard?.on('keydown-F2', () => this.toggleArenaDebugOverlay());
 
+    const ui = this.scene.get('ui');
+    const installListener = (payload: {
+      slotId: string;
+      typeId: string;
+      x: number;
+      y: number;
+    }): void => {
+      this.installWeaponAtSlot(payload.slotId, payload.typeId, payload.x, payload.y);
+    };
+    ui.events.on('install-weapon', installListener);
+    this.unsubs.push(() => ui.events.off('install-weapon', installListener));
+
     this.autosaveTimer = this.time.addEvent({
       delay: 5000,
       loop: true,
@@ -845,6 +857,18 @@ export class GameScene extends Phaser.Scene {
     for (const s of this.arenaLayout.slots) g.strokeCircle(s.x, s.y, 22);
     g.setDepth(1000);
     this.arenaDebugOverlay = g;
+  }
+
+  private installWeaponAtSlot(slotId: string, typeId: string, x: number, y: number): void {
+    if (gameplayState.installedAt(slotId)) return;
+    const bought = gameplayState.instancesBoughtThisRun(typeId);
+    const freeSlots = prestigeState.shopLevels()[`free.${typeId}`] ?? 0;
+    const cost = bought < freeSlots ? 0 : 1; // Placeholder — §4 rebalance tunes.
+    if (cost > 0 && !gameplayState.trySpend(cost)) return;
+    const inst = this.spawnWeaponInstance(typeId, x, y);
+    if (!inst) return;
+    gameplayState.buyWeapon(typeId);
+    gameplayState.installWeapon(slotId, typeId, inst.id);
   }
 
   private nextOscillatingSpawnX(): number {

@@ -88,6 +88,13 @@ export class UIScene extends Phaser.Scene {
     gs.events.on('pendingShardsChanged', pendingHandler);
     this.unsubs.push(() => gs.events.off('pendingShardsChanged', pendingHandler));
 
+    // Weapon picker: GameScene emits 'open-weapon-picker' on slot click; the
+    // modal here emits 'install-weapon' which GameScene consumes.
+    const openPicker = (payload: { slotId: string; x: number; y: number }): void =>
+      this.openWeaponPicker(payload);
+    this.events.on('open-weapon-picker', openPicker);
+    this.unsubs.push(() => this.events.off('open-weapon-picker', openPicker));
+
     this.events.once('shutdown', () => {
       for (const u of this.unsubs) u();
       this.unsubs = [];
@@ -638,6 +645,117 @@ export class UIScene extends Phaser.Scene {
 
     this.activePanel = new SubPanel(this, def, isWeapon);
     this.activePanel.refresh();
+  }
+
+  // ── weapon picker (slot install) ─────────────────────────────────────
+
+  private weaponPickerLayer: Phaser.GameObjects.GameObject[] | null = null;
+
+  private openWeaponPicker(payload: { slotId: string; x: number; y: number }): void {
+    this.dismissWeaponPicker();
+    const { width, height } = this.scale;
+    const W = 520;
+    const H = 360;
+    const cx = width / 2;
+    const cy = height / 2;
+    const layer: Phaser.GameObjects.GameObject[] = [];
+
+    const backdrop = this.add
+      .rectangle(0, 0, width, height, 0x000000, 0.55)
+      .setOrigin(0)
+      .setDepth(1500)
+      .setInteractive();
+    backdrop.on('pointerup', () => this.dismissWeaponPicker());
+    layer.push(backdrop);
+
+    const panel = this.add
+      .rectangle(cx, cy, W, H, 0x18182a, 0.98)
+      .setStrokeStyle(2, 0x3a3a4c)
+      .setDepth(1501)
+      .setInteractive();
+    // Eat clicks on the panel so backdrop dismiss doesn't fire.
+    panel.on('pointerup', (_: unknown, __: unknown, ___: unknown, ev: Phaser.Types.Input.EventData) => {
+      ev?.stopPropagation?.();
+    });
+    layer.push(panel);
+
+    const title = this.add
+      .text(cx, cy - H / 2 + 36, 'Install Weapon', {
+        font: 'bold 32px ui-monospace',
+        color: '#f5d66d',
+      })
+      .setOrigin(0.5)
+      .setDepth(1502);
+    layer.push(title);
+
+    const categories = WEAPON_TYPES.filter((w) => !w.locked && w.id !== 'grinder');
+    const btnW = 200;
+    const btnH = 72;
+    const colGap = 24;
+    const rowGap = 18;
+    categories.forEach((wt, i) => {
+      const col = i % 2;
+      const row = Math.floor(i / 2);
+      const bx = cx - (btnW + colGap) / 2 + col * (btnW + colGap);
+      const by = cy - 30 + row * (btnH + rowGap);
+
+      const boughtThisRun = gameplayState.instancesBoughtThisRun(wt.id);
+      const freeSlots = prestigeState.shopLevels()[`free.${wt.id}`] ?? 0;
+      // Placeholder baseCost of $1 matches current bar-button pricing; the
+      // real cost curve lands in the §4 economy rebalance.
+      const cost = weaponBuyCost({ boughtThisRun, freeSlots, baseCost: 1 });
+      const bg = this.add
+        .rectangle(bx, by, btnW, btnH, 0x202030, 1)
+        .setStrokeStyle(2, 0x3a3a4c)
+        .setInteractive({ useHandCursor: true })
+        .setDepth(1502);
+      layer.push(bg);
+
+      const nameText = this.add
+        .text(bx, by - 12, wt.name, {
+          font: 'bold 22px ui-monospace',
+          color: '#eeeeff',
+        })
+        .setOrigin(0.5)
+        .setDepth(1503);
+      layer.push(nameText);
+
+      const costText = this.add
+        .text(bx, by + 16, cost === 0 ? 'FREE' : `$${cost}`, {
+          font: '20px ui-monospace',
+          color: cost === 0 ? '#9fe79f' : '#ffd166',
+        })
+        .setOrigin(0.5)
+        .setDepth(1503);
+      layer.push(costText);
+
+      bg.on('pointerup', () => {
+        this.events.emit('install-weapon', {
+          slotId: payload.slotId,
+          typeId: wt.id,
+          x: payload.x,
+          y: payload.y,
+        });
+        this.dismissWeaponPicker();
+      });
+    });
+
+    const hint = this.add
+      .text(cx, cy + H / 2 - 28, 'Click outside to cancel', {
+        font: '16px ui-monospace',
+        color: '#888899',
+      })
+      .setOrigin(0.5)
+      .setDepth(1502);
+    layer.push(hint);
+
+    this.weaponPickerLayer = layer;
+  }
+
+  private dismissWeaponPicker(): void {
+    if (!this.weaponPickerLayer) return;
+    for (const o of this.weaponPickerLayer) o.destroy();
+    this.weaponPickerLayer = null;
   }
 }
 
