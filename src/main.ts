@@ -8,12 +8,25 @@ import { computeOfflineAward } from './game/offlineProgress';
 import { applyPrestigeEffects } from './game/prestigeEffects';
 import { BASE_PARAMS } from './game/upgradeApplier';
 
-const debug = new URLSearchParams(window.location.search).has('debug');
+const params = new URLSearchParams(window.location.search);
+const debug = params.has('debug');
+
+// ?restart=1 — escape hatch. Wipe every save key unconditionally before
+// loading, so a forced-fresh run is one URL edit away. Use when debugging
+// stale-state confusion ("this doesn't match the latest code").
+const forceRestart = params.get('restart') === '1';
+if (forceRestart) {
+  try {
+    localStorage.clear();
+  } catch {
+    // privacy mode / SSR — fall through
+  }
+}
 
 // Save schema bumped v2→v3 with no migration. Any stale v1/v2 blob is wiped
 // and UIScene shows a one-time toast on next create.
 let saveWipedReason: string | null = null;
-if (hasLegacySave()) {
+if (!forceRestart && hasLegacySave()) {
   clearSave();
   saveWipedReason = 'Save reset — game updated';
 }
