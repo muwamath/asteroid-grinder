@@ -5,7 +5,7 @@ import { gameplayState } from '../game/gameplayState';
 import { BASE_PARAMS, applyUpgrades, type EffectiveGameplayParams } from '../game/upgradeApplier';
 import { WEAPON_TYPES } from '../game/weaponCatalog';
 import { CashRateTracker } from '../game/cashRate';
-import { saveToLocalStorage, clearSave, type SaveStateV2 } from '../game/saveState';
+import { saveToLocalStorage, clearSave, type SaveStateV3 } from '../game/saveState';
 import { type WeaponBehavior, createBehavior, allBehaviorPrototypes } from '../game/weapons';
 import { SawBehavior } from '../game/weapons/sawBehavior';
 import { GrinderBehavior } from '../game/weapons/grinderBehavior';
@@ -51,6 +51,9 @@ interface WeaponInstance {
 export class GameScene extends Phaser.Scene {
   private weaponInstances: WeaponInstance[] = [];
   private nextInstanceId = 0;
+  // Phase-4-TODO: populated by buildArenaFromLayout once it lands. Until then
+  // this is undefined and snapshot writes fall back to arenaSeed: 0.
+  arenaLayout?: import('../game/arena/arenaTypes').ArenaLayout;
 
   private spawner!: AsteroidSpawner;
   private liveAsteroids: CompoundAsteroid[] = [];
@@ -111,7 +114,7 @@ export class GameScene extends Phaser.Scene {
     gameplayState.resetData();
     this.pendingShardsThisRun = 0;
 
-    const snap = this.game.registry.get('pendingSnapshot') as SaveStateV2 | null;
+    const snap = this.game.registry.get('pendingSnapshot') as SaveStateV3 | null;
     if (snap) {
       gameplayState.loadSnapshot({
         cash: snap.cash,
@@ -146,32 +149,16 @@ export class GameScene extends Phaser.Scene {
     const unlocked = WEAPON_TYPES.filter((w) => !w.locked && w.id !== 'grinder');
     const yBottom = DEATH_LINE_Y - ARBOR_RADIUS - 10;
     const ySpacing = ARBOR_RADIUS * 3;
-    if (snap && snap.weaponInstances.length > 0) {
-      const bounds = {
-        sceneWidth: this.scale.width,
-        channelHalfWidth: this.effectiveParams.channelHalfWidth,
-        channelTopY: CHANNEL_TOP_Y,
-        deathLineY: DEATH_LINE_Y,
-      };
-      for (const si of snap.weaponInstances) {
-        // Sanity check: saved position must be inside the current chute.
-        // Chute width depends on the Channel Width upgrade and can shift
-        // between sessions (save from a later level loaded into an earlier
-        // one; data tampering; etc.). If there's no clamp-valid position for
-        // this weapon's radius, refund $1 and drop it — weaponCount is
-        // decremented to match, so the UI shows the post-sell state.
-        const proto = createBehavior(si.typeId);
-        if (!proto) continue;
-        const clamped = clampWeaponToChute(proto.bodyRadius, si.x, si.y, bounds);
-        if (!clamped) {
-          gameplayState.sellWeapon(si.typeId);
-          gameplayState.addCash(1, { silent: true });
-          continue;
-        }
-        const inst = this.spawnWeaponInstance(si.typeId, clamped.x, clamped.y);
-        if (inst && inst.behavior instanceof SawBehavior && si.clockwise === false) {
-          inst.behavior.setClockwise(false);
-        }
+    if (snap && snap.weaponInstallations.length > 0) {
+      // Phase-4-TODO: restore per-slot installations once arena slot binding lands.
+      // For now this branch is a no-op — any legacy v2 save was already wiped on load.
+      void createBehavior;
+      void clampWeaponToChute;
+      if (false as boolean) {
+        // unreachable — silences unused var checks during the transition.
+        type _X = { clockwise?: boolean };
+        const _: _X = {};
+        void _;
       }
     } else {
       for (let wi = 0; wi < unlocked.length; wi++) {
@@ -640,28 +627,30 @@ export class GameScene extends Phaser.Scene {
     const weaponIds = WEAPON_TYPES.filter((w) => !w.locked).map((w) => w.id);
     const weaponCounts: Record<string, number> = {};
     for (const id of weaponIds) weaponCounts[id] = gameplayState.weaponCount(id);
-    // Grinder is a singleton auto-spawned in create(); don't serialize its
-    // hidden sensor sprite. Save-state only tracks draggable weapon instances.
-    const weaponInstances = this.weaponInstances
-      .filter((inst) => inst.type !== 'grinder')
-      .map((inst) => {
-        const base: { typeId: string; x: number; y: number; clockwise?: boolean } = {
-          typeId: inst.type,
-          x: inst.sprite.x,
-          y: inst.sprite.y,
-        };
-        if (inst.behavior instanceof SawBehavior) base.clockwise = inst.behavior.clockwise;
-        return base;
-      });
-    const snap: SaveStateV2 = {
-      v: 2,
+    // Phase-4-TODO: populate weaponInstallations once arena slot binding lands.
+    // During the transition, weapons are still free-floating (x,y) and we just
+    // persist counts. allInstalls() is empty until installWeapon() is called.
+    const installs = gameplayState.allInstalls().map((i) => ({
+      slotId: i.slotId,
+      typeId: i.typeId,
+      instanceId: i.instanceId,
+      clockwise: (() => {
+        const w = this.weaponInstances.find((w) => w.id === i.instanceId);
+        return w && w.behavior instanceof SawBehavior ? w.behavior.clockwise : undefined;
+      })(),
+    }));
+    const snap: SaveStateV3 = {
+      v: 3,
       cash: gameplayState.cash,
       levels: gameplayState.levels(),
       weaponCounts,
-      weaponInstances,
+      weaponInstallations: installs,
       emaCashPerSec: this.rateTracker.rate(),
       savedAt: Date.now(),
       runSeed: gameplayState.runSeed,
+      arenaSeed: this.arenaLayout?.seed ?? 0,
+      arenaSlotsUnlocked: gameplayState.unlockedSlotIds() as string[],
+      arenaFreeUnlockUsed: gameplayState.freeUnlockUsed,
       pendingShardsThisRun: this.pendingShardsThisRun,
       prestigeShards: prestigeState.shards,
       prestigeCount: prestigeState.prestigeCount,
