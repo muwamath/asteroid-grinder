@@ -544,6 +544,13 @@ export class UIScene extends Phaser.Scene {
 
   private runConfigDomLayer: HTMLDivElement | null = null;
 
+  // DOM modals must live inside the currently-fullscreen subtree (when the
+  // game is fullscreened on the `#game` div), otherwise the browser hides
+  // them entirely. Falls back to document.body in windowed mode.
+  private modalParent(): HTMLElement {
+    return (document.fullscreenElement as HTMLElement | null) ?? document.body;
+  }
+
   private openRunConfig(): void {
     if (this.runConfigContainer || this.runConfigDomLayer) return;
     this.dismissWelcomeBack();
@@ -616,7 +623,7 @@ export class UIScene extends Phaser.Scene {
 
     layer.appendChild(row);
     layer.appendChild(start);
-    document.body.appendChild(layer);
+    this.modalParent().appendChild(layer);
     this.runConfigDomLayer = layer;
   }
 
@@ -794,7 +801,7 @@ export class UIScene extends Phaser.Scene {
     panel.appendChild(hint);
 
     backdrop.appendChild(panel);
-    document.body.appendChild(backdrop);
+    this.modalParent().appendChild(backdrop);
     this.weaponPickerDomLayer = backdrop;
   }
 
@@ -850,7 +857,7 @@ export class UIScene extends Phaser.Scene {
     row.appendChild(sell);
     panel.appendChild(row);
     backdrop.appendChild(panel);
-    document.body.appendChild(backdrop);
+    this.modalParent().appendChild(backdrop);
     this.sellConfirmDomLayer = backdrop;
   }
 
