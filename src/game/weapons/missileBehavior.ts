@@ -62,10 +62,10 @@ export class MissileBehavior implements WeaponBehavior {
       this.missiles.push({ proj, image });
     }
 
-    const halfW = scene.scale.width / 2;
-    const halfCh = params.channelHalfWidth;
-    const channelLeft = halfW - halfCh;
-    const channelRight = halfW + halfCh;
+    // Playfield spans screen edge to edge now.
+    void params; // keep param in signature
+    const channelLeft = 0;
+    const channelRight = scene.scale.width;
 
     for (let i = this.missiles.length - 1; i >= 0; i--) {
       const m = this.missiles[i];

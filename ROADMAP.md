@@ -6,16 +6,16 @@ Backlog below is grouped by **what it adds to the game**. Order is execution ord
 
 ---
 
-## 1c. Arena follow-ups (deferred from code review 2026-04-17)
+## 1c. Arena follow-ups — done (2026-04-17)
 
-- Remove the orphan `_allSlotIds` field + `allSlotIds` getter in `gameplayState` (dead code, never read).
-- Decide whether `SlotMask` in `src/game/arena/slotState.ts` should be promoted to production (replacing the inline slot tracking in `gameplayState`) or deleted — currently tested but not wired.
-- Remove the transitional `channelHalfWidth = 1240` on `BASE_PARAMS`. Replace the three remaining readers (`grinderBehavior.ts`, `missileBehavior.ts`, `GameScene.enforceWalls` + `onWeaponCountChanged`) with direct reads of `scene.scale.width`.
-- `arenaGenerator.ensureSlant` can push endpoints outside `[0, playfield.width]` on long nearly-horizontal walls. Clamp endpoints after rotation so the wall stays inside the playable region.
+- ✅ Removed dead `_allSlotIds` + `allSlotIds` getter from `gameplayState`.
+- ✅ Removed orphan `SlotMask` class + its tests; gameplayState is the sole slot-state runtime.
+- ✅ Removed transitional `channelHalfWidth` field from `EffectiveGameplayParams`; `grinderBehavior`, `missileBehavior`, `GameScene.enforceWalls` + `onWeaponCountChanged` now read `scene.scale.width` directly.
+- ✅ `arenaGenerator.ensureSlant` endpoints clamped to `[0, playfield.width] × [0, floorY]` so walls never escape screen-edge colliders.
 
-## 1b. Bug — weapons can spawn overlapping grinders
+## 1b. Bug — weapons can spawn overlapping grinders — resolved (2026-04-17)
 
-- Buying a new weapon can place it in a chute region already occupied by a grinder's blade row, causing immediate collisions / stuck bodies. Placement should exclude grinder footprints (same exclusion logic as existing weapons). Also applies to placing a grinder that would clip an existing weapon — symmetric exclusion on both sides.
+Obsolete under slot-bound weapons: every slot is placed at least `MIN_SLOT_FLOOR_CLEARANCE` (160 px) above the grinder row by the generator, so weapons installed at slots can never clip grinder blades.
 
 ## 1a. Bug — weapon position sanity check on load — done (2026-04-16)
 

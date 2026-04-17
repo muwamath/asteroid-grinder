@@ -22,7 +22,6 @@ class GameplayState {
   private readonly _weaponCounts = new Map<string, number>();
   private readonly _instancesBoughtThisRun = new Map<string, number>();
   private _runSeed = '';
-  private _allSlotIds: readonly string[] = [];
   private readonly _unlockedSlots = new Set<string>();
   private _freeUnlockUsed = false;
   private readonly _installs = new Map<string, { typeId: string; instanceId: string }>();
@@ -102,7 +101,8 @@ class GameplayState {
   setRunSeed(seed: string): void { this._runSeed = seed; }
 
   initArenaSlots(ids: readonly string[]): void {
-    this._allSlotIds = ids;
+    void ids; // Slot IDs aren't stored — event emissions carry them. Kept
+    // as a parameter so callers document intent + enable future use.
     this._unlockedSlots.clear();
     this._freeUnlockUsed = false;
     this._installs.clear();
@@ -150,9 +150,6 @@ class GameplayState {
     return [...this._installs].map(([slotId, v]) => ({ slotId, ...v }));
   }
 
-  get allSlotIds(): readonly string[] {
-    return this._allSlotIds;
-  }
 
   sellWeapon(id: string): boolean {
     const current = this.weaponCount(id);
@@ -200,7 +197,6 @@ class GameplayState {
     this._weaponCounts.clear();
     this._instancesBoughtThisRun.clear();
     this._runSeed = '';
-    this._allSlotIds = [];
     this._unlockedSlots.clear();
     this._freeUnlockUsed = false;
     this._installs.clear();

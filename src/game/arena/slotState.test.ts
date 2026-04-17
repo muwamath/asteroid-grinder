@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { unlockCost, startingUnlockedCount, SlotMask } from './slotState';
+import { unlockCost, startingUnlockedCount } from './slotState';
 import { BASE_STARTING_SLOTS, UNLOCK_BASE, UNLOCK_GROWTH } from './arenaConstants';
 
 describe('unlockCost', () => {
@@ -25,34 +25,5 @@ describe('startingUnlockedCount', () => {
   });
 });
 
-describe('SlotMask', () => {
-  it('tracks unlocked slots and reports counts', () => {
-    const mask = new SlotMask(['a', 'b', 'c']);
-    mask.unlock('a');
-    expect(mask.isUnlocked('a')).toBe(true);
-    expect(mask.isUnlocked('b')).toBe(false);
-    expect(mask.unlockedCount).toBe(1);
-  });
-
-  it('tracks freeUnlockUsed once, then stays true', () => {
-    const mask = new SlotMask(['a', 'b']);
-    expect(mask.freeUnlockUsed).toBe(false);
-    mask.markFreeUnlockUsed();
-    expect(mask.freeUnlockUsed).toBe(true);
-    mask.markFreeUnlockUsed();
-    expect(mask.freeUnlockUsed).toBe(true);
-  });
-
-  it('serializes + restores', () => {
-    const mask = new SlotMask(['a', 'b', 'c']);
-    mask.unlock('a');
-    mask.unlock('c');
-    mask.markFreeUnlockUsed();
-    const snap = mask.snapshot();
-    const restored = SlotMask.fromSnapshot(['a', 'b', 'c'], snap);
-    expect(restored.isUnlocked('a')).toBe(true);
-    expect(restored.isUnlocked('b')).toBe(false);
-    expect(restored.isUnlocked('c')).toBe(true);
-    expect(restored.freeUnlockUsed).toBe(true);
-  });
-});
+// SlotMask tests removed with the class itself — gameplayState's unlock
+// mask is covered by gameplayState.test.ts.

@@ -150,7 +150,6 @@ describe('applyUpgrades', () => {
     expect(e.sawDamage).toBe(3);
     expect(e.bladeCount).toBe(2);
     expect(e.maxHpPerChunk).toBe(2);
-    expect(e.channelHalfWidth).toBe(BASE_PARAMS.channelHalfWidth);
   });
 });
 

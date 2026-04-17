@@ -358,11 +358,10 @@ export class GameScene extends Phaser.Scene {
     const maxY = this.scale.height + 120;
     const fall = this.effectiveParams.fallSpeedMultiplier;
 
-    // Channel wall inner faces — kinematic barrier safety net below.
-    const halfW = this.scale.width / 2;
-    const halfCh = this.effectiveParams.channelHalfWidth;
-    const wallInnerL = halfW - halfCh;
-    const wallInnerR = halfW + halfCh;
+    // Screen-edge walls are the only outer horizontal bound in the
+    // procedural arena. enforceWalls keeps compound bodies inside.
+    const wallInnerL = 0;
+    const wallInnerR = this.scale.width;
 
     // Wake any asteroid whose chunks are near an active weapon (saw arbor
     // etc). Otherwise Matter's sleeping optimization hides the pile from
@@ -1031,10 +1030,11 @@ export class GameScene extends Phaser.Scene {
   private onWeaponCountChanged(typeId: string, newCount: number): void {
     const currentInstances = this.weaponInstances.filter((i) => i.type === typeId);
     if (newCount > currentInstances.length) {
-      const halfW = this.scale.width / 2;
-      const halfChannel = this.effectiveParams.channelHalfWidth;
-      const rx = halfW + (Math.random() - 0.5) * halfChannel;
-      const ry = CHANNEL_TOP_Y + 100 + Math.random() * (DEATH_LINE_Y - CHANNEL_TOP_Y - 200);
+      // Legacy path — in the procedural-arena world weapons are spawned via
+      // the slot picker, not buyWeapon→count→spawn. If something bumps
+      // weaponCount directly, drop a placeholder at the playfield center.
+      const rx = this.scale.width / 2;
+      const ry = CHANNEL_TOP_Y + 100;
       this.spawnWeaponInstance(typeId, rx, ry);
     } else if (newCount < currentInstances.length) {
       const idx = Math.floor(Math.random() * currentInstances.length);

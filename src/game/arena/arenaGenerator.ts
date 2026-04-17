@@ -45,7 +45,7 @@ function tryGenerate(seed: number, params: ArenaSeedParams): ArenaLayout {
   splitRect(root, 0, rng, leaves, walls);
 
   for (let i = 0; i < walls.length; i++) {
-    walls[i] = ensureSlant(walls[i], rng);
+    walls[i] = clampToPlayfield(ensureSlant(walls[i], rng), params.width, floorY);
   }
 
   const slots = placeSlots(leaves, rng, params, floorY);
@@ -117,6 +117,20 @@ function ensureSlant(w: WallSegment, rng: SeededRng): WallSegment {
     y1: cy - uy * half,
     x2: cx + ux * half,
     y2: cy + uy * half,
+  };
+}
+
+// ensureSlant rotates around the midpoint, which can push endpoints outside
+// the playfield bounds — especially for long near-horizontal walls. Clamp
+// both endpoints to [0, width] × [0, floorY] so generated walls never escape
+// the screen-edge walls (the collider would clip into them otherwise).
+function clampToPlayfield(w: WallSegment, width: number, floorY: number): WallSegment {
+  const clamp = (v: number, lo: number, hi: number): number => Math.max(lo, Math.min(hi, v));
+  return {
+    x1: clamp(w.x1, 0, width),
+    y1: clamp(w.y1, 0, floorY),
+    x2: clamp(w.x2, 0, width),
+    y2: clamp(w.y2, 0, floorY),
   };
 }
 

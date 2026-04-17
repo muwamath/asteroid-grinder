@@ -90,7 +90,9 @@ export class GrinderBehavior implements WeaponBehavior {
     this.omega = params.grinderSpinSpeed;
     this.damage = params.grinderDamage;
     this.bladeScale = params.grinderBladeScale;
-    this.channelWidth = params.channelHalfWidth * 2;
+    // Grinder spans the full playfield minus a small edge inset, since the
+    // arena walls now extend to the screen edges.
+    this.channelWidth = scene.scale.width - 40;
     this.retile(scene);
   }
 
@@ -128,11 +130,11 @@ export class GrinderBehavior implements WeaponBehavior {
   ): void {
     this.omega = next.grinderSpinSpeed;
     this.damage = next.grinderDamage;
-    const widthChanged = next.channelHalfWidth !== prev.channelHalfWidth;
+    // Playfield width can't change mid-run, so only re-tile on blade-scale.
     const scaleChanged = next.grinderBladeScale !== prev.grinderBladeScale;
-    if (widthChanged || scaleChanged) {
+    if (scaleChanged) {
       this.bladeScale = next.grinderBladeScale;
-      this.channelWidth = next.channelHalfWidth * 2;
+      this.channelWidth = scene.scale.width - 40;
       this.retile(scene);
     }
   }
