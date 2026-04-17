@@ -1,7 +1,7 @@
 import type Phaser from 'phaser';
 import { CompoundAsteroid } from './compoundAsteroid';
 import { CircularShapeGenerator } from './circularShapeGenerator';
-import { chooseMaterial, type Material } from './materials';
+import { MATERIALS, sampleTieredMaterial, type Material } from './materials';
 import { SeededRng } from './rng';
 
 export interface AsteroidSpawnParams {
@@ -10,13 +10,20 @@ export interface AsteroidSpawnParams {
   readonly hpMultiplier: number;
   readonly qualityLevel: number;
   readonly fallSpeedMultiplier: number;
+  readonly fillerFraction: number;
 }
 
+const DIRT = MATERIALS[0]; // t1 filler
+
 export class AsteroidSpawner {
-  constructor(private readonly scene: Phaser.Scene) {}
+  private counter = 0;
+
+  constructor(private readonly scene: Phaser.Scene, private readonly rootSeed?: number) {}
 
   spawnOne(worldX: number, worldY: number, params: AsteroidSpawnParams): CompoundAsteroid {
-    const seed = (Math.random() * 0xffffffff) >>> 0 || 1;
+    const seed = this.rootSeed !== undefined
+      ? ((this.rootSeed ^ (this.counter++ * 0x9e3779b1)) >>> 0) || 1
+      : ((Math.random() * 0xffffffff) >>> 0) || 1;
     const rng = new SeededRng(seed);
 
     const span = Math.max(0, params.maxChunks - params.minChunks);
@@ -28,7 +35,15 @@ export class AsteroidSpawner {
     const materialsByChunk = new Map<string, Material>();
     for (const entries of shape.chunksByCell.values()) {
       for (const entry of entries) {
-        materialsByChunk.set(entry.chunkId, chooseMaterial(params.qualityLevel, rng));
+        const isCore = entry.chunkId === shape.coreChunkId;
+        if (isCore) {
+          // Cores always tiered — guarantees Shards on vault kill.
+          materialsByChunk.set(entry.chunkId, sampleTieredMaterial(params.qualityLevel, rng));
+        } else if (rng.next() < params.fillerFraction) {
+          materialsByChunk.set(entry.chunkId, DIRT);
+        } else {
+          materialsByChunk.set(entry.chunkId, sampleTieredMaterial(params.qualityLevel, rng));
+        }
       }
     }
 

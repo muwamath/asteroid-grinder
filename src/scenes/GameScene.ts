@@ -748,6 +748,7 @@ export class GameScene extends Phaser.Scene {
       hpMultiplier: this.effectiveParams.maxHpPerChunk,
       qualityLevel: this.effectiveParams.qualityLevel,
       fallSpeedMultiplier: this.effectiveParams.fallSpeedMultiplier,
+      fillerFraction: 0.8,
     });
     this.liveAsteroids.push(asteroid);
     this.spawnedCount++;

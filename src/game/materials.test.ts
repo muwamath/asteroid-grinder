@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MATERIALS, materialByTier, materialByName, chooseMaterial, materialDistribution, fallSpeedMultiplier } from './materials';
+import { MATERIALS, materialByTier, materialByName, chooseMaterial, materialDistribution, fallSpeedMultiplier, sampleTieredMaterial, tieredMean, tieredSigma } from './materials';
 import { SeededRng } from './rng';
 
 describe('MATERIALS ladder', () => {
@@ -101,6 +101,52 @@ describe('chooseMaterial', () => {
     for (let i = 0; i < 50; i++) {
       expect(chooseMaterial(5, a).name).toBe(chooseMaterial(5, b).name);
     }
+  });
+});
+
+describe('sampleTieredMaterial', () => {
+  it('never returns t1 (filler) — output is always in [t2, t9]', () => {
+    const rng = new SeededRng(1);
+    for (let i = 0; i < 500; i++) {
+      const m = sampleTieredMaterial(0, rng);
+      expect(m.tier).toBeGreaterThanOrEqual(2);
+      expect(m.tier).toBeLessThanOrEqual(9);
+    }
+  });
+
+  it('mean shifts right as qualityLevel increases', () => {
+    expect(tieredMean(0)).toBeLessThan(tieredMean(5));
+    expect(tieredMean(5)).toBeLessThan(tieredMean(10));
+  });
+
+  it('mean clamps at 9 for very high levels', () => {
+    expect(tieredMean(50)).toBe(9);
+  });
+
+  it('sigma grows with level but caps at 1.5', () => {
+    expect(tieredSigma(0)).toBeLessThan(tieredSigma(5));
+    expect(tieredSigma(50)).toBeLessThanOrEqual(1.5);
+  });
+
+  it('L0 samples are concentrated at t2 (μ=2, σ=0.6)', () => {
+    const rng = new SeededRng(42);
+    const counts = new Map<number, number>();
+    for (let i = 0; i < 1000; i++) {
+      const m = sampleTieredMaterial(0, rng);
+      counts.set(m.tier, (counts.get(m.tier) ?? 0) + 1);
+    }
+    expect((counts.get(2) ?? 0) / 1000).toBeGreaterThan(0.75);
+  });
+
+  it('L10 samples are concentrated at t7-t9', () => {
+    const rng = new SeededRng(7);
+    const counts = new Map<number, number>();
+    for (let i = 0; i < 1000; i++) {
+      const m = sampleTieredMaterial(10, rng);
+      counts.set(m.tier, (counts.get(m.tier) ?? 0) + 1);
+    }
+    const highFreq = ((counts.get(7) ?? 0) + (counts.get(8) ?? 0) + (counts.get(9) ?? 0)) / 1000;
+    expect(highFreq).toBeGreaterThan(0.7);
   });
 });
 

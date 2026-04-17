@@ -107,6 +107,37 @@ export function chooseMaterial(qualityLevel: number, rng: SeededRng): Material {
   return MATERIALS[MATERIALS.length - 1];
 }
 
+// Two-bucket material model (spec §1): filler (t1 Dirt) vs tiered (t2-t9).
+// sampleTieredMaterial draws from a truncated-normal distribution whose mean
+// shifts right with the in-run Asteroid Quality upgrade level.
+//   μ(L) = clamp(2 + 0.6L, 2, 9)
+//   σ(L) = clamp(0.6 + 0.08L, 0.5, 1.5)
+
+export function tieredMean(qualityLevel: number): number {
+  return Math.max(2, Math.min(9, 2 + qualityLevel * 0.6));
+}
+
+export function tieredSigma(qualityLevel: number): number {
+  return Math.max(0.5, Math.min(1.5, 0.6 + qualityLevel * 0.08));
+}
+
+function boxMuller(rng: SeededRng): number {
+  let u1 = rng.next();
+  if (u1 < 1e-9) u1 = 1e-9;
+  const u2 = rng.next();
+  return Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+}
+
+export function sampleTieredMaterial(qualityLevel: number, rng: SeededRng): Material {
+  const mu = tieredMean(qualityLevel);
+  const sigma = tieredSigma(qualityLevel);
+  const x = mu + sigma * boxMuller(rng);
+  const tier = Math.max(2, Math.min(9, Math.round(x)));
+  const mat = materialByTier(tier);
+  if (!mat) throw new Error(`sampleTieredMaterial: no material for tier ${tier}`);
+  return mat;
+}
+
 // Kinematic fall: fallSpeedMultiplier is pixels/tick applied directly as
 // velocityY to alive chunks. gravityScale is zeroed for alive chunks. Dead
 // chunks fall under normal gravity so confetti is snappy.
