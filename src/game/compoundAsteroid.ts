@@ -4,6 +4,8 @@ import { type Material, textureKeyFor } from './materials';
 
 export const CHUNK_PIXEL_SIZE = 12;
 
+export type WeaponKillSource = 'saw' | 'laser' | 'missile' | 'blackhole' | 'grinder';
+
 export interface ChunkPart {
   readonly chunkId: string;
   readonly material: Material;
