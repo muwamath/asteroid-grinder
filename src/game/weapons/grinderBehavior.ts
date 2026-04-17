@@ -154,7 +154,15 @@ export class GrinderBehavior implements WeaponBehavior {
   }
 
   destroy(): void {
-    for (const blade of this.blades) blade.sprite.destroy();
+    // Symmetric with retile(): on scene restart, drop blade bodies from the
+    // Matter world as well as their sprites, so a reboot doesn't leak.
+    // retile() also calls this pattern before rebuilding.
+    for (const blade of this.blades) {
+      blade.sprite.destroy();
+      if (blade.sprite.scene) {
+        (blade.sprite.scene as SceneWithMatter).matter.world.remove(blade.body);
+      }
+    }
     this.blades = [];
   }
 
