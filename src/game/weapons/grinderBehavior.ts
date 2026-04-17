@@ -7,7 +7,11 @@ import { CAT_GRINDER_BLADE, MASK_GRINDER_BLADE } from '../collisionCategories';
 
 const BLADE_WIDTH_BASE = 8;
 const BLADE_HEIGHT_BASE = 24;
-const GRINDER_CLEARANCE = 4;
+// Offset from the bottom of the canvas at which blade CENTERS are drawn.
+// Positive value = blade center sits this many px below floorY (→ mostly
+// off-screen; visible sliver of the top of the blades reads as "things get
+// ground below the visible playfield").
+const GRINDER_CENTER_BELOW_FLOOR = 18;
 const GRINDER_HIT_COOLDOWN_MS = 120;
 const LAST_HIT_PRUNE_INTERVAL_MS = 1000;
 const LAST_HIT_STALE_MS = 1000;
@@ -180,7 +184,9 @@ export class GrinderBehavior implements WeaponBehavior {
 
     const { n, actualWidth } = computeBladeLayout(this.channelWidth, this.bladeScale);
     const bladeH = BLADE_HEIGHT_BASE * this.bladeScale;
-    const centerY = this.deathLineY - bladeH / 2 - GRINDER_CLEARANCE;
+    // Position blade centers near (and just below) the death line so only
+    // the tops peek above — the grinding appears to happen off-screen.
+    const centerY = this.deathLineY + GRINDER_CENTER_BELOW_FLOOR;
     const leftX = this.channelCenterX - this.channelWidth / 2;
 
     for (let i = 0; i < n; i++) {

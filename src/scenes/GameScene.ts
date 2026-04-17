@@ -586,11 +586,9 @@ export class GameScene extends Phaser.Scene {
     const wallT = 20;
     this.matter.add.rectangle(-wallT / 2, height / 2, wallT, height * 2, { isStatic: true });
     this.matter.add.rectangle(width + wallT / 2, height / 2, wallT, height * 2, { isStatic: true });
-
-    this.add
-      .rectangle(width / 2, DEATH_LINE_Y, width, 6, 0xff3355, 0.9)
-      .setOrigin(0.5)
-      .setDepth(-1);
+    // Death-line red strip removed — now that arena walls extend to the
+    // screen edges, chunks can't leak horizontally, and the grinder row
+    // itself is the visible floor.
   }
 
   private spawnWeaponInstance(typeId: string, x: number, y: number): WeaponInstance | null {
