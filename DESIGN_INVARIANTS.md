@@ -22,8 +22,9 @@ Paired with the Playwright golden-path smoke test (`tests/e2e/smoke.spec.ts`), w
 - **Compound collision events report the specific child part, never the parent.** `pair.bodyA.plugin` carries `{ kind, asteroid, chunkId }`. The auto-synthesized parent (emitted when `parts.length ≥ 2`) has an empty plugin — routing on it gets you nothing.
 - **Asteroids rotate on spawn.** `Matter.Body.setAngularVelocity(body, (Math.random() - 0.5) * 0.01)` in `compoundAsteroid.ts`. Visible tumble is a gameplay-feel invariant — a perfectly axis-aligned asteroid is a regression.
 - **Chunks are squares, never triangles.** Triangles were removed in Phase 6. The shape generator produces squares only.
-- **The centroid chunk is tagged `isCore`.** Reserved for the prestige/core-mining system. Don't overload the flag for other purposes.
+- **The centroid chunk is tagged `isCore`.** Core chunks are vaults: 10× HP (`vaultHpMultiplier` in `CompoundAsteroid` constructor) and the sole Shard source in the prestige loop. Don't overload the flag for other purposes.
 - **Material is per-chunk, not per-asteroid.** HP and reward both scale with tier (linked). 9-tier ladder: Dirt → Stone → Copper → Silver → Gold → Ruby → Emerald → Sapphire → Diamond.
+- **Material distribution is two-bucket.** Non-core chunks coin-flip against `fillerFraction` (default 0.8, floored at 0.5 by the `refinement` prestige upgrade) — if under, it's t1 Dirt; otherwise draw from a truncated-normal Gaussian over t2–t9 with mean/sigma shifted by Asteroid Quality (`tieredMean`, `tieredSigma` in `materials.ts`). **The core chunk ALWAYS skips the filler roll** and draws from the tiered bucket, guaranteeing Shards on vault kill. Never alter the core bypass — it's load-bearing for prestige pacing.
 
 ## Weapons
 
@@ -50,12 +51,21 @@ Paired with the Playwright golden-path smoke test (`tests/e2e/smoke.spec.ts`), w
 
 ## State, save, and HUD
 
-- **Save key is `asteroid-grinder:save:v1`**, versioned schema. Autosave fires every 5s plus a `beforeunload` handler. `saveState.deserialize` rejects non-finite/non-numeric levels and negative/non-numeric weapon counts.
-- **Cash-rate EMA has `tau = 60s`**, persisted as `emaCashPerSec`. Offline elapsed is capped at 8h (`OFFLINE_CAP_MS`), floored to integer, min 60s threshold.
-- **Silent cash transactions (Collect, sell refund) pass `silent: true`** so they don't pollute the EMA rate.
+- **Save key is `asteroid-grinder:save:v2`**, versioned schema. `v1` payloads are transparently migrated on load (default prestige fields are injected, fresh `runSeed` generated). Autosave fires every 5s plus a `beforeunload` handler plus on any `prestigeState.shopLevelChanged` or `shardsChanged`. `saveState.deserialize` rejects non-finite/non-numeric levels, negative weapon counts, and bad prestige fields.
+- **Cash-rate EMA has `tau = 60s`**, persisted as `emaCashPerSec`. Offline elapsed is capped at the prestige-extended cap (8h / 12h / 24h / 48h based on `offline.cap` shop level), floored to integer, min 60s threshold.
+- **Silent cash transactions (Collect, sell refund, starting-cash bonus) pass `silent: true`** so they don't pollute the EMA rate.
 - **Cross-scene handoff uses `game.registry` keys** as a consume-once mailbox: `pendingSnapshot`, `offlineAward`, `offlineElapsedMs`. Parallel scenes can't receive events fired during a sibling's `create()`, so don't rely on event propagation across scene boundaries at boot.
-- **Devtools handles exposed unconditionally in `main.ts`:** `window.__GAME__` (Phaser.Game), `window.__STATE__` (gameplayState). Tests and browser probes rely on these being present.
+- **Devtools handles exposed unconditionally in `main.ts`:** `window.__GAME__` (Phaser.Game), `window.__STATE__` (gameplayState), `window.__PRESTIGE__` (prestigeState). Tests and browser probes rely on these being present.
 - **Backtick (`` ` ``) toggles the debug HUD.** ESC opens the options modal. `?debug=1` additionally enables Matter wireframes at boot.
+
+## Prestige
+
+- **Prestige state is a separate singleton (`prestigeState.ts`), lifetime spans across runs.** `gameplayState` is per-run; `prestigeState` is persistent. Never conflate the two. `resetData()` on gameplayState wipes cash / upgrades / weapon counts / `instancesBoughtThisRun` / `runSeed`, but does NOT touch `prestigeState`.
+- **Shards bank only on prestige confirm.** `pendingShardsThisRun` is a per-run field on GameScene, serialized in the v2 save. Dying or restarting a run without prestiging loses pending shards — intentional. `confirmPrestige()` is the ONLY place `prestigeState.addShards` fires from the core-kill path.
+- **`confirmPrestige` must stop the spawn timer, destroy weapons + asteroids + dead chunks, and reset gameplayState BEFORE the prestige shop is shown.** Otherwise new asteroids accumulate beneath the overlay and their Matter bodies leak on the next `scene.restart()`.
+- **Weapon `destroy()` removes Matter bodies from the world.** The prestige-confirm cleanup path relies on this — a behavior that only destroys sprites would leak blade bodies across runs.
+- **`runSeed` is an opaque string.** `AsteroidSpawner` consumes it via `seedFromString` (FNV-1a) to derive a numeric root seed; each spawn XORs in a counter-advanced sub-seed so the asteroid sequence is deterministic for a given `runSeed`. Empty `runSeed` → random per-spawn (non-deterministic), used for save-less boots and post-reset windows before Start Run.
+- **Prestige shop effects stack on top of in-run upgrades.** `applyPrestigeEffects(applyUpgrades(levels), prestigeState.shopLevels())` is the canonical order — prestige overlays and multiplies onto the already-upgraded params. Never invert this order.
 
 ## What the Playwright smoke asserts
 
