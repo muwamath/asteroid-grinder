@@ -229,6 +229,15 @@ export class GameScene extends Phaser.Scene {
 
     this.spawnGrinder(width);
 
+    // Final marker sweep — starting-unlocks fire BEFORE listeners are wired
+    // below, and auto-installs fire BEFORE them too. Sweep once now so every
+    // marker's visual reflects current state (yellow ring for unlocked empty,
+    // nothing for installed, grey padlock for locked).
+    for (const slot of this.arenaLayout.slots) {
+      const g = this.slotMarkers.get(slot.id);
+      if (g) this.redrawSlotMarker(g, slot);
+    }
+
     const seed = gameplayState.runSeed ? seedFromString(gameplayState.runSeed) : undefined;
     this.spawner = new AsteroidSpawner(this, seed);
     this.rebuildSpawnTimer(this.effectiveParams.spawnIntervalMs);
