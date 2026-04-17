@@ -168,6 +168,51 @@ test('slot-click opens picker and buying a weapon installs it at the slot', asyn
   expect(result.pickerDismissed, 'picker must dismiss after a weapon button is clicked').toBe(true);
 });
 
+// Start Run propagates the seed input into the arena generator. Backstops
+// the "seed field doesn't do anything" regression from 2026-04-17.
+test('Start Run with a new seed regenerates the arena deterministically', async ({ page }) => {
+  await page.goto('/?restart=1');
+  await page.waitForFunction(
+    () => Boolean((window as unknown as { __GAME__?: unknown }).__GAME__),
+    { timeout: 10_000 },
+  );
+
+  const arenaBefore = await page.evaluate(() => {
+    const scene = (window as unknown as {
+      __GAME__: { scene: { getScene: (k: string) => unknown } };
+    }).__GAME__.scene.getScene('game') as unknown as {
+      arenaLayout: { seed: number; slots: { id: string; x: number; y: number }[] };
+    };
+    return { seed: scene.arenaLayout.seed, slotCount: scene.arenaLayout.slots.length };
+  });
+
+  // Drive the seed change + Start Run via the scene API (mirrors clicking
+  // Start Run in the DOM modal).
+  const arenaAfter = await page.evaluate(async () => {
+    const w = window as unknown as {
+      __GAME__: { scene: { getScene: (k: string) => unknown } };
+      __STATE__: { runSeed: string };
+    };
+    const gs = w.__GAME__.scene.getScene('game') as unknown as { startNewRun: (s: string) => void };
+    gs.startNewRun('playwright-seed-12345');
+    await new Promise((r) => setTimeout(r, 800));
+    const scene = w.__GAME__.scene.getScene('game') as unknown as {
+      arenaLayout: { seed: number; slots: { id: string; x: number; y: number }[] };
+    };
+    return {
+      seed: scene.arenaLayout.seed,
+      slotCount: scene.arenaLayout.slots.length,
+      runSeed: w.__STATE__.runSeed,
+    };
+  });
+
+  expect(arenaAfter.runSeed, 'gameplayState.runSeed must be set').toBe('playwright-seed-12345');
+  expect(
+    arenaAfter.seed,
+    `arena seed must change after startNewRun (was ${arenaBefore.seed}, still ${arenaAfter.seed})`,
+  ).not.toBe(arenaBefore.seed);
+});
+
 // Arena seed determinism: set a specific runSeed, compare layouts across two
 // boots. Same seed → byte-identical walls + slots.
 test('arena: same run seed produces identical layout across reloads', async ({ page }) => {

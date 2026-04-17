@@ -143,12 +143,11 @@ export class GameScene extends Phaser.Scene {
     const { width, height } = this.scale;
 
     this.buildArena(width, height);
-    // Prefer the snapshot's arenaSeed so a reload preserves layout — otherwise
-    // derive from runSeed (fresh run with a seed input) or fallback. Explicit
-    // null/undefined check so a valid seed of 0 isn't treated as missing.
-    const arenaSeed = snap != null
-      ? snap.arenaSeed
-      : seedFromString(gameplayState.runSeed || 'default');
+    // Arena seed is DERIVED from runSeed — never stored separately. This
+    // makes "Start Run with a new seed" deterministically produce a new
+    // arena (old design stored both, leading to stale arenaSeed surviving
+    // a seed change).
+    const arenaSeed = seedFromString(gameplayState.runSeed || 'default');
     this.arenaLayout = generateArena(arenaSeed, {
       width,
       height,
@@ -317,15 +316,15 @@ export class GameScene extends Phaser.Scene {
     this.events.once('shutdown', () => {
       for (const u of this.unsubs) u();
       this.unsubs = [];
-      if (this.collisionHandler) {
+      if (this.collisionHandler && this.matter?.world) {
         this.matter.world.off('collisionstart', this.collisionHandler);
         this.matter.world.off('collisionactive', this.collisionHandler);
-        this.collisionHandler = null;
       }
-      if (this.dragHandler) {
+      this.collisionHandler = null;
+      if (this.dragHandler && this.input) {
         this.input.off(Phaser.Input.Events.DRAG, this.dragHandler);
-        this.dragHandler = null;
       }
+      this.dragHandler = null;
       if (this.autosaveTimer) {
         this.autosaveTimer.remove(false);
         this.autosaveTimer = null;
@@ -750,12 +749,16 @@ export class GameScene extends Phaser.Scene {
   startNewRun(seed: string): void {
     gameplayState.setRunSeed(seed);
     this.snapshotNow();
-    // Re-hydrate the registry snapshot so create() picks up the new seed
-    // after scene.restart(). Without this, create() → gameplayState.resetData()
-    // wipes runSeed and the arena regenerates from an empty-seed hash.
+    // Re-hydrate the registry snapshot so create() picks up the new seed.
     const fresh = loadFromLocalStorage();
     this.game.registry.set('pendingSnapshot', fresh);
-    this.scene.restart();
+    // Phaser 3.90's `this.scene.restart()` does NOT re-run create() in this
+    // project — observed empirically. stop+start cycles the scene and fires
+    // create() correctly. Use game-level SceneManager, not `this.scene`,
+    // because `this` is about to be invalidated.
+    const mgr = this.game.scene;
+    mgr.stop('game');
+    mgr.start('game');
   }
 
   // first so snapshotNow() doesn't immediately re-write the slot we just cleared.
