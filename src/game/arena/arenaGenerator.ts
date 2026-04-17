@@ -9,6 +9,7 @@ import {
   SLOT_SPACING,
   MAX_RETRIES,
   FLOOR_BAND_HEIGHT,
+  MIN_SLOT_FLOOR_CLEARANCE,
 } from './arenaConstants';
 import type { ArenaLayout, ArenaSeedParams, SlotDef, WallSegment } from './arenaTypes';
 
@@ -47,7 +48,7 @@ function tryGenerate(seed: number, params: ArenaSeedParams): ArenaLayout {
     walls[i] = ensureSlant(walls[i], rng);
   }
 
-  const slots = placeSlots(leaves, rng, params);
+  const slots = placeSlots(leaves, rng, params, floorY);
 
   return {
     seed,
@@ -119,16 +120,23 @@ function ensureSlant(w: WallSegment, rng: SeededRng): WallSegment {
   };
 }
 
-function placeSlots(leaves: readonly Rect[], rng: SeededRng, params: ArenaSeedParams): SlotDef[] {
+function placeSlots(
+  leaves: readonly Rect[],
+  rng: SeededRng,
+  params: ArenaSeedParams,
+  floorY: number,
+): SlotDef[] {
   const slots: SlotDef[] = [];
   let next = 0;
+  const maxSlotY = floorY - MIN_SLOT_FLOOR_CLEARANCE;
   const sorted = [...leaves].sort((a, b) => b.w * b.h - a.w * a.h);
   for (const leaf of sorted) {
     const count = 1 + rng.nextInt(2);
     for (let i = 0; i < count; i++) {
       if (slots.length >= params.maxSlots) break;
       const cx = leaf.x + leaf.w * (0.25 + rng.next() * 0.5);
-      const cy = leaf.y + leaf.h * (0.3 + rng.next() * 0.5);
+      const rawCy = leaf.y + leaf.h * (0.3 + rng.next() * 0.5);
+      const cy = Math.min(rawCy, maxSlotY);
       if (tooCloseToExisting(cx, cy, slots, SLOT_SPACING)) continue;
       slots.push({
         id: `s${next++}`,
@@ -140,7 +148,6 @@ function placeSlots(leaves: readonly Rect[], rng: SeededRng, params: ArenaSeedPa
     }
     if (slots.length >= params.maxSlots) break;
   }
-  // Top-up: keep a reduced spacing floor so tests still pass.
   const topUpSpacing = SLOT_SPACING * 0.6;
   let leafIdx = 0;
   let safetyIter = 0;
@@ -149,7 +156,8 @@ function placeSlots(leaves: readonly Rect[], rng: SeededRng, params: ArenaSeedPa
     const leaf = sorted[leafIdx % sorted.length];
     leafIdx++;
     const cx = leaf.x + leaf.w * (0.3 + rng.next() * 0.4);
-    const cy = leaf.y + leaf.h * (0.3 + rng.next() * 0.4);
+    const rawCy = leaf.y + leaf.h * (0.3 + rng.next() * 0.4);
+    const cy = Math.min(rawCy, maxSlotY);
     if (tooCloseToExisting(cx, cy, slots, topUpSpacing)) continue;
     slots.push({
       id: `s${next++}`,

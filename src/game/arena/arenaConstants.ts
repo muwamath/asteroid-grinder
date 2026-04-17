@@ -21,3 +21,7 @@ export const FLOOR_BAND_HEIGHT = 60;
 
 export const PHASE_STEP_RAD = 0.37;
 export const SPAWN_MARGIN = 32;
+
+// Slot placement must clear the grinder row at the floor by this much so
+// clicks on slots don't get intercepted by grinder blade hit boxes.
+export const MIN_SLOT_FLOOR_CLEARANCE = 160;

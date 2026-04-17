@@ -164,6 +164,13 @@ export class GameScene extends Phaser.Scene {
     } else {
       this.applyStartingUnlocks();
     }
+    // Redraw every marker now — starting unlocks fire BEFORE the subscription
+    // handlers are wired below, so the unlocked visual state needs an explicit
+    // sweep to reflect the initial mask.
+    for (const slot of this.arenaLayout.slots) {
+      const g = this.slotMarkers.get(slot.id);
+      if (g) this.redrawSlotMarker(g, slot);
+    }
     this.buildHud(width);
     this.wireCollisions();
     this.wireDrag();
@@ -523,7 +530,10 @@ export class GameScene extends Phaser.Scene {
     const chunk = this.matter.add.image(info.worldX, info.worldY, info.textureKey);
     chunk.setRectangle(CHUNK_PIXEL_SIZE, CHUNK_PIXEL_SIZE);
     chunk.setMass(0.25);
-    chunk.setFriction(0.1);
+    // Dead chunks are "slippery" — they slide down slanted arena walls instead
+    // of stalling on them. Live chunks keep the default 0.1 friction so they
+    // still pile and hinder as gameplay. Invariant in DESIGN_INVARIANTS.md.
+    chunk.setFriction(0.02);
     chunk.setFrictionAir(0.005);
     chunk.setBounce(0);
     chunk.setVelocity(info.velocityX, info.velocityY);
@@ -580,8 +590,10 @@ export class GameScene extends Phaser.Scene {
     sprite.setStatic(true);
     sprite.setDepth(1);
     sprite.setFriction(0.2);
-    sprite.setInteractive({ draggable: true });
-    this.input.setDraggable(sprite);
+    // Weapons are pinned to their slot in the procedural arena — no more
+    // dragging. Interactive stays on so double-click (saw CW/CCW toggle)
+    // and future slot-click interactions continue to fire.
+    sprite.setInteractive();
     sprite.setData('kind', 'arbor');
     sprite.setData('instanceId', id);
 
@@ -739,25 +751,10 @@ export class GameScene extends Phaser.Scene {
   }
 
   private wireDrag(): void {
-    // Require ≥6px movement before a press counts as a drag. Without this
-    // the default threshold (0) makes any 1-2px mouse jitter on a click
-    // start a drag, which suppresses the double-click handler on the arbor.
+    // Weapons are pinned to slots now — no draggable behavior. Keep the 6px
+    // dragDistanceThreshold so the saw double-click handler still fires
+    // reliably against any residual sub-click pointer jitter.
     this.input.dragDistanceThreshold = 6;
-    this.dragHandler = (
-      _pointer: Phaser.Input.Pointer, obj: Phaser.GameObjects.GameObject, dragX: number, dragY: number,
-    ) => {
-        const inst = this.weaponInstances.find((w) => w.sprite === obj);
-        if (!inst) return;
-        const halfW = this.scale.width / 2;
-        const halfChannel = this.effectiveParams.channelHalfWidth;
-        const r = inst.behavior.bodyRadius;
-        const minX = halfW - halfChannel + r + 8;
-        const maxX = halfW + halfChannel - r - 8;
-        const cx = Phaser.Math.Clamp(dragX, minX, maxX);
-        const cy = Phaser.Math.Clamp(dragY, CHANNEL_TOP_Y + r + 8, DEATH_LINE_Y - r - 8);
-        inst.sprite.setPosition(cx, cy);
-    };
-    this.input.on(Phaser.Input.Events.DRAG, this.dragHandler);
   }
 
   // ── arena build ───────────────────────────────────────────────────────
