@@ -14,7 +14,6 @@ import type { ChunkTarget } from '../game/chunkTarget';
 import type { ChunkPartPlugin } from '../game/compoundAsteroid';
 import { applyKillAndSplit } from '../game/asteroidGraph';
 import { CAT_DEAD_CHUNK, MASK_DEAD_CHUNK } from '../game/collisionCategories';
-import { clampWeaponToChute } from '../game/weaponPlacement';
 import { computeVaultShardReward } from '../game/prestigeAward';
 import { prestigeState } from '../game/prestigeState';
 import { applyPrestigeEffects } from '../game/prestigeEffects';
@@ -153,13 +152,6 @@ export class GameScene extends Phaser.Scene {
       // Phase-4-TODO: restore per-slot installations once arena slot binding lands.
       // For now this branch is a no-op — any legacy v2 save was already wiped on load.
       void createBehavior;
-      void clampWeaponToChute;
-      if (false as boolean) {
-        // unreachable — silences unused var checks during the transition.
-        type _X = { clockwise?: boolean };
-        const _: _X = {};
-        void _;
-      }
     } else {
       for (let wi = 0; wi < unlocked.length; wi++) {
         const wt = unlocked[wi];
