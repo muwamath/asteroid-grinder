@@ -17,6 +17,7 @@ class GameplayState {
   private _cash = 0;
   private readonly _levels = new Map<string, number>();
   private readonly _weaponCounts = new Map<string, number>();
+  private readonly _instancesBoughtThisRun = new Map<string, number>();
   private readonly listeners: { [K in keyof Events]: Set<Listener<Events[K]>> } = {
     cashChanged: new Set(),
     cashEarned: new Set(),
@@ -66,7 +67,24 @@ class GameplayState {
   buyWeapon(id: string): void {
     const current = this.weaponCount(id);
     this._weaponCounts.set(id, current + 1);
+    const bought = this._instancesBoughtThisRun.get(id) ?? 0;
+    this._instancesBoughtThisRun.set(id, bought + 1);
     this.emit('weaponCountChanged', id, current + 1);
+  }
+
+  instancesBoughtThisRun(id: string): number {
+    return this._instancesBoughtThisRun.get(id) ?? 0;
+  }
+
+  allInstancesBoughtThisRun(): Readonly<Record<string, number>> {
+    const out: Record<string, number> = {};
+    for (const [k, v] of this._instancesBoughtThisRun) out[k] = v;
+    return out;
+  }
+
+  setInstancesBoughtThisRun(m: Record<string, number>): void {
+    this._instancesBoughtThisRun.clear();
+    for (const [k, v] of Object.entries(m)) this._instancesBoughtThisRun.set(k, v);
   }
 
   sellWeapon(id: string): boolean {
@@ -113,6 +131,7 @@ class GameplayState {
     this._cash = 0;
     this._levels.clear();
     this._weaponCounts.clear();
+    this._instancesBoughtThisRun.clear();
   }
 
   // Full reset including listeners. Used by tests for isolation between cases.

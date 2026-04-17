@@ -351,3 +351,18 @@ export function allUpgradeDefs(): UpgradeDef[] {
 export function findUpgrade(id: string): UpgradeDef | undefined {
   return allUpgradeDefs().find((u) => u.id === id);
 }
+
+export interface WeaponBuyCostArgs {
+  readonly boughtThisRun: number;
+  readonly freeSlots: number;
+  readonly baseCost: number;
+}
+
+/**
+ * Prestige free-slot override: the first `freeSlots` buys of a weapon type
+ * this run cost $0. After that, the normal `baseCost` applies.
+ */
+export function weaponBuyCost({ boughtThisRun, freeSlots, baseCost }: WeaponBuyCostArgs): number {
+  if (boughtThisRun < freeSlots) return 0;
+  return baseCost;
+}

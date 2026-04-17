@@ -6,6 +6,7 @@ import {
   findCategory,
   allUpgradeDefs,
   findUpgrade,
+  weaponBuyCost,
 } from './weaponCatalog';
 
 describe('weaponCatalog', () => {
@@ -85,5 +86,21 @@ describe('weaponCatalog', () => {
   it('findCategory resolves by id', () => {
     expect(findCategory('chute')?.name).toBe('Chute');
     expect(findCategory('nope')).toBeUndefined();
+  });
+});
+
+describe('weaponBuyCost', () => {
+  it('returns 0 when boughtThisRun < freeSlots', () => {
+    expect(weaponBuyCost({ boughtThisRun: 0, freeSlots: 2, baseCost: 100 })).toBe(0);
+    expect(weaponBuyCost({ boughtThisRun: 1, freeSlots: 2, baseCost: 100 })).toBe(0);
+  });
+
+  it('returns baseCost when boughtThisRun >= freeSlots', () => {
+    expect(weaponBuyCost({ boughtThisRun: 2, freeSlots: 2, baseCost: 100 })).toBe(100);
+    expect(weaponBuyCost({ boughtThisRun: 5, freeSlots: 2, baseCost: 100 })).toBe(100);
+  });
+
+  it('returns baseCost when freeSlots is 0', () => {
+    expect(weaponBuyCost({ boughtThisRun: 0, freeSlots: 0, baseCost: 50 })).toBe(50);
   });
 });

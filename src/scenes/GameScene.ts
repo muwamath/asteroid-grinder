@@ -86,6 +86,10 @@ export class GameScene extends Phaser.Scene {
     return this.pendingShardsThisRun;
   }
 
+  getEffectiveParams(): EffectiveGameplayParams {
+    return this.effectiveParams;
+  }
+
   preload(): void {
     this.makeChunkTextures();
     // Let each weapon behavior generate its own textures.

@@ -3,6 +3,7 @@ import { gameplayState } from '../game/gameplayState';
 import {
   WEAPON_TYPES,
   CATEGORY_DEFS,
+  weaponBuyCost,
   type WeaponTypeDef,
   type CategoryDef,
 } from '../game/weaponCatalog';
@@ -409,12 +410,14 @@ class SubPanel {
   private buyText: Phaser.GameObjects.Text | null = null;
   private sellText: Phaser.GameObjects.Text | null = null;
   private headerText: Phaser.GameObjects.Text;
+  private readonly scene: Phaser.Scene;
 
   constructor(
     scene: Phaser.Scene,
     private readonly def: WeaponTypeDef | CategoryDef,
     private readonly isWeapon: boolean,
   ) {
+    this.scene = scene;
     this.container = scene.add.container(SUBPANEL_X, BAR_Y);
     let yOff = 0;
 
@@ -494,8 +497,8 @@ class SubPanel {
       const wDef = this.def as WeaponTypeDef;
       const count = gameplayState.weaponCount(wDef.id);
       this.headerText.setText(wDef.id === 'grinder' ? wDef.name : `${wDef.name} ×${count}`);
-      const buyCost = count + 1;
-      this.buyText?.setText(`Buy $${buyCost}`);
+      const buyCost = this.currentBuyCost(wDef.id, count);
+      this.buyText?.setText(buyCost === 0 ? 'Buy (Free)' : `Buy $${buyCost}`);
       const canBuy = gameplayState.cash >= buyCost;
       this.buyButton?.setFillStyle(canBuy ? 0x233024 : 0x1a1a20);
       this.buyText?.setColor(canBuy ? '#b0ffa8' : '#606068');
@@ -529,10 +532,18 @@ class SubPanel {
   private onBuy(): void {
     const wDef = this.def as WeaponTypeDef;
     const count = gameplayState.weaponCount(wDef.id);
-    const cost = count + 1;
-    if (gameplayState.trySpend(cost)) {
+    const cost = this.currentBuyCost(wDef.id, count);
+    if (cost === 0 || gameplayState.trySpend(cost)) {
       gameplayState.buyWeapon(wDef.id);
     }
+  }
+
+  private currentBuyCost(weaponId: string, count: number): number {
+    const baseCost = count + 1;
+    const gs = this.scene.scene.get('game') as GameScene | null;
+    const freeSlots = gs?.getEffectiveParams().freeSlotCount[weaponId] ?? 0;
+    const bought = gameplayState.instancesBoughtThisRun(weaponId);
+    return weaponBuyCost({ boughtThisRun: bought, freeSlots, baseCost });
   }
 
   private onSell(): void {
@@ -550,6 +561,7 @@ class UpgradeButton {
   private readonly nameText: Phaser.GameObjects.Text;
   private readonly statsText: Phaser.GameObjects.Text;
   private readonly descText: Phaser.GameObjects.Text;
+  private readonly scene: Phaser.Scene;
   private hovered = false;
 
   constructor(
@@ -561,6 +573,7 @@ class UpgradeButton {
     private readonly def: UpgradeDef,
     container: Phaser.GameObjects.Container,
   ) {
+    this.scene = scene;
     this.bg = scene.add
       .rectangle(x, y, w, h, 0x202030)
       .setOrigin(0, 0)
@@ -599,7 +612,7 @@ class UpgradeButton {
       this.statsText.setText(`Lv ${level}/${this.def.maxLevel}  ·  MAX`);
       this.bg.disableInteractive();
     } else {
-      const cost = costAtLevel(this.def, level);
+      const cost = this.adjustedCost(level);
       this.statsText.setText(`Lv ${level}/${this.def.maxLevel}  ·  $${cost}`);
       this.bg.setInteractive({ useHandCursor: true });
     }
@@ -616,7 +629,7 @@ class UpgradeButton {
       this.descText.setColor('#4a4a5c');
       return;
     }
-    const cost = costAtLevel(this.def, level);
+    const cost = this.adjustedCost(level);
     const canAfford = gameplayState.cash >= cost;
     const base = canAfford ? 0x233024 : 0x202030;
     const hover = canAfford ? 0x2d3e2f : 0x2a2a3c;
@@ -629,10 +642,17 @@ class UpgradeButton {
   private tryBuy(): void {
     const level = gameplayState.levelOf(this.def.id);
     if (isMaxed(this.def, level)) return;
-    const cost = costAtLevel(this.def, level);
+    const cost = this.adjustedCost(level);
     if (gameplayState.trySpend(cost)) {
       gameplayState.setLevel(this.def.id, level + 1);
     }
+  }
+
+  private adjustedCost(level: number): number {
+    const base = costAtLevel(this.def, level);
+    const gs = this.scene.scene.get('game') as GameScene | null;
+    const mult = gs?.getEffectiveParams().upgradeCostMultiplier ?? 1;
+    return Math.max(1, Math.floor(base * mult));
   }
 }
 
