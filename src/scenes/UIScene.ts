@@ -581,7 +581,7 @@ export class UIScene extends Phaser.Scene {
     // canvas, z-index 999 ensures it's above everything.
     const layer = document.createElement('div');
     layer.style.cssText =
-      'position:absolute; inset:0; z-index:999; pointer-events:none; ' +
+      'position:fixed; inset:0; z-index:2147483000; pointer-events:none; ' +
       'display:flex; flex-direction:column; align-items:center; justify-content:center; gap:16px;';
 
     const row = document.createElement('div');
@@ -747,7 +747,7 @@ export class UIScene extends Phaser.Scene {
 
     const backdrop = document.createElement('div');
     backdrop.style.cssText =
-      'position:absolute; inset:0; z-index:1200; background:rgba(0,0,0,0.55); ' +
+      'position:fixed; inset:0; z-index:2147483000; background:rgba(0,0,0,0.55); ' +
       'display:flex; align-items:center; justify-content:center; pointer-events:auto;';
     backdrop.addEventListener('click', (e) => {
       if (e.target === backdrop) this.dismissWeaponPicker();
@@ -818,7 +818,7 @@ export class UIScene extends Phaser.Scene {
     this.dismissSellConfirm();
     const backdrop = document.createElement('div');
     backdrop.style.cssText =
-      'position:absolute; inset:0; z-index:1300; background:rgba(0,0,0,0.55); ' +
+      'position:fixed; inset:0; z-index:2147483000; background:rgba(0,0,0,0.55); ' +
       'display:flex; align-items:center; justify-content:center; pointer-events:auto;';
     backdrop.addEventListener('click', (e) => {
       if (e.target === backdrop) this.dismissSellConfirm();
