@@ -34,7 +34,10 @@ test('golden path: game boots, grinding loop runs, clean console', async ({ page
   // Fresh run — drop the save key from a previous test session so
   // starting cash and weapon counts are deterministic. Targeted
   // `removeItem` so we don't clobber unrelated localhost storage.
-  await page.evaluate(() => window.localStorage.removeItem('asteroid-grinder:save:v1'));
+  await page.evaluate(() => {
+    window.localStorage.removeItem('asteroid-grinder:save:v1');
+    window.localStorage.removeItem('asteroid-grinder:save:v2');
+  });
   await page.reload();
 
   await page.waitForFunction(() => Boolean((window as unknown as { __GAME__?: unknown }).__GAME__), {
@@ -89,4 +92,54 @@ test('golden path: game boots, grinding loop runs, clean console', async ({ page
     expect(probe.anyRotating, 'live asteroids must have non-zero angular velocity').toBe(true);
   }
   expect(errors, 'clean console — no errors or warnings').toEqual([]);
+});
+
+// Prestige smoke: seed a high-damage save so a vault core dies within 45s,
+// then assert pendingShardsThisRun went up. Uses the v2 save schema directly
+// so no migration path is exercised here (migration is covered by vitest).
+test('prestige: vault core kill accrues pending shards', async ({ page }) => {
+  const envNoise = /GL Driver Message|GPU stall due to ReadPixels/;
+  const errors: string[] = [];
+  page.on('console', (msg) => {
+    const t = msg.type();
+    if ((t === 'error' || t === 'warning') && !envNoise.test(msg.text())) {
+      errors.push(`[${t}] ${msg.text()}`);
+    }
+  });
+  page.on('pageerror', (err) => errors.push(`[pageerror] ${err.message}`));
+
+  await page.addInitScript(() => {
+    const synthetic = {
+      v: 2,
+      cash: 9999,
+      levels: { 'saw.damage': 50, 'asteroids.quality': 8, 'saw.bladeCount': 4 },
+      weaponCounts: { grinder: 1, saw: 1, laser: 0, missile: 0, blackhole: 0 },
+      weaponInstances: [{ typeId: 'saw', x: 1280, y: 200, clockwise: true }],
+      emaCashPerSec: 0,
+      savedAt: Date.now(),
+      runSeed: 'smoke-seed',
+      pendingShardsThisRun: 0,
+      prestigeShards: 0,
+      prestigeCount: 0,
+      prestigeShopLevels: {},
+      instancesBoughtThisRun: {},
+    };
+    window.localStorage.setItem('asteroid-grinder:save:v2', JSON.stringify(synthetic));
+  });
+
+  await page.goto('/');
+  await page.waitForFunction(() => Boolean((window as unknown as { __GAME__?: unknown }).__GAME__), {
+    timeout: 10_000,
+  });
+
+  // Wait up to 45s for at least one vault kill → pendingShardsThisRun > 0.
+  await page.waitForFunction(() => {
+    const w = window as unknown as { __GAME__?: { scene: { getScene: (k: string) => unknown } } };
+    const scene = w.__GAME__?.scene.getScene('game') as unknown as {
+      getPendingShardsThisRun?: () => number;
+    } | undefined;
+    return (scene?.getPendingShardsThisRun?.() ?? 0) > 0;
+  }, { timeout: 45_000 });
+
+  expect(errors, 'clean console during prestige smoke').toEqual([]);
 });
