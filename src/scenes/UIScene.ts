@@ -31,7 +31,6 @@ export class UIScene extends Phaser.Scene {
   private escKey: Phaser.Input.Keyboard.Key | null = null;
   private fullscreenKey: Phaser.Input.Keyboard.Key | null = null;
   private shardsText: Phaser.GameObjects.Text | null = null;
-  private prestigeCountText: Phaser.GameObjects.Text | null = null;
   private prestigeModal: Phaser.GameObjects.Container | null = null;
   private prestigeShopContainer: Phaser.GameObjects.Container | null = null;
   private runConfigContainer: Phaser.GameObjects.Container | null = null;
@@ -272,14 +271,6 @@ export class UIScene extends Phaser.Scene {
       })
       .setDepth(51);
 
-    this.prestigeCountText = this.add
-      .text(W / 2, H - BAR_H + 24, '', {
-        font: 'bold 26px ui-monospace',
-        color: '#9090c8',
-      })
-      .setOrigin(0.5, 0)
-      .setDepth(51);
-
     const btnW = 260;
     const btnH = 48;
     const btnX = W - btnW - 24;
@@ -306,11 +297,10 @@ export class UIScene extends Phaser.Scene {
   }
 
   private refreshBottomBar(): void {
-    if (!this.shardsText || !this.prestigeCountText) return;
+    if (!this.shardsText) return;
     const gs = this.scene.get('game') as GameScene | null;
     const pending = gs?.getPendingShardsThisRun?.() ?? 0;
     this.shardsText.setText(`🔮 ${pending} this run  (banked: ${prestigeState.shards})`);
-    this.prestigeCountText.setText(`prestige #${prestigeState.prestigeCount}`);
   }
 
   private openPrestigeModal(): void {
