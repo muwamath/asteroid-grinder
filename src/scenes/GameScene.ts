@@ -269,20 +269,10 @@ export class GameScene extends Phaser.Scene {
       ast.enforceWalls(wallInnerL, wallInnerR);
       ast.syncSprites();
 
-      // Grinder line: any chunk part below DEATH_LINE_Y gets chewed.
-      // Snapshot IDs first — damageLiveChunk may split the asteroid.
-      const toGrind: string[] = [];
-      for (const chunk of ast.chunks.values()) {
-        if (chunk.bodyPart.position.y > DEATH_LINE_Y) toGrind.push(chunk.chunkId);
-      }
-      for (const id of toGrind) {
-        const killed = this.damageLiveChunk(ast, id, Number.POSITIVE_INFINITY, 'grinder');
-        if (killed) {
-          gameplayState.addCash(1);
-          this.cashFromLine += 1;
-          this.collectedAlive++;
-        }
-      }
+      // Grinder blades now handle live-chunk kills via collision routing —
+      // the old DEATH_LINE_Y chew loop is gone. If a live chunk somehow
+      // bypasses the blades and crosses the death line, the visible red
+      // strip makes the failure obvious; treat it as a bug, not gameplay.
 
       if (ast.isOutOfBounds(maxY)) {
         ast.destroy();
@@ -447,7 +437,10 @@ export class GameScene extends Phaser.Scene {
     this.matter.add.rectangle(-wallT / 2, height / 2, wallT, height * 2, { isStatic: true });
     this.matter.add.rectangle(width + wallT / 2, height / 2, wallT, height * 2, { isStatic: true });
 
-    this.add.rectangle(width / 2, DEATH_LINE_Y, width, 6, 0xff3355, 0.9).setOrigin(0.5);
+    this.add
+      .rectangle(width / 2, DEATH_LINE_Y, width, 6, 0xff3355, 0.9)
+      .setOrigin(0.5)
+      .setDepth(-1);
   }
 
   private spawnWeaponInstance(typeId: string, x: number, y: number): WeaponInstance | null {
