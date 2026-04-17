@@ -62,19 +62,26 @@ test('golden path: game boots, grinding loop runs, clean console', async ({ page
       liveAsteroids: Array<{ body: { angularVelocity: number; angle: number } }>;
       weaponHits: number;
       spawnedCount: number;
+      weaponInstances: Array<{
+        type: string;
+        behavior: { stats?: { blades?: number } };
+      }>;
     };
     const angularVelocities = scene.liveAsteroids.map((a) => a.body.angularVelocity);
     const anyRotating = angularVelocities.some((v) => Math.abs(v) > 0);
+    const grinder = scene.weaponInstances.find((wi) => wi.type === 'grinder');
     return {
       spawnedCount: scene.spawnedCount,
       liveCount: scene.liveAsteroids.length,
       weaponHits: scene.weaponHits,
       anyRotating,
+      grinderBladeCount: grinder?.behavior.stats?.blades ?? 0,
     };
   });
 
   expect(probe.spawnedCount, 'asteroids must spawn within 30s').toBeGreaterThan(0);
   expect(probe.weaponHits, 'saw must hit at least one chunk within 30s').toBeGreaterThan(0);
+  expect(probe.grinderBladeCount, 'grinder must spawn with blades tiling the channel').toBeGreaterThan(0);
   // Rotation invariant holds only if at least one asteroid is currently live.
   // If they've all been ground away in 10s that's also fine — the loop is
   // clearly firing.
