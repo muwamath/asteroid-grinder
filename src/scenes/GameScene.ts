@@ -587,6 +587,14 @@ export class GameScene extends Phaser.Scene {
     }
     prestigeState.registerPrestige();
 
+    // Stop spawning while the prestige shop overlay is up — otherwise new
+    // asteroids accumulate beneath the shop and their Matter bodies get
+    // orphaned when startNewRun eventually restarts the scene.
+    if (this.spawnTimer) {
+      this.spawnTimer.remove(false);
+      this.spawnTimer = null;
+    }
+
     // Tear down weapons + asteroids before resetting counts (instance list
     // drives destroy loops; resetting counts first would orphan Matter bodies).
     for (const inst of this.weaponInstances) {

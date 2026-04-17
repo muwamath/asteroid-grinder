@@ -136,6 +136,7 @@ class GameplayState {
     this._levels.clear();
     this._weaponCounts.clear();
     this._instancesBoughtThisRun.clear();
+    this._runSeed = '';
   }
 
   // Full reset including listeners. Used by tests for isolation between cases.
