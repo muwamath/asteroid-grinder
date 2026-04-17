@@ -5,8 +5,8 @@ import type { EffectiveGameplayParams } from '../upgradeApplier';
 import type { WeaponBehavior, WeaponRawAccess } from './weaponBehavior';
 import { CAT_GRINDER_BLADE, MASK_GRINDER_BLADE } from '../collisionCategories';
 
-const BLADE_WIDTH_BASE = 40;
-const BLADE_HEIGHT_BASE = 28;
+const BLADE_WIDTH_BASE = 16;
+const BLADE_HEIGHT_BASE = 48;
 const GRINDER_CLEARANCE = 4;
 const GRINDER_HIT_COOLDOWN_MS = 120;
 const LAST_HIT_PRUNE_INTERVAL_MS = 1000;
