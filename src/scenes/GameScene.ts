@@ -144,8 +144,9 @@ export class GameScene extends Phaser.Scene {
 
     this.buildArena(width, height);
     // Prefer the snapshot's arenaSeed so a reload preserves layout — otherwise
-    // derive from runSeed (fresh run with a seed input) or fallback.
-    const arenaSeed = snap && snap.arenaSeed
+    // derive from runSeed (fresh run with a seed input) or fallback. Explicit
+    // null/undefined check so a valid seed of 0 isn't treated as missing.
+    const arenaSeed = snap != null
       ? snap.arenaSeed
       : seedFromString(gameplayState.runSeed || 'default');
     this.arenaLayout = generateArena(arenaSeed, {
@@ -822,11 +823,14 @@ export class GameScene extends Phaser.Scene {
     if (!gameplayState.isSlotUnlocked(slot.id)) {
       const alreadyUnlocked = gameplayState.unlockedSlotIds().length;
       const start = this.startingUnlockedCountForThisRun();
-      const k = Math.max(0, alreadyUnlocked - start);
-      let cost = unlockCost(k);
-      if (!gameplayState.freeUnlockUsed) cost = 0;
+      const extraUnlocked = Math.max(0, alreadyUnlocked - start);
+      const isFreeUnlock = !gameplayState.freeUnlockUsed;
+      // First unlock per run is free regardless of k. After that, cost is
+      // floored at unlockCost(1) so a corrupted save (freeUnlockUsed=true
+      // with extraUnlocked=0) can never leak a second free unlock.
+      const cost = isFreeUnlock ? 0 : unlockCost(Math.max(1, extraUnlocked));
       if (gameplayState.tryUnlockSlot(slot.id, cost)) {
-        if (cost === 0) gameplayState.markFreeUnlockUsed();
+        if (isFreeUnlock) gameplayState.markFreeUnlockUsed();
         const g = this.slotMarkers.get(slot.id);
         if (g) this.redrawSlotMarker(g, slot);
       }

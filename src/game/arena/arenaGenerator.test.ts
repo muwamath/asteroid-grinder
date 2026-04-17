@@ -60,4 +60,15 @@ describe('generateArena', () => {
     const ids = new Set(slots.map((s) => s.id));
     expect(ids.size).toBe(slots.length);
   });
+
+  it('never returns a layout with slots.length < minSlots', () => {
+    // Even under stressful minSlots requirements, the outer retry + fallback
+    // must ensure we always clear the floor. This guards the silent-failure
+    // path where placeSlots' top-up loop exhausts its safety cap.
+    const tightParams = { ...PARAMS, minSlots: 8, maxSlots: 10 };
+    for (let seed = 1; seed <= 100; seed++) {
+      const layout = generateArena(seed, tightParams);
+      expect(layout.slots.length).toBeGreaterThanOrEqual(tightParams.minSlots);
+    }
+  });
 });

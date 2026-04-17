@@ -23,7 +23,13 @@ interface Rect {
 export function generateArena(seed: number, params: ArenaSeedParams): ArenaLayout {
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
     const layout = tryGenerate(seed + attempt, params);
-    if (isPlayable(layout)) return { ...layout, seed };
+    // Retry on both unplayable topology AND undershooting minSlots. The
+    // top-up loop in placeSlots has a safety cap; if a pathologically
+    // fragmented BSP makes every candidate point too close to existing
+    // slots, we could silently return a layout with <minSlots slots.
+    if (isPlayable(layout) && layout.slots.length >= params.minSlots) {
+      return { ...layout, seed };
+    }
   }
   return { ...fallbackChute(params), seed };
 }

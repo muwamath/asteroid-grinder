@@ -6,6 +6,13 @@ Backlog below is grouped by **what it adds to the game**. Order is execution ord
 
 ---
 
+## 1c. Arena follow-ups (deferred from code review 2026-04-17)
+
+- Remove the orphan `_allSlotIds` field + `allSlotIds` getter in `gameplayState` (dead code, never read).
+- Decide whether `SlotMask` in `src/game/arena/slotState.ts` should be promoted to production (replacing the inline slot tracking in `gameplayState`) or deleted — currently tested but not wired.
+- Remove the transitional `channelHalfWidth = 1240` on `BASE_PARAMS`. Replace the three remaining readers (`grinderBehavior.ts`, `missileBehavior.ts`, `GameScene.enforceWalls` + `onWeaponCountChanged`) with direct reads of `scene.scale.width`.
+- `arenaGenerator.ensureSlant` can push endpoints outside `[0, playfield.width]` on long nearly-horizontal walls. Clamp endpoints after rotation so the wall stays inside the playable region.
+
 ## 1b. Bug — weapons can spawn overlapping grinders
 
 - Buying a new weapon can place it in a chute region already occupied by a grinder's blade row, causing immediate collisions / stuck bodies. Placement should exclude grinder footprints (same exclusion logic as existing weapons). Also applies to placing a grinder that would clip an existing weapon — symmetric exclusion on both sides.
