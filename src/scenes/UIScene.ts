@@ -583,11 +583,13 @@ export class UIScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setDepth(DEPTH + 2);
     startBg.on('pointerdown', () => {
+      console.log('[runconfig] Start Run pointerdown fired');
       const seed = this.seedInputEl?.value ?? defaultSeed;
       this.closeRunConfig();
       const gs = this.scene.get('game') as GameScene;
       gs.startNewRun(seed);
     });
+    startBg.on('pointerup', () => console.log('[runconfig] Start Run pointerup fired'));
 
     container.add([backdrop, title, seedLabel, rerollBg, rerollText, startBg, startText]);
     this.runConfigContainer = container;
@@ -787,6 +789,7 @@ export class UIScene extends Phaser.Scene {
       layer.push(costText);
 
       bg.on('pointerup', () => {
+        console.log('[picker] weapon button pointerup fired:', wt.id);
         this.events.emit('install-weapon', {
           slotId: payload.slotId,
           typeId: wt.id,
@@ -795,6 +798,7 @@ export class UIScene extends Phaser.Scene {
         });
         this.dismissWeaponPicker();
       });
+      bg.on('pointerdown', () => console.log('[picker] weapon button pointerdown fired:', wt.id));
     });
 
     const hint = this.add
