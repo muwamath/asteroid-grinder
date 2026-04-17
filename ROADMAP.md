@@ -23,8 +23,8 @@ Shipped on `feature/tech-hygiene`, FF-merged to main.
 Smaller player-facing wins. Land before content so resolution/layout changes don't invalidate later art work.
 
 - ✅ **Text crispness on HiDPI displays.** Shipped 2026-04-16. Bumped base canvas to 2560×1440 (1:1 on retina) and swept all UI/arena/weapon layout constants; added fullscreen toggle (F key + options menu). Font sizes, panel sizes, death line, channel top, weapon radii all doubled. `channelHalfWidth` + gravity left untouched by explicit call — channel reads narrower and chunks fall slightly slower, tolerated for now.
-- **Chunk containment.** Dead chunks from high-velocity saw hits can escape the top of the arena. Options: raise walls, add a ceiling collider, clamp chunk velocity on death, or add drag post-death. Diagnose in play first.
-- **Saw direction on double-click.** Replace the CW/CCW menu toggle with double-click on the arbor to reverse. Tactile.
+- **Chunk containment.** Intentional — flying chunks from high-velocity saw hits stay in the game. (Confirmed 2026-04-16: not a bug, won't fix.)
+- ✅ **Saw direction on double-click.** Shipped 2026-04-16. Each saw owns its direction (per-instance, no global setting); double-click the arbor to reverse THIS saw. Drag-distance threshold raised to 6px so click jitter no longer eats the toggle. CW/CCW menu buttons removed. Save/load round-trips per-saw direction.
 - **Mobile / portrait mode.** Currently desktop-landscape only.
 
 ## 3. New gameplay systems

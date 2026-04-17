@@ -36,31 +36,26 @@ describe('gameplayState', () => {
   });
 
   describe('loadSnapshot', () => {
-    it('restores cash, levels, weapon counts, saw dir and emits events', () => {
+    it('restores cash, levels, weapon counts and emits events', () => {
       const cashSpy = vi.fn();
       const lvlSpy = vi.fn();
       const cntSpy = vi.fn();
-      const dirSpy = vi.fn();
       gameplayState.on('cashChanged', cashSpy);
       gameplayState.on('upgradeLevelChanged', lvlSpy);
       gameplayState.on('weaponCountChanged', cntSpy);
-      gameplayState.on('sawDirectionChanged', dirSpy);
 
       gameplayState.loadSnapshot({
         cash: 500,
         levels: { sawDamage: 3 },
         weaponCounts: { saw: 2 },
-        sawClockwise: false,
       });
 
       expect(gameplayState.cash).toBe(500);
       expect(gameplayState.levelOf('sawDamage')).toBe(3);
       expect(gameplayState.weaponCount('saw')).toBe(2);
-      expect(gameplayState.sawClockwise).toBe(false);
       expect(cashSpy).toHaveBeenCalled();
       expect(lvlSpy).toHaveBeenCalledWith('sawDamage', 3);
       expect(cntSpy).toHaveBeenCalledWith('saw', 2);
-      expect(dirSpy).toHaveBeenCalledWith(false);
     });
 
     it('replaces prior levels/weapons rather than merging', () => {
@@ -70,7 +65,6 @@ describe('gameplayState', () => {
         cash: 0,
         levels: { dropRate: 2 },
         weaponCounts: { saw: 1 },
-        sawClockwise: true,
       });
       expect(gameplayState.levelOf('oldUpgrade')).toBe(0);
       expect(gameplayState.weaponCount('laser')).toBe(0);

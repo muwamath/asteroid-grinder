@@ -7,6 +7,7 @@ import { WEAPON_TYPES } from '../game/weaponCatalog';
 import { CashRateTracker } from '../game/cashRate';
 import { saveToLocalStorage, clearSave, type SaveStateV1 } from '../game/saveState';
 import { type WeaponBehavior, createBehavior, allBehaviorPrototypes } from '../game/weapons';
+import { SawBehavior } from '../game/weapons/sawBehavior';
 import { MATERIALS, type Material, textureKeyFor } from '../game/materials';
 import type { ChunkTarget } from '../game/chunkTarget';
 import type { ChunkPartPlugin } from '../game/compoundAsteroid';
@@ -91,7 +92,6 @@ export class GameScene extends Phaser.Scene {
         cash: snap.cash,
         levels: snap.levels,
         weaponCounts: snap.weaponCounts,
-        sawClockwise: snap.sawClockwise,
       });
       this.rateTracker = new CashRateTracker(60_000, snap.emaCashPerSec);
       // Consume once — a future scene restart should NOT re-apply.
@@ -120,7 +120,10 @@ export class GameScene extends Phaser.Scene {
     const ySpacing = ARBOR_RADIUS * 3;
     if (snap && snap.weaponInstances.length > 0) {
       for (const si of snap.weaponInstances) {
-        this.spawnWeaponInstance(si.typeId, si.x, si.y);
+        const inst = this.spawnWeaponInstance(si.typeId, si.x, si.y);
+        if (inst && inst.behavior instanceof SawBehavior && si.clockwise === false) {
+          inst.behavior.setClockwise(false);
+        }
       }
     } else {
       for (let wi = 0; wi < unlocked.length; wi++) {
@@ -447,8 +450,32 @@ export class GameScene extends Phaser.Scene {
     const instance: WeaponInstance = { id, type: typeId, sprite, behavior };
     this.weaponInstances.push(instance);
 
+    if (behavior instanceof SawBehavior) this.wireSawDoubleClick(sprite, behavior);
+
     behavior.init(this, sprite, this.effectiveParams);
     return instance;
+  }
+
+  // Double-click a saw arbor to reverse THIS saw's direction (each saw is
+  // configured independently). Detects on pointerdown (not pointerup) so a
+  // click that ALSO starts a drag still registers — the drag flag only
+  // suppresses the NEXT pointerdown's toggle if a drag occurred between them.
+  private wireSawDoubleClick(sprite: Phaser.Physics.Matter.Image, saw: SawBehavior): void {
+    let lastDown = 0;
+    let draggedSinceLastDown = false;
+    sprite.on('pointerdown', () => {
+      const now = performance.now();
+      if (now - lastDown < 400 && !draggedSinceLastDown) {
+        saw.toggleClockwise();
+        lastDown = 0;
+      } else {
+        lastDown = now;
+      }
+      draggedSinceLastDown = false;
+    });
+    sprite.on('dragstart', () => {
+      draggedSinceLastDown = true;
+    });
   }
 
   // Clear the persisted save and hard-reload. Detach the beforeunload handler
@@ -470,18 +497,21 @@ export class GameScene extends Phaser.Scene {
     const weaponIds = WEAPON_TYPES.filter((w) => !w.locked).map((w) => w.id);
     const weaponCounts: Record<string, number> = {};
     for (const id of weaponIds) weaponCounts[id] = gameplayState.weaponCount(id);
-    const weaponInstances = this.weaponInstances.map((inst) => ({
-      typeId: inst.type,
-      x: inst.sprite.x,
-      y: inst.sprite.y,
-    }));
+    const weaponInstances = this.weaponInstances.map((inst) => {
+      const base: { typeId: string; x: number; y: number; clockwise?: boolean } = {
+        typeId: inst.type,
+        x: inst.sprite.x,
+        y: inst.sprite.y,
+      };
+      if (inst.behavior instanceof SawBehavior) base.clockwise = inst.behavior.clockwise;
+      return base;
+    });
     const snap: SaveStateV1 = {
       v: 1,
       cash: gameplayState.cash,
       levels: gameplayState.levels(),
       weaponCounts,
       weaponInstances,
-      sawClockwise: gameplayState.sawClockwise,
       emaCashPerSec: this.rateTracker.rate(),
       savedAt: Date.now(),
     };
@@ -489,6 +519,10 @@ export class GameScene extends Phaser.Scene {
   }
 
   private wireDrag(): void {
+    // Require ≥6px movement before a press counts as a drag. Without this
+    // the default threshold (0) makes any 1-2px mouse jitter on a click
+    // start a drag, which suppresses the double-click handler on the arbor.
+    this.input.dragDistanceThreshold = 6;
     this.dragHandler = (
       _pointer: Phaser.Input.Pointer, obj: Phaser.GameObjects.GameObject, dragX: number, dragY: number,
     ) => {

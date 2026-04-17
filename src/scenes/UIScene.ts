@@ -72,12 +72,6 @@ export class UIScene extends Phaser.Scene {
         this.activePanel?.refresh();
       }),
     );
-    this.unsubs.push(
-      gameplayState.on('sawDirectionChanged', () => {
-        this.activePanel?.refresh();
-      }),
-    );
-
     this.events.once('shutdown', () => {
       for (const u of this.unsubs) u();
       this.unsubs = [];
@@ -415,10 +409,6 @@ class SubPanel {
   private buyText: Phaser.GameObjects.Text | null = null;
   private sellText: Phaser.GameObjects.Text | null = null;
   private headerText: Phaser.GameObjects.Text;
-  private cwButton: Phaser.GameObjects.Rectangle | null = null;
-  private ccwButton: Phaser.GameObjects.Rectangle | null = null;
-  private cwText: Phaser.GameObjects.Text | null = null;
-  private ccwText: Phaser.GameObjects.Text | null = null;
 
   constructor(
     scene: Phaser.Scene,
@@ -480,42 +470,6 @@ class SubPanel {
       this.container.add([this.sellButton, this.sellText]);
 
       yOff += btnH + 16;
-
-      // CW/CCW toggle (saw only).
-      if (def.id === 'saw') {
-        const toggleW = (SUBPANEL_W - 44) / 2;
-        const toggleH = 48;
-
-        this.cwButton = scene.add
-          .rectangle(16, yOff, toggleW, toggleH, 0x2a3040)
-          .setOrigin(0, 0)
-          .setStrokeStyle(2, 0x4a5c6a)
-          .setInteractive({ useHandCursor: true });
-        this.cwText = scene.add
-          .text(16 + toggleW / 2, yOff + toggleH / 2, 'CW', {
-            font: 'bold 20px ui-monospace',
-            color: '#a0c0e0',
-          })
-          .setOrigin(0.5);
-        this.cwButton.on('pointerdown', () => gameplayState.setSawClockwise(true));
-        this.container.add([this.cwButton, this.cwText]);
-
-        this.ccwButton = scene.add
-          .rectangle(16 + toggleW + 12, yOff, toggleW, toggleH, 0x1a1a28)
-          .setOrigin(0, 0)
-          .setStrokeStyle(2, 0x3a3a4c)
-          .setInteractive({ useHandCursor: true });
-        this.ccwText = scene.add
-          .text(16 + toggleW + 12 + toggleW / 2, yOff + toggleH / 2, 'CCW', {
-            font: 'bold 20px ui-monospace',
-            color: '#606078',
-          })
-          .setOrigin(0.5);
-        this.ccwButton.on('pointerdown', () => gameplayState.setSawClockwise(false));
-        this.container.add([this.ccwButton, this.ccwText]);
-
-        yOff += toggleH + 12;
-      }
     }
 
     // Upgrades.
@@ -555,17 +509,6 @@ class SubPanel {
         this.sellButton?.disableInteractive();
       }
     }
-    // CW/CCW toggle highlight.
-    if (this.cwButton) {
-      const cw = gameplayState.sawClockwise;
-      this.cwButton.setFillStyle(cw ? 0x2a3040 : 0x1a1a28);
-      this.cwButton.setStrokeStyle(2, cw ? 0x4a5c6a : 0x3a3a4c);
-      this.cwText?.setColor(cw ? '#a0c0e0' : '#606078');
-      this.ccwButton?.setFillStyle(cw ? 0x1a1a28 : 0x2a3040);
-      this.ccwButton?.setStrokeStyle(2, cw ? 0x3a3a4c : 0x4a5c6a);
-      this.ccwText?.setColor(cw ? '#606078' : '#a0c0e0');
-    }
-
     for (const btn of this.upgradeButtons) btn.refresh();
   }
 
@@ -576,7 +519,6 @@ class SubPanel {
   private estimateHeight(): number {
     let h = 16 + 44; // padding + header
     if (this.isWeapon && this.def.id !== 'grinder') h += 76; // buy/sell row
-    if (this.def.id === 'saw') h += 60; // CW/CCW toggle
     if (this.def.upgrades.length > 0) {
       h += 32; // upgrades label
       h += this.def.upgrades.length * 88; // upgrade rows

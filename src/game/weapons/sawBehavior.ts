@@ -1,7 +1,6 @@
 import Phaser from 'phaser';
 import type { ChunkTarget } from '../chunkTarget';
 import type { CompoundAsteroid } from '../compoundAsteroid';
-import { gameplayState } from '../gameplayState';
 import type { EffectiveGameplayParams } from '../upgradeApplier';
 import { BASE_PARAMS } from '../upgradeApplier';
 import type { WeaponBehavior } from './weaponBehavior';
@@ -21,6 +20,9 @@ export class SawBehavior implements WeaponBehavior {
 
   private orbitAngle = 0;
   private blades: Phaser.Physics.Matter.Image[] = [];
+  // Per-instance: each saw's direction is configured independently. Default
+  // CW; set via setClockwise(false) on load or toggle().
+  private _clockwise = true;
   // Key is `${asteroid.id}/${chunkId}` — chunkIds repeat across asteroids
   // (they're cell-local), so a bare chunkId would share cooldown across
   // unrelated asteroids. Entries older than LAST_HIT_STALE_MS are
@@ -68,7 +70,7 @@ export class SawBehavior implements WeaponBehavior {
     }
 
     if (this.blades.length === 0) return;
-    const dir = gameplayState.sawClockwise ? 1 : -1;
+    const dir = this._clockwise ? 1 : -1;
     this.orbitAngle += dir * (params.orbitSpeed * delta) / 1000;
     const bladeCount = this.blades.length;
     for (let i = 0; i < bladeCount; i++) {
@@ -123,7 +125,7 @@ export class SawBehavior implements WeaponBehavior {
     const dy = cy - by;
     const dist = Math.sqrt(dx * dx + dy * dy);
     if (dist > 0.1) {
-      const dir = gameplayState.sawClockwise ? 1 : -1;
+      const dir = this._clockwise ? 1 : -1;
       const tx = (-dy / dist) * dir;
       const ty = (dx / dist) * dir;
       const strength = params.bladeSpinSpeed * params.bladeRadius * 0.0003;
@@ -153,6 +155,10 @@ export class SawBehavior implements WeaponBehavior {
     for (const blade of this.blades) blade.destroy();
     this.blades = [];
   }
+
+  get clockwise(): boolean { return this._clockwise; }
+  setClockwise(cw: boolean): void { this._clockwise = cw; }
+  toggleClockwise(): void { this._clockwise = !this._clockwise; }
 
   get stats() { return { hits: this.hitCount, kills: this.killCount }; }
 

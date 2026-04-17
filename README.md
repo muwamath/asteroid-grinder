@@ -6,7 +6,7 @@ Phaser 3 + Matter.js + TypeScript + Vite. 2560×1440 (16:9) with auto-scaling an
 
 ## Status
 
-**Phase 10 — MVP shipped (2026-04-16).** Full `tsc --noEmit` + `vite build` clean, 111 vitest tests green, production `dist/` validated live in Chrome (asteroid grinding loop, cash accrual, save/load roundtrip across reload, zero console errors).
+**Phase 10 — MVP shipped (2026-04-16).** Full `tsc --noEmit` + `vite build` clean, 113 vitest tests green, production `dist/` validated live in Chrome (asteroid grinding loop, cash accrual, save/load roundtrip across reload, zero console errors).
 
 Previous phases: Phase 9 (code review — arbor texture guard + save-state numeric validation); Phase 8 (menu & HUD — options modal, debug overlay, restart); Phase 7 (save & offline — autosave, welcome-back, EMA rate tracker); Phase 6.5 (compound-body asteroid rewrite — one Matter body per live connected component); Phase 6 (asteroid overhaul — 9-tier material ladder, Quality + Fall Speed upgrades); Phase 5 (weapons — Saw, Laser, Missile, Black Hole behind `WeaponBehavior`); Phase 4 (weapon shop + multi-instance); Phase 3 (economy + upgrades); Phase 2 (round asteroids + fracture); Phase 1 (engine spike).
 

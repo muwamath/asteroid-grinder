@@ -31,6 +31,8 @@ Paired with the Playwright golden-path smoke test (`tests/e2e/smoke.spec.ts`), w
 - **Saw blades are static Matter bodies (not sensors).** They both block chunks physically AND deal damage on `collisionstart`/`collisionactive`. The arbor (saw hub) is also static and blocks chunks but does NOT damage — `kind: 'arbor'` is unhandled in the collision router by design.
 - **Matter doesn't generate pairs between two static bodies.** Blade and arbor overlap geometrically but never collide. Don't try to "fix" this.
 - **Saw is intentionally slow.** Canonical Unity-era lesson: grinding should feel weighty, chunks visibly pile up on weapons. Never speed the saw up as a "fix" for pile-up — that's the intended feel.
+- **Saw direction is per-instance, not global.** Each `SawBehavior` owns its own `_clockwise` flag (default true). Read it directly inside the behavior — there is no `gameplayState.sawClockwise`. Persisted per-instance via `SavedWeaponInstance.clockwise` (optional; absent = CW). Toggled by double-clicking the arbor.
+- **`input.dragDistanceThreshold = 6`** (set in `wireDrag`). The Phaser default of 0 turns any sub-pixel mouse jitter on a click into a `dragstart`, which routes the release through `dragend` and bypasses the arbor's double-click handler. Don't lower it.
 
 ## Collision routing
 

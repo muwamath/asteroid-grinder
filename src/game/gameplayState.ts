@@ -5,27 +5,23 @@ interface Events {
   cashEarned: [amount: number];
   upgradeLevelChanged: [id: string, level: number];
   weaponCountChanged: [id: string, count: number];
-  sawDirectionChanged: [clockwise: boolean];
 }
 
 export interface GameplaySnapshot {
   cash: number;
   levels: Record<string, number>;
   weaponCounts: Record<string, number>;
-  sawClockwise: boolean;
 }
 
 class GameplayState {
   private _cash = 0;
   private readonly _levels = new Map<string, number>();
   private readonly _weaponCounts = new Map<string, number>();
-  private _sawClockwise = true;
   private readonly listeners: { [K in keyof Events]: Set<Listener<Events[K]>> } = {
     cashChanged: new Set(),
     cashEarned: new Set(),
     upgradeLevelChanged: new Set(),
     weaponCountChanged: new Set(),
-    sawDirectionChanged: new Set(),
   };
 
   get cash(): number {
@@ -81,15 +77,6 @@ class GameplayState {
     return true;
   }
 
-  get sawClockwise(): boolean {
-    return this._sawClockwise;
-  }
-
-  setSawClockwise(cw: boolean): void {
-    this._sawClockwise = cw;
-    this.emit('sawDirectionChanged', cw);
-  }
-
   setLevel(id: string, level: number): void {
     this._levels.set(id, level);
     this.emit('upgradeLevelChanged', id, level);
@@ -111,8 +98,6 @@ class GameplayState {
       this._weaponCounts.set(k, v);
       this.emit('weaponCountChanged', k, v);
     }
-    this._sawClockwise = s.sawClockwise;
-    this.emit('sawDirectionChanged', s.sawClockwise);
   }
 
   on<E extends keyof Events>(event: E, cb: Listener<Events[E]>): () => void {
@@ -128,7 +113,6 @@ class GameplayState {
     this._cash = 0;
     this._levels.clear();
     this._weaponCounts.clear();
-    this._sawClockwise = true;
   }
 
   // Full reset including listeners. Used by tests for isolation between cases.
@@ -138,7 +122,6 @@ class GameplayState {
     this.listeners.cashEarned.clear();
     this.listeners.upgradeLevelChanged.clear();
     this.listeners.weaponCountChanged.clear();
-    this.listeners.sawDirectionChanged.clear();
   }
 
   private emit<E extends keyof Events>(event: E, ...args: Events[E]): void {

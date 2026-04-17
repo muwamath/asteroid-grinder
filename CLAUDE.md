@@ -105,7 +105,7 @@ Load-bearing behaviors that are easy to silently break are documented in [DESIGN
 
 ## Tests
 
-- **Vitest** for pure logic (cost formulas, economy math, weapon catalog, upgrade appliers, gameplayState, shape generator, material ladder + distribution, asteroid graph split, save state, offline progress, cash rate) — lives under `src/**/*.test.ts`. 111 tests across 10 files. Run with `npm test`. **Bump the count here when you add or remove tests** — it drifts otherwise.
+- **Vitest** for pure logic (cost formulas, economy math, weapon catalog, upgrade appliers, gameplayState, shape generator, material ladder + distribution, asteroid graph split, save state, offline progress, cash rate) — lives under `src/**/*.test.ts`. 113 tests across 10 files. Run with `npm test`. **Bump the count here when you add or remove tests** — it drifts otherwise.
 - **Playwright** for golden-path smoke — `tests/e2e/smoke.spec.ts` boots the game, waits 30s, asserts non-zero saw hits, rotating asteroids, and no console errors. Run with `npm run test:e2e`. Tripwire against refactor drift — a subset of `DESIGN_INVARIANTS.md`.
 
 ## Deploy

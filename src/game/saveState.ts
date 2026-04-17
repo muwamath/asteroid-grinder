@@ -2,6 +2,9 @@ export interface SavedWeaponInstance {
   typeId: string;
   x: number;
   y: number;
+  // Saws only. Omitted (or true) = CW. Each saw stores its own direction;
+  // there is no global setting.
+  clockwise?: boolean;
 }
 
 export interface SaveStateV1 {
@@ -10,7 +13,6 @@ export interface SaveStateV1 {
   levels: Record<string, number>;
   weaponCounts: Record<string, number>;
   weaponInstances: SavedWeaponInstance[];
-  sawClockwise: boolean;
   emaCashPerSec: number;
   savedAt: number;
 }
@@ -47,8 +49,8 @@ export function deserialize(json: string): SaveStateV1 | null {
     if (!inst || typeof inst !== 'object') return null;
     if (typeof inst.typeId !== 'string') return null;
     if (typeof inst.x !== 'number' || typeof inst.y !== 'number') return null;
+    if (inst.clockwise !== undefined && typeof inst.clockwise !== 'boolean') return null;
   }
-  if (typeof p.sawClockwise !== 'boolean') return null;
   if (typeof p.emaCashPerSec !== 'number') return null;
   if (typeof p.savedAt !== 'number') return null;
   return p as SaveStateV1;
