@@ -4,8 +4,16 @@ import {
 } from './prestigeShopCatalog';
 
 describe('prestigeShopCatalog', () => {
-  it('defines exactly 11 entries', () => {
-    expect(PRESTIGE_SHOP.length).toBe(11);
+  it('defines exactly 12 entries', () => {
+    expect(PRESTIGE_SHOP.length).toBe(12);
+  });
+
+  it('exposes arena.preUnlockedSlots with level cap MAX_SLOTS - 1', async () => {
+    const { MAX_SLOTS } = await import('./arena/arenaConstants');
+    const entry = findShopEntry('arena.preUnlockedSlots');
+    expect(entry).toBeDefined();
+    expect(entry!.maxLevel).toBe(MAX_SLOTS - 1);
+    expect(entry!.family).toBe('economy');
   });
 
   it('includes all four free-weapon slots', () => {

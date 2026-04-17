@@ -23,6 +23,7 @@ export const PRESTIGE_SHOP: readonly PrestigeShopEntry[] = [
   { id: 'offline.cap',      family: 'economy',     name: 'Offline Cap',       description: 'Offline cap: 8h → 12h → 24h → 48h',   baseCost: 25, growthRate: 3.0, maxLevel: 3 },
   { id: 'shard.yield',      family: 'economy',     name: 'Shard Yield',       description: '+1 Shard per vault core per level',   baseCost: 30, growthRate: 2.0, maxLevel: 5 },
   { id: 'start.cash',       family: 'economy',     name: 'Starting Cash',     description: '+$50 starting cash per level',        baseCost: 5,  growthRate: 1.5, maxLevel: Infinity },
+  { id: 'arena.preUnlockedSlots', family: 'economy', name: 'Pre-Unlocked Slots', description: '+1 slot unlocked at run start per level', baseCost: 10, growthRate: 1.8, maxLevel: 9 /* MAX_SLOTS - 1 */ },
 ];
 
 export function findShopEntry(id: string): PrestigeShopEntry | undefined {
