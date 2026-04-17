@@ -615,6 +615,20 @@ export class GameScene extends Phaser.Scene {
 
     if (behavior instanceof SawBehavior) this.wireSawDoubleClick(sprite, behavior);
 
+    // Left-click a weapon → open that weapon type's upgrade subpanel.
+    // Right-click a weapon → open the sell-confirm dialog.
+    sprite.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+      if (pointer.rightButtonDown()) {
+        this.scene.get('ui').events.emit('open-sell-confirm', {
+          slotId: this.slotIdForInstance(instance.id),
+          typeId,
+          instanceId: instance.id,
+        });
+        return;
+      }
+      this.scene.get('ui').events.emit('open-weapon-panel', typeId);
+    });
+
     behavior.init(this, sprite, this.effectiveParams);
     return instance;
   }
@@ -645,6 +659,30 @@ export class GameScene extends Phaser.Scene {
   // configured independently). Detects on pointerdown (not pointerup) so a
   // click that ALSO starts a drag still registers — the drag flag only
   // suppresses the NEXT pointerdown's toggle if a drag occurred between them.
+  private slotIdForInstance(instanceId: string): string | null {
+    for (const inst of gameplayState.allInstalls()) {
+      if (inst.instanceId === instanceId) return inst.slotId;
+    }
+    return null;
+  }
+
+  sellWeaponAt(slotId: string): void {
+    const installed = gameplayState.installedAt(slotId);
+    if (!installed) return;
+    const inst = this.weaponInstances.find((w) => w.id === installed.instanceId);
+    if (!inst) return;
+    inst.behavior.destroy();
+    inst.sprite.destroy();
+    this.weaponInstances = this.weaponInstances.filter((w) => w !== inst);
+    gameplayState.uninstallWeapon(slotId);
+    gameplayState.sellWeapon(installed.typeId);
+    gameplayState.addCash(1, { silent: true });
+    // Re-draw the slot marker so its yellow ring comes back.
+    const slot = this.arenaLayout?.slots.find((s) => s.id === slotId);
+    const g = this.slotMarkers.get(slotId);
+    if (slot && g) this.redrawSlotMarker(g, slot);
+  }
+
   private wireSawDoubleClick(sprite: Phaser.Physics.Matter.Image, saw: SawBehavior): void {
     let lastDown = 0;
     let draggedSinceLastDown = false;

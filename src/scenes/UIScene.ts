@@ -95,6 +95,24 @@ export class UIScene extends Phaser.Scene {
     this.events.on('open-weapon-picker', openPicker);
     this.unsubs.push(() => this.events.off('open-weapon-picker', openPicker));
 
+    // Left-click on an installed weapon sprite → open its upgrade subpanel.
+    const openWeaponPanel = (typeId: string): void => {
+      const def = WEAPON_TYPES.find((w) => w.id === typeId);
+      if (!def) return;
+      if (this.activePanel && this.selectedId === typeId) return; // already open
+      this.togglePanel(typeId, def, true);
+    };
+    this.events.on('open-weapon-panel', openWeaponPanel);
+    this.unsubs.push(() => this.events.off('open-weapon-panel', openWeaponPanel));
+
+    // Right-click on a weapon → confirm-sell dialog.
+    const openSellConfirm = (p: { slotId: string | null; typeId: string; instanceId: string }): void => {
+      if (!p.slotId) return;
+      this.openSellConfirm(p.slotId, p.typeId);
+    };
+    this.events.on('open-sell-confirm', openSellConfirm);
+    this.unsubs.push(() => this.events.off('open-sell-confirm', openSellConfirm));
+
     this.events.once('shutdown', () => {
       for (const u of this.unsubs) u();
       this.unsubs = [];
@@ -785,6 +803,62 @@ export class UIScene extends Phaser.Scene {
     this.weaponPickerDomLayer.remove();
     this.weaponPickerDomLayer = null;
   }
+
+  // ── sell-confirm dialog ───────────────────────────────────────────────
+  private sellConfirmDomLayer: HTMLDivElement | null = null;
+
+  private openSellConfirm(slotId: string, typeId: string): void {
+    this.dismissSellConfirm();
+    const backdrop = document.createElement('div');
+    backdrop.style.cssText =
+      'position:absolute; inset:0; z-index:1300; background:rgba(0,0,0,0.55); ' +
+      'display:flex; align-items:center; justify-content:center; pointer-events:auto;';
+    backdrop.addEventListener('click', (e) => {
+      if (e.target === backdrop) this.dismissSellConfirm();
+    });
+    const panel = document.createElement('div');
+    panel.style.cssText =
+      'background:#18182a; border:2px solid #5c4a4a; border-radius:8px; padding:28px; ' +
+      'min-width:420px; color:#eee; font-family:ui-monospace; display:flex; flex-direction:column; gap:16px;';
+    const title = document.createElement('div');
+    title.textContent = 'Sell this weapon?';
+    title.style.cssText = 'font:bold 28px ui-monospace; color:#ffa0a0; text-align:center;';
+    panel.appendChild(title);
+    const body = document.createElement('div');
+    body.textContent = `Refunds $1. Frees up the slot for another buy.`;
+    body.style.cssText = 'font:18px ui-monospace; color:#d0d0e0; text-align:center;';
+    panel.appendChild(body);
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex; gap:12px; justify-content:center;';
+    const cancel = document.createElement('button');
+    cancel.textContent = 'Cancel';
+    cancel.style.cssText =
+      'font:bold 20px ui-monospace; padding:12px 24px; border-radius:6px; ' +
+      'background:#4a4a5a; color:#fff; border:2px solid #6a6a7a; cursor:pointer;';
+    cancel.addEventListener('click', () => this.dismissSellConfirm());
+    const sell = document.createElement('button');
+    sell.textContent = `Sell (${typeId})`;
+    sell.style.cssText =
+      'font:bold 20px ui-monospace; padding:12px 24px; border-radius:6px; ' +
+      'background:#5c2323; color:#fff; border:2px solid #8a4040; cursor:pointer;';
+    sell.addEventListener('click', () => {
+      const gs = this.scene.get('game') as GameScene;
+      gs.sellWeaponAt(slotId);
+      this.dismissSellConfirm();
+    });
+    row.appendChild(cancel);
+    row.appendChild(sell);
+    panel.appendChild(row);
+    backdrop.appendChild(panel);
+    document.body.appendChild(backdrop);
+    this.sellConfirmDomLayer = backdrop;
+  }
+
+  private dismissSellConfirm(): void {
+    if (!this.sellConfirmDomLayer) return;
+    this.sellConfirmDomLayer.remove();
+    this.sellConfirmDomLayer = null;
+  }
 }
 
 // ── WeaponBarButton ──────────────────────────────────────────────────────
@@ -861,19 +935,13 @@ class WeaponBarButton {
 class SubPanel {
   private container: Phaser.GameObjects.Container;
   private upgradeButtons: UpgradeButton[] = [];
-  private buyButton: Phaser.GameObjects.Rectangle | null = null;
-  private sellButton: Phaser.GameObjects.Rectangle | null = null;
-  private buyText: Phaser.GameObjects.Text | null = null;
-  private sellText: Phaser.GameObjects.Text | null = null;
   private headerText: Phaser.GameObjects.Text;
-  private readonly scene: Phaser.Scene;
 
   constructor(
     scene: Phaser.Scene,
     private readonly def: WeaponTypeDef | CategoryDef,
     private readonly isWeapon: boolean,
   ) {
-    this.scene = scene;
     this.container = scene.add.container(SUBPANEL_X, BAR_Y);
     let yOff = 0;
 
@@ -893,43 +961,9 @@ class SubPanel {
     });
     this.container.add(this.headerText);
     yOff += 44;
-
-    // Buy/Sell for weapons (not grinder — it IS the death line).
-    const showBuySell = isWeapon && def.id !== 'grinder';
-    if (showBuySell) {
-      const btnW = (SUBPANEL_W - 44) / 2;
-      const btnH = 60;
-
-      this.buyButton = scene.add
-        .rectangle(16, yOff, btnW, btnH, 0x233024)
-        .setOrigin(0, 0)
-        .setStrokeStyle(2, 0x4a5c4a)
-        .setInteractive({ useHandCursor: true });
-      this.buyText = scene.add
-        .text(16 + btnW / 2, yOff + btnH / 2, 'Buy $1', {
-          font: 'bold 20px ui-monospace',
-          color: '#b0ffa8',
-        })
-        .setOrigin(0.5);
-      this.buyButton.on('pointerdown', () => this.onBuy());
-      this.container.add([this.buyButton, this.buyText]);
-
-      this.sellButton = scene.add
-        .rectangle(16 + btnW + 12, yOff, btnW, btnH, 0x302323)
-        .setOrigin(0, 0)
-        .setStrokeStyle(2, 0x5c4a4a)
-        .setInteractive({ useHandCursor: true });
-      this.sellText = scene.add
-        .text(16 + btnW + 12 + btnW / 2, yOff + btnH / 2, 'Sell $1', {
-          font: 'bold 20px ui-monospace',
-          color: '#ffa0a0',
-        })
-        .setOrigin(0.5);
-      this.sellButton.on('pointerdown', () => this.onSell());
-      this.container.add([this.sellButton, this.sellText]);
-
-      yOff += btnH + 16;
-    }
+    // Buy/Sell removed — weapons are bought via the slot picker (left-click
+    // on an empty unlocked slot) and sold via right-click on the weapon
+    // sprite itself. This panel is pure upgrades now.
 
     // Upgrades.
     if (def.upgrades.length > 0) {
@@ -953,20 +987,6 @@ class SubPanel {
       const wDef = this.def as WeaponTypeDef;
       const count = gameplayState.weaponCount(wDef.id);
       this.headerText.setText(wDef.id === 'grinder' ? wDef.name : `${wDef.name} ×${count}`);
-      const buyCost = this.currentBuyCost(wDef.id, count);
-      this.buyText?.setText(buyCost === 0 ? 'Buy (Free)' : `Buy $${buyCost}`);
-      const canBuy = gameplayState.cash >= buyCost;
-      this.buyButton?.setFillStyle(canBuy ? 0x233024 : 0x1a1a20);
-      this.buyText?.setColor(canBuy ? '#b0ffa8' : '#606068');
-
-      const canSell = count > 1;
-      this.sellButton?.setFillStyle(canSell ? 0x302323 : 0x1a1a20);
-      this.sellText?.setColor(canSell ? '#ffa0a0' : '#606068');
-      if (canSell) {
-        this.sellButton?.setInteractive({ useHandCursor: true });
-      } else {
-        this.sellButton?.disableInteractive();
-      }
     }
     for (const btn of this.upgradeButtons) btn.refresh();
   }
@@ -977,7 +997,6 @@ class SubPanel {
 
   private estimateHeight(): number {
     let h = 16 + 44; // padding + header
-    if (this.isWeapon && this.def.id !== 'grinder') h += 76; // buy/sell row
     if (this.def.upgrades.length > 0) {
       h += 32; // upgrades label
       h += this.def.upgrades.length * 88; // upgrade rows
@@ -985,29 +1004,9 @@ class SubPanel {
     return h + 16; // bottom padding
   }
 
-  private onBuy(): void {
-    const wDef = this.def as WeaponTypeDef;
-    const count = gameplayState.weaponCount(wDef.id);
-    const cost = this.currentBuyCost(wDef.id, count);
-    if (cost === 0 || gameplayState.trySpend(cost)) {
-      gameplayState.buyWeapon(wDef.id);
-    }
-  }
-
-  private currentBuyCost(weaponId: string, count: number): number {
-    const baseCost = count + 1;
-    const gs = this.scene.scene.get('game') as GameScene | null;
-    const freeSlots = gs?.getEffectiveParams().freeSlotCount[weaponId] ?? 0;
-    const bought = gameplayState.instancesBoughtThisRun(weaponId);
-    return weaponBuyCost({ boughtThisRun: bought, freeSlots, baseCost });
-  }
-
-  private onSell(): void {
-    const wDef = this.def as WeaponTypeDef;
-    if (gameplayState.sellWeapon(wDef.id)) {
-      gameplayState.addCash(1, { silent: true });
-    }
-  }
+  // Legacy onBuy/onSell removed — buying is now the slot picker
+  // (left-click on an empty unlocked slot); selling is right-click on the
+  // weapon sprite on the arena, handled by GameScene.
 }
 
 // ── UpgradeButton ────────────────────────────────────────────────────────
