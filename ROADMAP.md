@@ -6,6 +6,10 @@ Backlog below is grouped by **what it adds to the game**. Order is execution ord
 
 ---
 
+## 1b. Bug — weapons can spawn overlapping grinders
+
+- Buying a new weapon can place it in a chute region already occupied by a grinder's blade row, causing immediate collisions / stuck bodies. Placement should exclude grinder footprints (same exclusion logic as existing weapons). Also applies to placing a grinder that would clip an existing weapon — symmetric exclusion on both sides.
+
 ## 1a. Bug — weapon position sanity check on load — done (2026-04-16)
 
 - ✅ **Weapons are clamped to the current chute on load.** Saved `(x,y)` is clamped into the valid chute rectangle for the weapon's `bodyRadius`. If the chute can't fit the weapon at any position (narrower than `r + 8` per side, or shorter than the weapon diameter vertically), the instance is silently sold for $1 and the weapon count is decremented so the UI reflects the post-sell state. Pure math lives in `src/game/weaponPlacement.ts` + unit tests.
