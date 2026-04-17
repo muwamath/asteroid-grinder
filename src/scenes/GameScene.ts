@@ -503,7 +503,10 @@ export class GameScene extends Phaser.Scene {
     const extracted = ast.extractDeadChunk(chunkId);
     if (extracted) {
       this.spawnDeadConfettiChunk(extracted, killerType);
-      if (extracted.isCore) {
+      // Shards are a WEAPON-kill reward — the grinder is brute-force cleanup
+      // and pays only the flat $1 cash, never Shards. This keeps weapons
+      // strictly more valuable than letting cores drop into the blades.
+      if (extracted.isCore && killerType !== 'grinder') {
         const shards = computeVaultShardReward(extracted.material, this.effectiveParams.shardYieldBonus);
         if (shards > 0) {
           this.pendingShardsThisRun += shards;
