@@ -13,6 +13,7 @@ import { PRESTIGE_SHOP, shopCostAtLevel, isShopMaxed } from '../game/prestigeSho
 import type { GameScene } from './GameScene';
 import { generateArena } from '../game/arena/arenaGenerator';
 import { MIN_SLOTS, MAX_SLOTS } from '../game/arena/arenaConstants';
+import { generateRunSeedName } from '../game/runSeedNames';
 
 function seedHash(s: string): number {
   let h = 2166136261 >>> 0;
@@ -598,7 +599,7 @@ export class UIScene extends Phaser.Scene {
     const row = document.createElement('div');
     row.style.cssText = 'display:flex; gap:12px; pointer-events:auto; align-items:center;';
 
-    const defaultSeed = `cosmic-dust-${Date.now().toString(36)}`;
+    const defaultSeed = generateRunSeedName();
     const input = document.createElement('input');
     input.type = 'text';
     input.value = defaultSeed;
@@ -614,7 +615,7 @@ export class UIScene extends Phaser.Scene {
       'background:#4a4a5a; color:#fff; border:2px solid #6a6a7a; cursor:pointer;';
     const rerollFn = (e: Event): void => {
       e.stopPropagation();
-      input.value = `cosmic-dust-${Date.now().toString(36)}`;
+      input.value = generateRunSeedName();
     };
     reroll.addEventListener('pointerdown', rerollFn);
     reroll.addEventListener('click', rerollFn);
