@@ -83,7 +83,7 @@ export class CompoundAsteroid {
         const part = matterBodies.rectangle(
           localX, localY, CHUNK_PIXEL_SIZE, CHUNK_PIXEL_SIZE,
           {
-            friction: 0.1, frictionAir: 0.005, restitution: 0,
+            friction: 0.1, frictionAir: 0, restitution: 0,
             mass: 0.25, slop: 0.005,
           },
         );
@@ -97,7 +97,7 @@ export class CompoundAsteroid {
 
     const body = scene.matter.body.create({
       parts,
-      frictionAir: 0.005,
+      frictionAir: 0,
     });
     this.compoundBody = body;
 
@@ -376,7 +376,7 @@ export class CompoundAsteroid {
       const part = matterBodies.rectangle(
         localX, localY, CHUNK_PIXEL_SIZE, CHUNK_PIXEL_SIZE,
         {
-          friction: 0.1, frictionAir: 0.005, restitution: 0,
+          friction: 0.1, frictionAir: 0, restitution: 0,
           mass: 0.25, slop: 0.005,
         },
       );
@@ -408,7 +408,7 @@ export class CompoundAsteroid {
 
     const body = args.scene.matter.body.create({
       parts: newParts,
-      frictionAir: 0.005,
+      frictionAir: 0,
     });
     (body as unknown as { gravityScale: { x: number; y: number } }).gravityScale = {
       x: 0, y: 0,

@@ -530,11 +530,12 @@ export class GameScene extends Phaser.Scene {
     const chunk = this.matter.add.image(info.worldX, info.worldY, info.textureKey);
     chunk.setRectangle(CHUNK_PIXEL_SIZE, CHUNK_PIXEL_SIZE);
     chunk.setMass(0.25);
-    // Dead chunks are "slippery" — they slide down slanted arena walls instead
-    // of stalling on them. Live chunks keep the default 0.1 friction so they
-    // still pile and hinder as gameplay. Invariant in DESIGN_INVARIANTS.md.
+    // Space-like motion: dead chunks are slippery on surfaces (friction 0.02,
+    // live chunks keep 0.1 so they pile + hinder) AND have zero air drag so
+    // flung debris doesn't ghost-stall mid-air. Only gravity decelerates
+    // vertical motion; horizontal glides run forever until they hit something.
     chunk.setFriction(0.02);
-    chunk.setFrictionAir(0.005);
+    chunk.setFrictionAir(0);
     chunk.setBounce(0);
     chunk.setVelocity(info.velocityX, info.velocityY);
     chunk.setAlpha(0.55);
