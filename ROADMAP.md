@@ -56,10 +56,11 @@ Biggest adds — new reasons to keep playing.
 
 Makes progression feel earned.
 
+- **Upgrade audit — every item, every stat.** Walk through every entry in `weaponCatalog.ts` (saw / laser / missile / blackhole / grinder) and the `asteroids.*` category. For each: confirm the upgrade exists, its per-level delta feels right, its max level is coherent, and its cost curve is something other than placeholder `$1`. Explicitly include the **spawner** — add upgrades for spawn interval, spawn amplitude, and anything else that governs the asteroid-incoming pipeline (currently only `asteroids.dropRate` exists). This audit is the single source of truth feeding the rebalance below.
 - **Economy rebalance.** All costs are placeholder ($1 flat). Needs exponential scaling, per-weapon buy curves, sell refund formula, upgrade cost tuning. Must land before/with any of the new gameplay systems above.
 - **Sell the last weapon; link buy prices.** Allow selling down to zero. All weapon buy prices are linked globally — the Nth weapon of any type costs the same, not per-type. Roll into the rebalance.
 - **"Larger sooner" asteroid curve.** Current Asteroid Size upgrade starts at 4 chunks and adds linearly. Desired: grow more, faster early (non-linear, Fibonacci-ish) so the game feels meaty quickly.
-- **Slower wall expansion.** Channel Width upgrade should widen by smaller increments or scale cost more aggressively — progression should feel earned.
+- **Slower wall expansion.** Channel Width upgrade should widen by smaller increments or scale cost more aggressively — progression should feel earned. *(Note: Channel Width was removed with the procedural arena; this may be obsolete — revisit during the audit.)*
 
 ## 5. Art & audio pass
 
