@@ -187,13 +187,27 @@ export class GameScene extends Phaser.Scene {
         }
         gameplayState.installWeapon(inst.slotId, inst.typeId, spawned.id);
       }
-    } else {
-      for (let wi = 0; wi < unlockedTypes.length; wi++) {
-        const wt = unlockedTypes[wi];
-        const spawnY = yBottom - wi * ySpacing;
-        const count = snap ? (snap.weaponCounts[wt.id] ?? 0) : wt.startCount;
-        for (let i = 0; i < count; i++) {
-          this.spawnWeaponInstance(wt.id, width / 2, spawnY);
+    } else if (!snap) {
+      // Fresh run — auto-install each weapon's startCount instances at the
+      // closest-to-center unlocked slots. Preserves the "start with 1 saw"
+      // tuning while the new arena requires every weapon to live at a slot.
+      void yBottom; void ySpacing;
+      const sortedSlots = [...this.arenaLayout.slots]
+        .filter((s) => gameplayState.isSlotUnlocked(s.id))
+        .sort(
+          (a, b) =>
+            Math.hypot(a.x - width / 2, a.y - this.scale.height / 2) -
+            Math.hypot(b.x - width / 2, b.y - this.scale.height / 2),
+        );
+      let slotCursor = 0;
+      for (const wt of unlockedTypes) {
+        for (let i = 0; i < wt.startCount; i++) {
+          if (slotCursor >= sortedSlots.length) break;
+          const slot = sortedSlots[slotCursor++];
+          const inst = this.spawnWeaponInstance(wt.id, slot.x, slot.y);
+          if (!inst) continue;
+          gameplayState.buyWeapon(wt.id);
+          gameplayState.installWeapon(slot.id, wt.id, inst.id);
         }
       }
     }
