@@ -11,6 +11,17 @@ import { costAtLevel, isMaxed, type UpgradeDef } from '../game/upgradeCatalog';
 import { prestigeState } from '../game/prestigeState';
 import { PRESTIGE_SHOP, shopCostAtLevel, isShopMaxed } from '../game/prestigeShopCatalog';
 import type { GameScene } from './GameScene';
+import { generateArena } from '../game/arena/arenaGenerator';
+import { MIN_SLOTS, MAX_SLOTS } from '../game/arena/arenaConstants';
+
+function seedHash(s: string): number {
+  let h = 2166136261 >>> 0;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619) >>> 0;
+  }
+  return h || 1;
+}
 
 const BAR_X = 16;
 const BAR_Y = 88;
@@ -611,6 +622,66 @@ export class UIScene extends Phaser.Scene {
     row.appendChild(input);
     row.appendChild(reroll);
 
+    // Live map preview: render walls + slots for the current seed into a
+    // small canvas. Updates as the user types or re-rolls.
+    const previewW = 512;
+    const previewH = 288;
+    const preview = document.createElement('canvas');
+    preview.width = previewW;
+    preview.height = previewH;
+    preview.style.cssText =
+      'border:2px solid #3a3a4c; background:#0f0f18; border-radius:6px; ' +
+      'pointer-events:auto; margin-top:12px; display:block;';
+    const previewCaption = document.createElement('div');
+    previewCaption.style.cssText =
+      'font:16px ui-monospace; color:#888899; text-align:center; pointer-events:auto;';
+    const renderPreview = (): void => {
+      const seed = input.value || defaultSeed;
+      const layout = generateArena(seedHash(seed), {
+        width: this.scale.width,
+        height: this.scale.height,
+        minSlots: MIN_SLOTS,
+        maxSlots: MAX_SLOTS,
+      });
+      const ctx = preview.getContext('2d');
+      if (!ctx) return;
+      ctx.clearRect(0, 0, previewW, previewH);
+      const sx = previewW / layout.playfield.width;
+      const sy = previewH / layout.playfield.height;
+      ctx.fillStyle = '#0f0f18';
+      ctx.fillRect(0, 0, previewW, previewH);
+      // Grinder band.
+      ctx.fillStyle = '#2a1a1a';
+      ctx.fillRect(0, layout.floorY * sy, previewW, previewH);
+      // Walls.
+      ctx.strokeStyle = '#5a5a70';
+      ctx.lineWidth = 2;
+      for (const w of layout.walls) {
+        ctx.beginPath();
+        ctx.moveTo(w.x1 * sx, w.y1 * sy);
+        ctx.lineTo(w.x2 * sx, w.y2 * sy);
+        ctx.stroke();
+      }
+      // Slot dots.
+      ctx.fillStyle = '#ffd166';
+      for (const s of layout.slots) {
+        ctx.beginPath();
+        ctx.arc(s.x * sx, s.y * sy, 4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      // Screen-edge walls for framing.
+      ctx.strokeStyle = '#3a3a4c';
+      ctx.lineWidth = 3;
+      ctx.strokeRect(0, 0, previewW, previewH);
+      previewCaption.textContent =
+        `${layout.slots.length} slot${layout.slots.length === 1 ? '' : 's'}`
+        + ` · ${layout.walls.length} wall${layout.walls.length === 1 ? '' : 's'}`;
+    };
+    renderPreview();
+    input.addEventListener('input', renderPreview);
+    // Re-roll also updates preview; piggy-back on its existing handler.
+    reroll.addEventListener('click', renderPreview);
+
     const start = document.createElement('button');
     start.textContent = '🚀 Start Run';
     start.style.cssText =
@@ -628,6 +699,8 @@ export class UIScene extends Phaser.Scene {
     start.addEventListener('click', startFn);
 
     layer.appendChild(row);
+    layer.appendChild(preview);
+    layer.appendChild(previewCaption);
     layer.appendChild(start);
     this.modalParent().appendChild(layer);
     this.runConfigDomLayer = layer;
