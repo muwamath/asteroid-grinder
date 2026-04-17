@@ -6,6 +6,10 @@ Backlog below is grouped by **what it adds to the game**. Order is execution ord
 
 ---
 
+## 1a. Bug — weapon position sanity check on load
+
+- **Weapons should always start in the chute on load.** A saved weapon instance with `x`/`y` outside the current channel bounds (e.g. if the chute narrowed after the save, or the save is malformed) should be clamped to valid channel coordinates at load time rather than rendering off-chute. Add a sanity check in the snapshot-replay path in `GameScene.create()` (the `snap.weaponInstances` loop).
+
 ## 1. Tech hygiene — done (2026-04-16)
 
 Shipped on `feature/tech-hygiene`, FF-merged to main.
