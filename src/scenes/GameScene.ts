@@ -21,6 +21,15 @@ import { applyPrestigeEffects } from '../game/prestigeEffects';
 
 const ARBOR_RADIUS = 12;
 
+function seedFromString(s: string): number {
+  let h = 2166136261 >>> 0;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619) >>> 0;
+  }
+  return h || 1;
+}
+
 const SPAWN_Y = -80;
 const DEATH_LINE_Y = 1304;
 
@@ -185,7 +194,8 @@ export class GameScene extends Phaser.Scene {
 
     this.spawnGrinder(width);
 
-    this.spawner = new AsteroidSpawner(this);
+    const seed = gameplayState.runSeed ? seedFromString(gameplayState.runSeed) : undefined;
+    this.spawner = new AsteroidSpawner(this, seed);
     this.rebuildSpawnTimer(this.effectiveParams.spawnIntervalMs);
     this.spawnAsteroid();
 
