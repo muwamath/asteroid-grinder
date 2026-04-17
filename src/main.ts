@@ -66,7 +66,16 @@ game.registry.set('pendingSnapshot', snapshot);
 game.registry.set('offlineAward', offlineAward);
 game.registry.set('offlineElapsedMs', Math.min(offlineElapsedMs, offlineCap));
 
-const w = window as unknown as { __GAME__: unknown; __STATE__: unknown; __PRESTIGE__: unknown };
+const w = window as unknown as {
+  __GAME__: unknown;
+  __STATE__: unknown;
+  __PRESTIGE__: unknown;
+  __ARENA__: () => unknown;
+};
 w.__GAME__ = game;
 w.__STATE__ = gameplayState;
 w.__PRESTIGE__ = prestigeState;
+w.__ARENA__ = () => {
+  const scene = game.scene.getScene('game') as unknown as { arenaLayout?: unknown };
+  return scene?.arenaLayout;
+};

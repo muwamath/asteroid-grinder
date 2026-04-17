@@ -17,6 +17,16 @@ import { CAT_DEAD_CHUNK, MASK_DEAD_CHUNK } from '../game/collisionCategories';
 import { computeVaultShardReward } from '../game/prestigeAward';
 import { prestigeState } from '../game/prestigeState';
 import { applyPrestigeEffects } from '../game/prestigeEffects';
+import { generateArena } from '../game/arena/arenaGenerator';
+import {
+  MIN_SLOTS,
+  MAX_SLOTS,
+  WALL_COLLIDER_THICKNESS,
+  PHASE_STEP_RAD,
+  SPAWN_MARGIN,
+} from '../game/arena/arenaConstants';
+import { startingUnlockedCount, unlockCost } from '../game/arena/slotState';
+import type { ArenaLayout, SlotDef } from '../game/arena/arenaTypes';
 
 const ARBOR_RADIUS = 12;
 
@@ -32,12 +42,6 @@ function seedFromString(s: string): number {
 const SPAWN_Y = -80;
 const DEATH_LINE_Y = 1304;
 
-const CHANNEL_WALL_THICKNESS = 12;
-// The Matter collision body is thicker than the visual rectangle. Deep
-// piles of compound asteroids can penetrate a thin static wall because the
-// solver has limited correction range. Giving the collider extra depth
-// outside the channel face fixes this without changing visuals.
-const CHANNEL_WALL_COLLIDER_THICKNESS = 40;
 const CHANNEL_TOP_Y = 160;
 
 interface WeaponInstance {
@@ -50,9 +54,7 @@ interface WeaponInstance {
 export class GameScene extends Phaser.Scene {
   private weaponInstances: WeaponInstance[] = [];
   private nextInstanceId = 0;
-  // Phase-4-TODO: populated by buildArenaFromLayout once it lands. Until then
-  // this is undefined and snapshot writes fall back to arenaSeed: 0.
-  arenaLayout?: import('../game/arena/arenaTypes').ArenaLayout;
+  arenaLayout?: ArenaLayout;
 
   private spawner!: AsteroidSpawner;
   private liveAsteroids: CompoundAsteroid[] = [];
@@ -61,10 +63,15 @@ export class GameScene extends Phaser.Scene {
   private effectiveParams: EffectiveGameplayParams = BASE_PARAMS;
   private spawnTimer: Phaser.Time.TimerEvent | null = null;
 
-  private channelLeftBody: MatterJS.BodyType | null = null;
-  private channelRightBody: MatterJS.BodyType | null = null;
-  private channelLeftVisual: Phaser.GameObjects.Rectangle | null = null;
-  private channelRightVisual: Phaser.GameObjects.Rectangle | null = null;
+  private arenaWallBodies: MatterJS.BodyType[] = [];
+  private arenaWallVisuals: Phaser.GameObjects.Rectangle[] = [];
+  private screenEdgeWalls: MatterJS.BodyType[] = [];
+  private slotMarkers = new Map<string, Phaser.GameObjects.Graphics>();
+  private arenaDebugOverlay?: Phaser.GameObjects.Graphics;
+  private spawnPhase = 0;
+  // Upper bound used for spawn-x amplitude margin. Conservative — any
+  // reasonable asteroid stays well inside the playfield.
+  private readonly maxAsteroidRadius = 80;
 
   private debugMode = false;
   private debugText: Phaser.GameObjects.Text | null = null;
@@ -136,7 +143,16 @@ export class GameScene extends Phaser.Scene {
     const { width, height } = this.scale;
 
     this.buildArena(width, height);
-    this.rebuildChannelWalls(this.effectiveParams.channelHalfWidth);
+    const arenaSeed = seedFromString(gameplayState.runSeed || 'default');
+    this.arenaLayout = generateArena(arenaSeed, {
+      width,
+      height,
+      minSlots: MIN_SLOTS,
+      maxSlots: MAX_SLOTS,
+    });
+    this.buildArenaFromLayout(this.arenaLayout);
+    gameplayState.initArenaSlots(this.arenaLayout.slots.map((s) => s.id));
+    this.applyStartingUnlocks();
     this.buildHud(width);
     this.wireCollisions();
     this.wireDrag();
@@ -198,6 +214,31 @@ export class GameScene extends Phaser.Scene {
     );
     this.unsubs.push(prestigeState.on('shopLevelChanged', () => this.snapshotNow()));
     this.unsubs.push(prestigeState.on('shardsChanged', () => this.snapshotNow()));
+    this.unsubs.push(
+      gameplayState.on('slotUnlocked', (id) => {
+        const slot = this.arenaLayout?.slots.find((s) => s.id === id);
+        const g = this.slotMarkers.get(id);
+        if (slot && g) this.redrawSlotMarker(g, slot);
+      }),
+    );
+    this.unsubs.push(
+      gameplayState.on('weaponInstalled', (slotId) => {
+        const slot = this.arenaLayout?.slots.find((s) => s.id === slotId);
+        const g = this.slotMarkers.get(slotId);
+        if (slot && g) this.redrawSlotMarker(g, slot);
+      }),
+    );
+    this.unsubs.push(
+      gameplayState.on('weaponUninstalled', (slotId) => {
+        const slot = this.arenaLayout?.slots.find((s) => s.id === slotId);
+        const g = this.slotMarkers.get(slotId);
+        if (slot && g) this.redrawSlotMarker(g, slot);
+      }),
+    );
+
+    // F2 toggles the BSP / slot debug overlay (arena geometry). Backtick is
+    // already taken by the HUD/debug-text toggle — don't double-bind.
+    this.input.keyboard?.on('keydown-F2', () => this.toggleArenaDebugOverlay());
 
     this.autosaveTimer = this.time.addEvent({
       delay: 5000,
@@ -674,46 +715,144 @@ export class GameScene extends Phaser.Scene {
     this.input.on(Phaser.Input.Events.DRAG, this.dragHandler);
   }
 
-  private rebuildChannelWalls(halfWidth: number): void {
-    if (this.channelLeftBody) this.matter.world.remove(this.channelLeftBody);
-    if (this.channelRightBody) this.matter.world.remove(this.channelRightBody);
-    this.channelLeftVisual?.destroy();
-    this.channelRightVisual?.destroy();
+  // ── arena build ───────────────────────────────────────────────────────
 
-    const width = this.scale.width;
-    const channelHeight = DEATH_LINE_Y - CHANNEL_TOP_Y;
-    const channelMidY = CHANNEL_TOP_Y + channelHeight / 2;
-    // Visual rectangle face is at (halfWidth ± 0) from center; visual
-    // collider is offset so its INNER face matches the visual inner face,
-    // with its extra thickness extending OUTWARD (away from the channel).
-    const visualLeftX = width / 2 - halfWidth - CHANNEL_WALL_THICKNESS / 2;
-    const visualRightX = width / 2 + halfWidth + CHANNEL_WALL_THICKNESS / 2;
-    const colliderLeftX = width / 2 - halfWidth - CHANNEL_WALL_COLLIDER_THICKNESS / 2;
-    const colliderRightX = width / 2 + halfWidth + CHANNEL_WALL_COLLIDER_THICKNESS / 2;
+  private buildArenaFromLayout(layout: ArenaLayout): void {
+    for (const b of this.arenaWallBodies) this.matter.world.remove(b);
+    for (const v of this.arenaWallVisuals) v.destroy();
+    for (const b of this.screenEdgeWalls) this.matter.world.remove(b);
+    this.arenaWallBodies = [];
+    this.arenaWallVisuals = [];
+    this.screenEdgeWalls = [];
+    this.slotMarkers.forEach((g) => g.destroy());
+    this.slotMarkers.clear();
 
-    this.channelLeftBody = this.matter.add.rectangle(
-      colliderLeftX, channelMidY, CHANNEL_WALL_COLLIDER_THICKNESS, channelHeight,
-      { isStatic: true },
+    const w = layout.playfield.width;
+    const h = layout.floorY;
+    const t = WALL_COLLIDER_THICKNESS;
+    // Left + right screen-edge walls; full column above floor, extending
+    // slightly above the scene top so nothing escapes horizontally.
+    this.screenEdgeWalls.push(
+      this.matter.add.rectangle(-t / 2, h / 2, t, h * 2, { isStatic: true }),
+      this.matter.add.rectangle(w + t / 2, h / 2, t, h * 2, { isStatic: true }),
     );
-    this.channelRightBody = this.matter.add.rectangle(
-      colliderRightX, channelMidY, CHANNEL_WALL_COLLIDER_THICKNESS, channelHeight,
-      { isStatic: true },
-    );
-    this.channelLeftVisual = this.add
-      .rectangle(visualLeftX, channelMidY, CHANNEL_WALL_THICKNESS, channelHeight, 0x3a3a4c)
-      .setOrigin(0.5);
-    this.channelRightVisual = this.add
-      .rectangle(visualRightX, channelMidY, CHANNEL_WALL_THICKNESS, channelHeight, 0x3a3a4c)
-      .setOrigin(0.5);
 
-    const halfW = this.scale.width / 2;
-    for (const inst of this.weaponInstances) {
-      const r = inst.behavior.bodyRadius;
-      inst.sprite.setPosition(
-        Phaser.Math.Clamp(inst.sprite.x, halfW - halfWidth + r + 4, halfW + halfWidth - r - 4),
-        inst.sprite.y,
-      );
+    for (const seg of layout.walls) {
+      const cx = (seg.x1 + seg.x2) / 2;
+      const cy = (seg.y1 + seg.y2) / 2;
+      const len = Math.hypot(seg.x2 - seg.x1, seg.y2 - seg.y1);
+      const angle = Math.atan2(seg.y2 - seg.y1, seg.x2 - seg.x1);
+      const body = this.matter.add.rectangle(cx, cy, len, t, {
+        isStatic: true,
+        angle,
+      });
+      const visual = this.add.rectangle(cx, cy, len, 12, 0x3a3a4c).setRotation(angle);
+      this.arenaWallBodies.push(body);
+      this.arenaWallVisuals.push(visual);
     }
+
+    for (const slot of layout.slots) {
+      const g = this.add.graphics();
+      this.redrawSlotMarker(g, slot);
+      g.setInteractive(
+        new Phaser.Geom.Circle(slot.x, slot.y, 26),
+        Phaser.Geom.Circle.Contains,
+      );
+      g.on('pointerup', () => this.handleSlotClick(slot));
+      this.slotMarkers.set(slot.id, g);
+    }
+  }
+
+  private redrawSlotMarker(g: Phaser.GameObjects.Graphics, slot: SlotDef): void {
+    g.clear();
+    const installed = !!gameplayState.installedAt(slot.id);
+    if (installed) return;
+    const unlocked = gameplayState.isSlotUnlocked(slot.id);
+    if (unlocked) {
+      g.lineStyle(3, 0xf5d66d, 0.9);
+      g.strokeCircle(slot.x, slot.y, 18);
+      g.lineStyle(2, 0xf5d66d, 0.4);
+      g.strokeCircle(slot.x, slot.y, 24);
+    } else {
+      g.fillStyle(0x2a2a34, 0.8);
+      g.fillCircle(slot.x, slot.y, 18);
+      g.lineStyle(2, 0x555568, 1);
+      g.strokeCircle(slot.x, slot.y, 18);
+      g.lineStyle(2, 0x888899, 1);
+      g.beginPath();
+      g.moveTo(slot.x - 4, slot.y - 2);
+      g.lineTo(slot.x - 4, slot.y + 6);
+      g.lineTo(slot.x + 4, slot.y + 6);
+      g.lineTo(slot.x + 4, slot.y - 2);
+      g.strokePath();
+    }
+  }
+
+  private handleSlotClick(slot: SlotDef): void {
+    if (!gameplayState.isSlotUnlocked(slot.id)) {
+      const alreadyUnlocked = gameplayState.unlockedSlotIds().length;
+      const start = this.startingUnlockedCountForThisRun();
+      const k = Math.max(0, alreadyUnlocked - start);
+      let cost = unlockCost(k);
+      if (!gameplayState.freeUnlockUsed) cost = 0;
+      if (gameplayState.tryUnlockSlot(slot.id, cost)) {
+        if (cost === 0) gameplayState.markFreeUnlockUsed();
+        const g = this.slotMarkers.get(slot.id);
+        if (g) this.redrawSlotMarker(g, slot);
+      }
+      return;
+    }
+    if (!gameplayState.installedAt(slot.id)) {
+      this.scene.get('ui').events.emit('open-weapon-picker', {
+        slotId: slot.id,
+        x: slot.x,
+        y: slot.y,
+      });
+    }
+  }
+
+  private startingUnlockedCountForThisRun(): number {
+    const preLevel = prestigeState.shopLevels()['arena.preUnlockedSlots'] ?? 0;
+    return startingUnlockedCount({
+      preUnlockedLevel: preLevel,
+      totalSlots: this.arenaLayout?.slots.length ?? 0,
+    });
+  }
+
+  private applyStartingUnlocks(): void {
+    if (!this.arenaLayout) return;
+    const n = this.startingUnlockedCountForThisRun();
+    const sorted = [...this.arenaLayout.slots].sort(
+      (a, b) =>
+        Math.hypot(a.x - this.scale.width / 2, a.y - this.scale.height / 2) -
+        Math.hypot(b.x - this.scale.width / 2, b.y - this.scale.height / 2),
+    );
+    for (let i = 0; i < n && i < sorted.length; i++) {
+      gameplayState.tryUnlockSlot(sorted[i].id, 0);
+    }
+  }
+
+  toggleArenaDebugOverlay(): void {
+    if (this.arenaDebugOverlay) {
+      this.arenaDebugOverlay.destroy();
+      this.arenaDebugOverlay = undefined;
+      return;
+    }
+    if (!this.arenaLayout) return;
+    const g = this.add.graphics();
+    g.lineStyle(1, 0x00ff88, 0.6);
+    for (const w of this.arenaLayout.walls) g.lineBetween(w.x1, w.y1, w.x2, w.y2);
+    for (const s of this.arenaLayout.slots) g.strokeCircle(s.x, s.y, 22);
+    g.setDepth(1000);
+    this.arenaDebugOverlay = g;
+  }
+
+  private nextOscillatingSpawnX(): number {
+    const w = this.scale.width;
+    const amplitude = Math.max(0, w / 2 - this.maxAsteroidRadius - SPAWN_MARGIN);
+    const x = w / 2 + amplitude * Math.sin(this.spawnPhase);
+    this.spawnPhase += PHASE_STEP_RAD;
+    return x;
   }
 
   private rebuildSpawnTimer(delayMs: number): void {
@@ -790,9 +929,10 @@ export class GameScene extends Phaser.Scene {
     for (const inst of this.weaponInstances) {
       inst.behavior.onUpgrade(this, inst.sprite, prev, this.effectiveParams);
     }
-    if (this.effectiveParams.channelHalfWidth !== prev.channelHalfWidth) {
-      this.rebuildChannelWalls(this.effectiveParams.channelHalfWidth);
-    }
+    // channelHalfWidth can no longer change mid-run (Channel Width upgrade
+    // was removed in the procedural-arena work). Arena walls are built once
+    // at scene create from the run seed's layout and never rebuilt from
+    // upgrades.
     if (this.effectiveParams.spawnIntervalMs !== prev.spawnIntervalMs) {
       this.rebuildSpawnTimer(this.effectiveParams.spawnIntervalMs);
     }
@@ -816,9 +956,8 @@ export class GameScene extends Phaser.Scene {
       }
     }
 
-    const halfW = this.scale.width / 2;
-    const jitter = (Math.random() - 0.5) * (this.effectiveParams.channelHalfWidth * 0.6);
-    const asteroid = this.spawner.spawnOne(halfW + jitter, SPAWN_Y, {
+    const spawnX = this.nextOscillatingSpawnX();
+    const asteroid = this.spawner.spawnOne(spawnX, SPAWN_Y, {
       minChunks: this.effectiveParams.minChunks,
       maxChunks: this.effectiveParams.maxChunks,
       hpMultiplier: this.effectiveParams.maxHpPerChunk,

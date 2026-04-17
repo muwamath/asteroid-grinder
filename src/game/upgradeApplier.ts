@@ -50,7 +50,12 @@ export interface EffectiveGameplayParams {
 export const BASE_PARAMS: EffectiveGameplayParams = {
   sawDamage: 1,
   bladeCount: 1,
-  channelHalfWidth: 600, // Phase-4-TODO: removed when buildArenaFromLayout lands.
+  // Full playfield half-width minus a small edge inset. Arena walls now
+  // extend to screen edges, so this effectively means "entire scene width".
+  // Retained on EffectiveGameplayParams as a transitional compatibility
+  // shim for grinder/missile/spawner code that hasn't been converted to
+  // read scene.scale.width directly.
+  channelHalfWidth: 1240,
   spawnIntervalMs: 1800,
   maxHpPerChunk: 1,
   minChunks: 4,
