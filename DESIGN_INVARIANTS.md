@@ -9,9 +9,14 @@ Paired with the Playwright golden-path smoke test (`tests/e2e/smoke.spec.ts`), w
 ## Arena & physics
 
 - **Canvas is 2560×1440, 16:9, `Scale.FIT`.** Gameplay tuning, spawn positions, death line — all hard-coded pixel constants against this base. Fullscreen target is the `#game` div (`fullscreenTarget: 'game'`) with `:fullscreen` CSS stripping padding and canvas border-radius.
+- **Arena is seeded + procedurally generated.** Every boot runs the BSP generator in `src/game/arena/arenaGenerator.ts` keyed on the current `runSeed`. Layouts are deterministic: same seed ⇒ byte-identical `ArenaLayout` (walls, slots, floorY). Spec: `docs/superpowers/specs/2026-04-17-procedural-arena-design.md`.
+- **Generator output always passes `isPlayable`.** Every x-sample across the playfield can reach the floor with adequate clearance. If a seed fails validation up to `MAX_RETRIES` times, the generator returns a safe fallback straight-chute layout (6 slots, no interior walls). Never ship an arena that hasn't been validated.
+- **Slot count is bounded `[MIN_SLOTS=4, MAX_SLOTS=10]`.** Variable per seed (that's the payoff for seed-sharing). Exceeding this range silently breaks the prestige `preUnlockedSlots` cap — keep it enforced in the generator.
+- **First slot unlock per run is free.** `unlockCost(0) === 0` in `slotState.ts`. Load-bearing rescue valve if the player gets stuck with no cash — never cost-gate the first click.
+- **Horizontal wall segments carry `|angle| ≥ MIN_WALL_SLANT_DEG` (8°).** `ensureSlant` in the generator rotates any too-flat segment around its midpoint. Without this, chunks pile and stall on a flat ledge; gravity alone can't evict them.
 - **Death line is `DEATH_LINE_Y = 1304`.** Dead chunks falling past this collect cash and despawn. Live chunks from surviving asteroids are culled below this line too. NOTE: `missileBehavior.ts` keeps a private duplicate of this constant — update both when moving the line.
-- **Asteroids spawn at `SPAWN_Y = -80`, above the visible canvas.** They must rotate into view, not pop in.
-- **Channel wall visual is 12px; Matter collider is 40px (`CHANNEL_WALL_COLLIDER_THICKNESS`).** The thicker collider extends outward from the channel face — needed so dense piles don't penetrate the static wall. Never unify these two numbers.
+- **Asteroids spawn at `SPAWN_Y = -80`, above the visible canvas.** They must rotate into view, not pop in. The spawner x oscillates (`centerX + amplitude · sin(phase)`) — step `PHASE_STEP_RAD = 0.37`. No center-jitter anymore.
+- **Arena wall colliders are `WALL_COLLIDER_THICKNESS = 40 px` thick.** The visual is 12px; the extra depth extends outward from the face, the same trick the old channel walls used to prevent dense-pile penetration. Never unify the two numbers.
 - **Asteroid fall is kinematic, not gravity-driven.** Alive chunks have per-body `gravityScale = {x:0, y:0}` and get `setVelocityY(fallSpeedMultiplier)` each tick. Dead chunks flip back to normal gravity so confetti snaps to the death line.
 - **Per-body `gravityScale` is a `{x, y}` object, not a scalar.** Phaser doesn't wrap this setter — mutate the raw Matter body directly.
 
@@ -51,7 +56,7 @@ Paired with the Playwright golden-path smoke test (`tests/e2e/smoke.spec.ts`), w
 
 ## State, save, and HUD
 
-- **Save key is `asteroid-grinder:save:v2`**, versioned schema. `v1` payloads are transparently migrated on load (default prestige fields are injected, fresh `runSeed` generated). Autosave fires every 5s plus a `beforeunload` handler plus on any `prestigeState.shopLevelChanged` or `shardsChanged`. `saveState.deserialize` rejects non-finite/non-numeric levels, negative weapon counts, and bad prestige fields.
+- **Save key is `asteroid-grinder:save:v3`**, versioned schema. **No migration code.** Any stale `v1`/`v2` key present at boot is wiped and `UIScene` shows a one-time "Save reset — game updated" toast. This stance applies to any future schema bumps until the game has real users. Autosave fires every 5s plus a `beforeunload` handler plus on any `prestigeState.shopLevelChanged` or `shardsChanged`. `saveState.deserialize` rejects non-finite/non-numeric levels, negative weapon counts, bad prestige fields, and malformed weapon installations. The v3 payload persists `arenaSeed`, `arenaSlotsUnlocked[]`, `arenaFreeUnlockUsed`, and `weaponInstallations[]` (slotId + typeId + instanceId) — reload regenerates the arena from the seed and re-installs weapons at their saved slots.
 - **Cash-rate EMA has `tau = 60s`**, persisted as `emaCashPerSec`. Offline elapsed is capped at the prestige-extended cap (8h / 12h / 24h / 48h based on `offline.cap` shop level), floored to integer, min 60s threshold.
 - **Silent cash transactions (Collect, sell refund, starting-cash bonus) pass `silent: true`** so they don't pollute the EMA rate.
 - **Cross-scene handoff uses `game.registry` keys** as a consume-once mailbox: `pendingSnapshot`, `offlineAward`, `offlineElapsedMs`. Parallel scenes can't receive events fired during a sibling's `create()`, so don't rely on event propagation across scene boundaries at boot.

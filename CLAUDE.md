@@ -41,6 +41,12 @@ asteroid-grinder/
 │       │   ├── laserBehavior.ts
 │       │   ├── missileBehavior.ts
 │       │   └── blackholeBehavior.ts
+│       ├── arena/
+│       │   ├── arenaConstants.ts        # tuning: slot range, unlock curve, BSP params
+│       │   ├── arenaTypes.ts            # ArenaLayout / SlotDef / WallSegment
+│       │   ├── arenaGenerator.ts        # seeded BSP generator + fallback chute
+│       │   ├── arenaValidate.ts         # isPlayable, minWallSlantDeg
+│       │   └── slotState.ts             # unlockCost, startingUnlockedCount, SlotMask
 │       ├── collisionCategories.ts      # Matter category bits for dead-chunk passthrough
 │       ├── upgradeCatalog.ts            # UpgradeDef type, costAtLevel, isMaxed
 │       ├── upgradeApplier.ts            # levels → EffectiveGameplayParams
@@ -55,7 +61,7 @@ asteroid-grinder/
 │       ├── shape.ts                     # chunk shape types
 │       ├── rng.ts                       # seeded RNG
 │       ├── palette.ts                   # color palette
-│       ├── saveState.ts                 # versioned localStorage snapshot (v:1)
+│       ├── saveState.ts                 # versioned localStorage snapshot (v:3, wipe-on-mismatch)
 │       ├── offlineProgress.ts           # offline elapsed → award (8h cap)
 │       └── cashRate.ts                  # EMA cash/sec tracker (tau=60s)
 ├── README.md
@@ -84,6 +90,7 @@ This project is a **port of an earlier Unity prototype** (local-only, not public
 ## Architecture patterns
 
 - **Weapons are plug-ins.** Each weapon implements `WeaponBehavior` (`src/game/weapons/`) and is registered in `weaponCatalog.ts`. GameScene is weapon-agnostic — adding a weapon = one behavior file + one catalog entry. Do not scatter weapon-specific logic into GameScene.
+- **Arena is procedurally generated per run.** `src/game/arena/` houses the pure-logic BSP generator + validator + slot-mask. `GameScene.create()` calls `generateArena(seed, params)` → `buildArenaFromLayout(layout)` → `initArenaSlots(ids)`. Weapons bind to `slotId`, not free `(x,y)`. Seed-sharing works because the same `runSeed` always produces the same layout.
 - **Cross-scene handoff via `game.registry`.** Parallel scenes can't receive events fired during a sibling's `create()` (see gotcha below). Phase 7 uses `game.registry` keys (`pendingSnapshot`, `offlineAward`, `offlineElapsedMs`) as a consume-once mailbox that survives scene restarts. Use this pattern for any GameScene→UIScene data that must cross the `create()` boundary.
 - **Devtools handles.** `window.__GAME__` (Phaser.Game) and `window.__STATE__` (gameplayState) are exposed unconditionally in `main.ts`. Use these for in-console inspection; no need to add more.
 
@@ -107,7 +114,7 @@ Load-bearing behaviors that are easy to silently break are documented in [DESIGN
 
 ## Tests
 
-- **Vitest** for pure logic (cost formulas, economy math, weapon catalog, upgrade appliers, gameplayState, shape generator, material ladder + distribution, asteroid graph split, save state, offline progress, cash rate, prestige state + shop catalog + effects + vault-shard award) — lives under `src/**/*.test.ts`. 169 tests across 16 files. Run with `npm test`. **Bump the count here when you add or remove tests** — it drifts otherwise.
+- **Vitest** for pure logic (cost formulas, economy math, weapon catalog, upgrade appliers, gameplayState, shape generator, material ladder + distribution, asteroid graph split, save state, offline progress, cash rate, prestige state + shop catalog + effects + vault-shard award, arena generator + validator + slot state) — lives under `src/**/*.test.ts`. 179 tests across 18 files. Run with `npm test`. **Bump the count here when you add or remove tests** — it drifts otherwise.
 - **Playwright** for golden-path smoke — `tests/e2e/smoke.spec.ts` boots the game, waits 30s, asserts non-zero saw hits, rotating asteroids, and no console errors. Run with `npm run test:e2e`. Tripwire against refactor drift — a subset of `DESIGN_INVARIANTS.md`.
 
 ## Deploy
