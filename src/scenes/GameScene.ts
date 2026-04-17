@@ -14,6 +14,7 @@ import type { ChunkTarget } from '../game/chunkTarget';
 import type { ChunkPartPlugin } from '../game/compoundAsteroid';
 import { applyKillAndSplit } from '../game/asteroidGraph';
 import { CAT_DEAD_CHUNK, MASK_DEAD_CHUNK } from '../game/collisionCategories';
+import { clampWeaponToChute } from '../game/weaponPlacement';
 
 const ARBOR_RADIUS = 12;
 
@@ -121,8 +122,28 @@ export class GameScene extends Phaser.Scene {
     const yBottom = DEATH_LINE_Y - ARBOR_RADIUS - 10;
     const ySpacing = ARBOR_RADIUS * 3;
     if (snap && snap.weaponInstances.length > 0) {
+      const bounds = {
+        sceneWidth: this.scale.width,
+        channelHalfWidth: this.effectiveParams.channelHalfWidth,
+        channelTopY: CHANNEL_TOP_Y,
+        deathLineY: DEATH_LINE_Y,
+      };
       for (const si of snap.weaponInstances) {
-        const inst = this.spawnWeaponInstance(si.typeId, si.x, si.y);
+        // Sanity check: saved position must be inside the current chute.
+        // Chute width depends on the Channel Width upgrade and can shift
+        // between sessions (save from a later level loaded into an earlier
+        // one; data tampering; etc.). If there's no clamp-valid position for
+        // this weapon's radius, refund $1 and drop it — weaponCount is
+        // decremented to match, so the UI shows the post-sell state.
+        const proto = createBehavior(si.typeId);
+        if (!proto) continue;
+        const clamped = clampWeaponToChute(proto.bodyRadius, si.x, si.y, bounds);
+        if (!clamped) {
+          gameplayState.sellWeapon(si.typeId);
+          gameplayState.addCash(1, { silent: true });
+          continue;
+        }
+        const inst = this.spawnWeaponInstance(si.typeId, clamped.x, clamped.y);
         if (inst && inst.behavior instanceof SawBehavior && si.clockwise === false) {
           inst.behavior.setClockwise(false);
         }

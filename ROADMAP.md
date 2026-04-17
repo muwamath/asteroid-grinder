@@ -6,9 +6,9 @@ Backlog below is grouped by **what it adds to the game**. Order is execution ord
 
 ---
 
-## 1a. Bug — weapon position sanity check on load
+## 1a. Bug — weapon position sanity check on load — done (2026-04-16)
 
-- **Weapons should always start in the chute on load.** A saved weapon instance with `x`/`y` outside the current channel bounds (e.g. if the chute narrowed after the save, or the save is malformed) should be clamped to valid channel coordinates at load time rather than rendering off-chute. Add a sanity check in the snapshot-replay path in `GameScene.create()` (the `snap.weaponInstances` loop).
+- ✅ **Weapons are clamped to the current chute on load.** Saved `(x,y)` is clamped into the valid chute rectangle for the weapon's `bodyRadius`. If the chute can't fit the weapon at any position (narrower than `r + 8` per side, or shorter than the weapon diameter vertically), the instance is silently sold for $1 and the weapon count is decremented so the UI reflects the post-sell state. Pure math lives in `src/game/weaponPlacement.ts` + unit tests.
 
 ## 1. Tech hygiene — done (2026-04-16)
 
