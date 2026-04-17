@@ -39,6 +39,7 @@ export class CompoundAsteroid {
     spawnY: number,
     hpMultiplier: number,
     materialsByChunk: ReadonlyMap<string, Material>,
+    vaultHpMultiplier = 10,
   ) {
     this.scene = scene;
     this.id = `A${nextAsteroidId++}`;
@@ -124,7 +125,8 @@ export class CompoundAsteroid {
       const sprite = scene.add.image(0, 0, textureKeyFor(info.material));
       sprite.setDepth(0);
 
-      const maxHp = info.material.tier * hpMultiplier;
+      const baseHp = info.material.tier * hpMultiplier;
+      const maxHp = info.isCore ? baseHp * vaultHpMultiplier : baseHp;
       this.chunks.set(info.chunkId, {
         chunkId: info.chunkId,
         material: info.material,

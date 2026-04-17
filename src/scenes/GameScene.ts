@@ -15,6 +15,7 @@ import type { ChunkPartPlugin } from '../game/compoundAsteroid';
 import { applyKillAndSplit } from '../game/asteroidGraph';
 import { CAT_DEAD_CHUNK, MASK_DEAD_CHUNK } from '../game/collisionCategories';
 import { clampWeaponToChute } from '../game/weaponPlacement';
+import { computeVaultShardReward } from '../game/prestigeAward';
 
 const ARBOR_RADIUS = 12;
 
@@ -63,6 +64,7 @@ export class GameScene extends Phaser.Scene {
   private cashFromLine = 0;
   private spawnedCount = 0;
   private spawnedChunks = 0;
+  private pendingShardsThisRun = 0;
 
   private unsubs: Array<() => void> = [];
   private collisionHandler: ((event: Phaser.Physics.Matter.Events.CollisionStartEvent) => void) | null = null;
@@ -78,6 +80,10 @@ export class GameScene extends Phaser.Scene {
     this.debugMode = new URLSearchParams(window.location.search).has('debug');
   }
 
+  getPendingShardsThisRun(): number {
+    return this.pendingShardsThisRun;
+  }
+
   preload(): void {
     this.makeChunkTextures();
     // Let each weapon behavior generate its own textures.
@@ -88,6 +94,7 @@ export class GameScene extends Phaser.Scene {
 
   create(): void {
     gameplayState.resetData();
+    this.pendingShardsThisRun = 0;
 
     const snap = this.game.registry.get('pendingSnapshot') as SaveStateV1 | null;
     if (snap) {
@@ -389,7 +396,17 @@ export class GameScene extends Phaser.Scene {
     const { prunedAdjacency, components } = applyKillAndSplit(ast.adjacency, chunkId);
 
     const extracted = ast.extractDeadChunk(chunkId);
-    if (extracted) this.spawnDeadConfettiChunk(extracted, killerType);
+    if (extracted) {
+      this.spawnDeadConfettiChunk(extracted, killerType);
+      if (extracted.isCore) {
+        const shardYieldBonus = 0; // wired to prestige upgrade in Task 5
+        const shards = computeVaultShardReward(extracted.material, shardYieldBonus);
+        if (shards > 0) {
+          this.pendingShardsThisRun += shards;
+          this.events.emit('pendingShardsChanged', this.pendingShardsThisRun, shards);
+        }
+      }
+    }
 
     if (components.length >= 2) {
       const idx = this.liveAsteroids.indexOf(ast);
