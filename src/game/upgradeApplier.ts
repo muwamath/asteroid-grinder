@@ -30,6 +30,16 @@ export interface EffectiveGameplayParams {
   readonly grinderDamage: number;
   readonly grinderSpinSpeed: number;
   readonly grinderBladeScale: number;
+  // Prestige-driven fields — BASE_PARAMS carries defaults; applyPrestigeEffects
+  // overrides per shop level.
+  readonly cashMultiplier: number;
+  readonly damageMultiplier: number;
+  readonly upgradeCostMultiplier: number;
+  readonly fillerFraction: number;
+  readonly offlineCapMs: number;
+  readonly shardYieldBonus: number;
+  readonly freeSlotCount: Readonly<Record<string, number>>;
+  readonly startingCash: number;
 }
 
 // Level-0 defaults. Each upgrade adds to these via applyUpgrades.
@@ -63,6 +73,14 @@ export const BASE_PARAMS: EffectiveGameplayParams = {
   grinderDamage: 1,
   grinderSpinSpeed: 2.0,
   grinderBladeScale: 1,
+  cashMultiplier: 1,
+  damageMultiplier: 1,
+  upgradeCostMultiplier: 1,
+  fillerFraction: 0.8,
+  offlineCapMs: 8 * 60 * 60 * 1000,
+  shardYieldBonus: 0,
+  freeSlotCount: { saw: 0, laser: 0, missile: 0, blackhole: 0 },
+  startingCash: 0,
 };
 
 // Per-level deltas. Tuning scaffolding — adjust after playtesting.
@@ -141,5 +159,13 @@ export function applyUpgrades(
     grinderDamage: BASE_PARAMS.grinderDamage + lv('grinder.damage') * GRINDER_DAMAGE_PER_LEVEL,
     grinderSpinSpeed: BASE_PARAMS.grinderSpinSpeed + lv('grinder.spinSpeed') * GRINDER_SPIN_SPEED_PER_LEVEL,
     grinderBladeScale: BASE_PARAMS.grinderBladeScale + lv('grinder.bladeSize') * GRINDER_BLADE_SCALE_PER_LEVEL,
+    cashMultiplier: BASE_PARAMS.cashMultiplier,
+    damageMultiplier: BASE_PARAMS.damageMultiplier,
+    upgradeCostMultiplier: BASE_PARAMS.upgradeCostMultiplier,
+    fillerFraction: BASE_PARAMS.fillerFraction,
+    offlineCapMs: BASE_PARAMS.offlineCapMs,
+    shardYieldBonus: BASE_PARAMS.shardYieldBonus,
+    freeSlotCount: BASE_PARAMS.freeSlotCount,
+    startingCash: BASE_PARAMS.startingCash,
   };
 }

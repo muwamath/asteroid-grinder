@@ -16,6 +16,8 @@ import { applyKillAndSplit } from '../game/asteroidGraph';
 import { CAT_DEAD_CHUNK, MASK_DEAD_CHUNK } from '../game/collisionCategories';
 import { clampWeaponToChute } from '../game/weaponPlacement';
 import { computeVaultShardReward } from '../game/prestigeAward';
+import { prestigeState } from '../game/prestigeState';
+import { applyPrestigeEffects } from '../game/prestigeEffects';
 
 const ARBOR_RADIUS = 12;
 
@@ -111,7 +113,7 @@ export class GameScene extends Phaser.Scene {
     }
     this.lastEarnedAt = this.time.now;
 
-    this.effectiveParams = applyUpgrades(gameplayState.levels());
+    this.effectiveParams = applyPrestigeEffects(applyUpgrades(gameplayState.levels()), prestigeState.shopLevels());
 
     const { width, height } = this.scale;
 
@@ -169,6 +171,9 @@ export class GameScene extends Phaser.Scene {
       gameplayState.initWeaponCounts(
         Object.fromEntries(WEAPON_TYPES.filter((w) => !w.locked).map((w) => [w.id, w.startCount])),
       );
+      if (this.effectiveParams.startingCash > 0) {
+        gameplayState.addCash(this.effectiveParams.startingCash, { silent: true });
+      }
     }
 
     this.spawnGrinder(width);
@@ -399,8 +404,7 @@ export class GameScene extends Phaser.Scene {
     if (extracted) {
       this.spawnDeadConfettiChunk(extracted, killerType);
       if (extracted.isCore) {
-        const shardYieldBonus = 0; // wired to prestige upgrade in Task 5
-        const shards = computeVaultShardReward(extracted.material, shardYieldBonus);
+        const shards = computeVaultShardReward(extracted.material, this.effectiveParams.shardYieldBonus);
         if (shards > 0) {
           this.pendingShardsThisRun += shards;
           this.events.emit('pendingShardsChanged', this.pendingShardsThisRun, shards);
@@ -455,7 +459,8 @@ export class GameScene extends Phaser.Scene {
   private collectDeadAtDeathLine(chunk: Phaser.Physics.Matter.Image): void {
     const tier = (chunk.getData('tier') as number | undefined) ?? 1;
     const killerType = (chunk.getData('killerType') as WeaponKillSource | undefined) ?? 'saw';
-    const reward = killerType === 'grinder' ? 1 : tier;
+    const baseReward = killerType === 'grinder' ? 1 : tier;
+    const reward = Math.max(1, Math.floor(baseReward * this.effectiveParams.cashMultiplier));
     gameplayState.addCash(reward);
     if (killerType === 'grinder') {
       this.cashFromLine += reward;
@@ -726,7 +731,7 @@ export class GameScene extends Phaser.Scene {
 
   private recomputeEffectiveParams(): void {
     const prev = this.effectiveParams;
-    this.effectiveParams = applyUpgrades(gameplayState.levels());
+    this.effectiveParams = applyPrestigeEffects(applyUpgrades(gameplayState.levels()), prestigeState.shopLevels());
 
     for (const inst of this.weaponInstances) {
       inst.behavior.onUpgrade(this, inst.sprite, prev, this.effectiveParams);
@@ -765,7 +770,7 @@ export class GameScene extends Phaser.Scene {
       hpMultiplier: this.effectiveParams.maxHpPerChunk,
       qualityLevel: this.effectiveParams.qualityLevel,
       fallSpeedMultiplier: this.effectiveParams.fallSpeedMultiplier,
-      fillerFraction: 0.8,
+      fillerFraction: this.effectiveParams.fillerFraction,
     });
     this.liveAsteroids.push(asteroid);
     this.spawnedCount++;
