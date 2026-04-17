@@ -43,6 +43,12 @@ describe('weaponCatalog', () => {
     expect(saw.upgrades.length).toBeGreaterThan(0);
   });
 
+  it('grinder has damage, spinSpeed, bladeSize upgrades', () => {
+    const grinder = findWeaponType('grinder')!;
+    const ids = grinder.upgrades.map((u) => u.id);
+    expect(ids).toEqual(['grinder.damage', 'grinder.spinSpeed', 'grinder.bladeSize']);
+  });
+
   it('each category has at least one upgrade', () => {
     for (const c of CATEGORY_DEFS) {
       expect(c.upgrades.length).toBeGreaterThan(0);

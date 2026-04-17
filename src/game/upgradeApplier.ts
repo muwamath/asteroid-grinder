@@ -27,6 +27,9 @@ export interface EffectiveGameplayParams {
   readonly blackholeMaxTargets: number;
   readonly qualityLevel: number;
   readonly fallSpeedMultiplier: number;
+  readonly grinderDamage: number;
+  readonly grinderSpinSpeed: number;
+  readonly grinderBladeScale: number;
 }
 
 // Level-0 defaults. Each upgrade adds to these via applyUpgrades.
@@ -57,6 +60,9 @@ export const BASE_PARAMS: EffectiveGameplayParams = {
   blackholeMaxTargets: 3,
   qualityLevel: 0,
   fallSpeedMultiplier: 0.3,
+  grinderDamage: 1,
+  grinderSpinSpeed: 2.0,
+  grinderBladeScale: 1,
 };
 
 // Per-level deltas. Tuning scaffolding — adjust after playtesting.
@@ -86,6 +92,9 @@ const BLACKHOLE_PULL_FORCE_PER_LEVEL = 0.00015;
 const BLACKHOLE_CORE_SIZE_PER_LEVEL = 3;
 const BLACKHOLE_CORE_DAMAGE_PER_LEVEL = 0.5;
 const BLACKHOLE_MAX_TARGETS_PER_LEVEL = 1;
+const GRINDER_DAMAGE_PER_LEVEL = 1;
+const GRINDER_SPIN_SPEED_PER_LEVEL = 0.4;
+const GRINDER_BLADE_SCALE_PER_LEVEL = 0.1;
 
 export function applyUpgrades(
   levels: Readonly<Record<string, number>>,
@@ -129,5 +138,8 @@ export function applyUpgrades(
     blackholeMaxTargets: BASE_PARAMS.blackholeMaxTargets + lv('blackhole.maxTargets') * BLACKHOLE_MAX_TARGETS_PER_LEVEL,
     qualityLevel: lv('asteroids.quality'),
     fallSpeedMultiplier: fallSpeedMultiplierFn(lv('asteroids.fallSpeed')),
+    grinderDamage: BASE_PARAMS.grinderDamage + lv('grinder.damage') * GRINDER_DAMAGE_PER_LEVEL,
+    grinderSpinSpeed: BASE_PARAMS.grinderSpinSpeed + lv('grinder.spinSpeed') * GRINDER_SPIN_SPEED_PER_LEVEL,
+    grinderBladeScale: BASE_PARAMS.grinderBladeScale + lv('grinder.bladeSize') * GRINDER_BLADE_SCALE_PER_LEVEL,
   };
 }

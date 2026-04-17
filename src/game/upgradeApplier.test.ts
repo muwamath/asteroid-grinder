@@ -13,6 +13,22 @@ describe('applyUpgrades', () => {
     expect(applyUpgrades({ 'saw.damage': 3 }).sawDamage).toBe(BASE_PARAMS.sawDamage + 3);
   });
 
+  it('adds grinderDamage per level', () => {
+    expect(applyUpgrades({ 'grinder.damage': 3 }).grinderDamage).toBe(BASE_PARAMS.grinderDamage + 3);
+  });
+
+  it('scales grinderSpinSpeed per level', () => {
+    expect(applyUpgrades({ 'grinder.spinSpeed': 2 }).grinderSpinSpeed).toBeCloseTo(
+      BASE_PARAMS.grinderSpinSpeed + 2 * 0.4, 5,
+    );
+  });
+
+  it('scales grinderBladeScale per level', () => {
+    expect(applyUpgrades({ 'grinder.bladeSize': 4 }).grinderBladeScale).toBeCloseTo(
+      BASE_PARAMS.grinderBladeScale + 4 * 0.1, 5,
+    );
+  });
+
   it('adds bladeCount per level', () => {
     expect(applyUpgrades({ 'saw.bladeCount': 4 }).bladeCount).toBe(BASE_PARAMS.bladeCount + 4);
   });
