@@ -524,22 +524,20 @@ export class UIScene extends Phaser.Scene {
     this.prestigeShopContainer = null;
   }
 
+  private runConfigDomLayer: HTMLDivElement | null = null;
+
   private openRunConfig(): void {
-    if (this.runConfigContainer) return;
-    // Any open welcome-back / picker would block clicks on this modal — kill
-    // them first so Start Run + Re-roll actually respond.
+    if (this.runConfigContainer || this.runConfigDomLayer) return;
     this.dismissWelcomeBack();
     this.dismissWeaponPicker();
     const W = this.scale.width;
     const H = this.scale.height;
     const cx = W / 2;
-    // High depth so nothing at depth 0 (bar buttons) can steal our clicks.
     const DEPTH = 8000;
     const container = this.add.container(0, 0).setDepth(DEPTH);
     const backdrop = this.add
       .rectangle(0, 0, W, H, 0x000000, 0.97)
       .setOrigin(0, 0)
-      .setInteractive()
       .setDepth(DEPTH);
     const title = this.add
       .text(cx, 220, 'Run Config', { font: 'bold 48px ui-monospace', color: '#ffffff' })
@@ -549,59 +547,71 @@ export class UIScene extends Phaser.Scene {
       .text(cx, 330, 'Seed:', { font: '28px ui-monospace', color: '#d0d0e0' })
       .setOrigin(0.5)
       .setDepth(DEPTH + 1);
+    container.add([backdrop, title, seedLabel]);
+    this.runConfigContainer = container;
+
+    // DOM layer: seed input + re-roll + Start Run. Phaser canvas input has
+    // been unreliable for modal buttons inside containers — going through
+    // DOM bypasses the routing entirely. Positioned absolutely over the
+    // canvas, z-index 999 ensures it's above everything.
+    const layer = document.createElement('div');
+    layer.style.cssText =
+      'position:absolute; inset:0; z-index:999; pointer-events:none; ' +
+      'display:flex; flex-direction:column; align-items:center; justify-content:center; gap:16px;';
+
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex; gap:12px; pointer-events:auto; align-items:center;';
 
     const defaultSeed = `cosmic-dust-${Date.now().toString(36)}`;
     const input = document.createElement('input');
     input.type = 'text';
     input.value = defaultSeed;
     input.style.cssText =
-      'position:absolute; left:50%; top:50%; transform:translate(-50%, -10%); ' +
-      'font-size:22px; padding:10px 16px; width:520px; z-index:999;';
-    document.body.appendChild(input);
+      'font-size:22px; padding:10px 16px; width:520px; border-radius:6px; ' +
+      'border:2px solid #555; background:#f5f5f5; color:#111;';
     this.seedInputEl = input;
 
-    const rerollBg = this.add
-      .rectangle(cx + 340, 380, 180, 48, 0x4a4a5a)
-      .setStrokeStyle(2, 0x6a6a7a)
-      .setInteractive({ useHandCursor: true })
-      .setDepth(DEPTH + 1);
-    const rerollText = this.add
-      .text(cx + 340, 380, '🎲 Re-roll', { font: 'bold 22px ui-monospace', color: '#ffffff' })
-      .setOrigin(0.5)
-      .setDepth(DEPTH + 2);
-    rerollBg.on('pointerdown', () => {
-      if (this.seedInputEl) this.seedInputEl.value = `cosmic-dust-${Date.now().toString(36)}`;
+    const reroll = document.createElement('button');
+    reroll.textContent = '🎲 Re-roll';
+    reroll.style.cssText =
+      'font:bold 22px ui-monospace; padding:12px 20px; border-radius:6px; ' +
+      'background:#4a4a5a; color:#fff; border:2px solid #6a6a7a; cursor:pointer;';
+    reroll.addEventListener('click', () => {
+      input.value = `cosmic-dust-${Date.now().toString(36)}`;
     });
 
-    const startBg = this.add
-      .rectangle(cx, H - 140, 340, 72, 0x3a7aff)
-      .setStrokeStyle(2, 0x5a9aff)
-      .setInteractive({ useHandCursor: true })
-      .setDepth(DEPTH + 1);
-    const startText = this.add
-      .text(cx, H - 140, '🚀 Start Run', { font: 'bold 32px ui-monospace', color: '#ffffff' })
-      .setOrigin(0.5)
-      .setDepth(DEPTH + 2);
-    startBg.on('pointerdown', () => {
-      console.log('[runconfig] Start Run pointerdown fired');
-      const seed = this.seedInputEl?.value ?? defaultSeed;
+    row.appendChild(input);
+    row.appendChild(reroll);
+
+    const start = document.createElement('button');
+    start.textContent = '🚀 Start Run';
+    start.style.cssText =
+      'font:bold 32px ui-monospace; padding:18px 44px; border-radius:8px; ' +
+      'background:#3a7aff; color:#fff; border:2px solid #5a9aff; cursor:pointer; ' +
+      'margin-top:40px; pointer-events:auto;';
+    start.addEventListener('click', () => {
+      const seed = input.value || defaultSeed;
       this.closeRunConfig();
       const gs = this.scene.get('game') as GameScene;
       gs.startNewRun(seed);
     });
-    startBg.on('pointerup', () => console.log('[runconfig] Start Run pointerup fired'));
 
-    container.add([backdrop, title, seedLabel, rerollBg, rerollText, startBg, startText]);
-    this.runConfigContainer = container;
+    layer.appendChild(row);
+    layer.appendChild(start);
+    document.body.appendChild(layer);
+    this.runConfigDomLayer = layer;
   }
 
   private closeRunConfig(): void {
+    if (this.runConfigDomLayer) {
+      this.runConfigDomLayer.remove();
+      this.runConfigDomLayer = null;
+    }
+    // The DOM input was a child of runConfigDomLayer, so remove() above
+    // already detached it. Null the reference.
+    this.seedInputEl = null;
     this.runConfigContainer?.destroy();
     this.runConfigContainer = null;
-    if (this.seedInputEl) {
-      this.seedInputEl.remove();
-      this.seedInputEl = null;
-    }
   }
 
   openOptions(): void {
@@ -700,96 +710,54 @@ export class UIScene extends Phaser.Scene {
   }
 
   // ── weapon picker (slot install) ─────────────────────────────────────
+  // Implemented as a DOM overlay (not Phaser canvas objects) so clicks are
+  // handled by the browser's native event system. Phaser's multi-scene input
+  // routing was eating picker clicks under certain conditions.
 
-  private weaponPickerLayer: Phaser.GameObjects.GameObject[] | null = null;
+  private weaponPickerDomLayer: HTMLDivElement | null = null;
 
   private openWeaponPicker(payload: { slotId: string; x: number; y: number }): void {
     this.dismissWeaponPicker();
-    // Any open welcome-back overlay blocks input to this picker even though
-    // it renders below — full-screen interactive rects confuse Phaser's
-    // multi-object hit dispatch. Dismiss it first.
     this.dismissWelcomeBack();
-    const { width, height } = this.scale;
-    const W = 520;
-    const H = 360;
-    const cx = width / 2;
-    const cy = height / 2;
-    const layer: Phaser.GameObjects.GameObject[] = [];
 
-    // Render well above anything else in the scene (welcome-back 1000-1003,
-    // options modal, etc.) so clicks on the picker always reach it.
-    const DEPTH = 9000;
-    const backdrop = this.add
-      .rectangle(0, 0, width, height, 0x000000, 0.55)
-      .setOrigin(0)
-      .setDepth(DEPTH)
-      .setInteractive();
-    backdrop.on('pointerup', () => this.dismissWeaponPicker());
-    layer.push(backdrop);
-
-    const panel = this.add
-      .rectangle(cx, cy, W, H, 0x18182a, 0.98)
-      .setStrokeStyle(2, 0x3a3a4c)
-      .setDepth(DEPTH + 1)
-      .setInteractive();
-    // Eat clicks on the panel so backdrop dismiss doesn't fire.
-    panel.on('pointerup', (_: unknown, __: unknown, ___: unknown, ev: Phaser.Types.Input.EventData) => {
-      ev?.stopPropagation?.();
+    const backdrop = document.createElement('div');
+    backdrop.style.cssText =
+      'position:absolute; inset:0; z-index:1200; background:rgba(0,0,0,0.55); ' +
+      'display:flex; align-items:center; justify-content:center; pointer-events:auto;';
+    backdrop.addEventListener('click', (e) => {
+      if (e.target === backdrop) this.dismissWeaponPicker();
     });
-    layer.push(panel);
 
-    const title = this.add
-      .text(cx, cy - H / 2 + 36, 'Install Weapon', {
-        font: 'bold 32px ui-monospace',
-        color: '#f5d66d',
-      })
-      .setOrigin(0.5)
-      .setDepth(DEPTH + 2);
-    layer.push(title);
+    const panel = document.createElement('div');
+    panel.style.cssText =
+      'background:#18182a; border:2px solid #3a3a4c; border-radius:8px; padding:28px; ' +
+      'min-width:460px; color:#eee; font-family:ui-monospace; display:flex; flex-direction:column; gap:16px;';
 
+    const title = document.createElement('div');
+    title.textContent = 'Install Weapon';
+    title.style.cssText = 'font:bold 28px ui-monospace; color:#f5d66d; text-align:center;';
+    panel.appendChild(title);
+
+    const grid = document.createElement('div');
+    grid.style.cssText = 'display:grid; grid-template-columns:1fr 1fr; gap:12px;';
     const categories = WEAPON_TYPES.filter((w) => !w.locked && w.id !== 'grinder');
-    const btnW = 200;
-    const btnH = 72;
-    const colGap = 24;
-    const rowGap = 18;
-    categories.forEach((wt, i) => {
-      const col = i % 2;
-      const row = Math.floor(i / 2);
-      const bx = cx - (btnW + colGap) / 2 + col * (btnW + colGap);
-      const by = cy - 30 + row * (btnH + rowGap);
-
-      const boughtThisRun = gameplayState.instancesBoughtThisRun(wt.id);
+    for (const wt of categories) {
+      const bought = gameplayState.instancesBoughtThisRun(wt.id);
       const freeSlots = prestigeState.shopLevels()[`free.${wt.id}`] ?? 0;
-      // Placeholder baseCost of $1 matches current bar-button pricing; the
-      // real cost curve lands in the §4 economy rebalance.
-      const cost = weaponBuyCost({ boughtThisRun, freeSlots, baseCost: 1 });
-      const bg = this.add
-        .rectangle(bx, by, btnW, btnH, 0x202030, 1)
-        .setStrokeStyle(2, 0x3a3a4c)
-        .setInteractive({ useHandCursor: true })
-        .setDepth(DEPTH + 2);
-      layer.push(bg);
-
-      const nameText = this.add
-        .text(bx, by - 12, wt.name, {
-          font: 'bold 22px ui-monospace',
-          color: '#eeeeff',
-        })
-        .setOrigin(0.5)
-        .setDepth(DEPTH + 3);
-      layer.push(nameText);
-
-      const costText = this.add
-        .text(bx, by + 16, cost === 0 ? 'FREE' : `$${cost}`, {
-          font: '20px ui-monospace',
-          color: cost === 0 ? '#9fe79f' : '#ffd166',
-        })
-        .setOrigin(0.5)
-        .setDepth(DEPTH + 3);
-      layer.push(costText);
-
-      bg.on('pointerup', () => {
-        console.log('[picker] weapon button pointerup fired:', wt.id);
+      const cost = weaponBuyCost({ boughtThisRun: bought, freeSlots, baseCost: 1 });
+      const btn = document.createElement('button');
+      btn.style.cssText =
+        'background:#202030; border:2px solid #3a3a4c; border-radius:6px; padding:14px 10px; ' +
+        'color:#eeeeff; font:bold 18px ui-monospace; cursor:pointer; display:flex; flex-direction:column; gap:6px; align-items:center;';
+      const name = document.createElement('span');
+      name.textContent = wt.name;
+      const price = document.createElement('span');
+      price.textContent = cost === 0 ? 'FREE' : `$${cost}`;
+      price.style.color = cost === 0 ? '#9fe79f' : '#ffd166';
+      price.style.font = '16px ui-monospace';
+      btn.appendChild(name);
+      btn.appendChild(price);
+      btn.addEventListener('click', () => {
         this.events.emit('install-weapon', {
           slotId: payload.slotId,
           typeId: wt.id,
@@ -798,25 +766,24 @@ export class UIScene extends Phaser.Scene {
         });
         this.dismissWeaponPicker();
       });
-      bg.on('pointerdown', () => console.log('[picker] weapon button pointerdown fired:', wt.id));
-    });
+      grid.appendChild(btn);
+    }
+    panel.appendChild(grid);
 
-    const hint = this.add
-      .text(cx, cy + H / 2 - 28, 'Click outside to cancel', {
-        font: '16px ui-monospace',
-        color: '#888899',
-      })
-      .setOrigin(0.5)
-      .setDepth(DEPTH + 2);
-    layer.push(hint);
+    const hint = document.createElement('div');
+    hint.textContent = 'Click outside to cancel';
+    hint.style.cssText = 'font:14px ui-monospace; color:#888899; text-align:center;';
+    panel.appendChild(hint);
 
-    this.weaponPickerLayer = layer;
+    backdrop.appendChild(panel);
+    document.body.appendChild(backdrop);
+    this.weaponPickerDomLayer = backdrop;
   }
 
   private dismissWeaponPicker(): void {
-    if (!this.weaponPickerLayer) return;
-    for (const o of this.weaponPickerLayer) o.destroy();
-    this.weaponPickerLayer = null;
+    if (!this.weaponPickerDomLayer) return;
+    this.weaponPickerDomLayer.remove();
+    this.weaponPickerDomLayer = null;
   }
 }
 

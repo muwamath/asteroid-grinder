@@ -140,40 +140,30 @@ test('slot-click opens picker and buying a weapon installs it at the slot', asyn
     };
     const ui = w.__GAME__.scene.getScene('ui') as unknown as {
       events: { emit: (n: string, p: unknown) => void };
-      weaponPickerLayer: Array<Phaser.GameObjects.GameObject & { emit: (name: string) => void }> | null;
+      weaponPickerDomLayer: HTMLDivElement | null;
     };
     const cashBefore = w.__STATE__.cash;
     ui.events.emit('open-weapon-picker', slotPayload);
-    const pickerOpen = !!ui.weaponPickerLayer;
+    const pickerOpen = !!ui.weaponPickerDomLayer;
 
-    const layer = ui.weaponPickerLayer ?? [];
-    const layerShape = layer.map((o) => (o.constructor as { name: string }).name);
-    // Hook the install-weapon listener to trace whether it fires + what it sees.
-    let listenerFired: null | { slotId: string; typeId: string } = null;
-    ui.events.on('install-weapon', (p: { slotId: string; typeId: string }) => {
-      listenerFired = { slotId: p.slotId, typeId: p.typeId };
-    });
-    const listenerCount = ui.events.listenerCount('install-weapon');
-    const laserBtn = layer[6];
+    // Picker is now a DOM layer — click the Laser <button> directly.
+    const buttons = ui.weaponPickerDomLayer?.querySelectorAll('button') ?? [];
+    const laserBtn = Array.from(buttons).find((b) =>
+      (b.textContent ?? '').includes('Laser'),
+    );
     if (!laserBtn) {
-      return { pickerOpen, error: 'laserBtn missing', layerShape };
+      return { pickerOpen, error: 'laser button missing in DOM layer' };
     }
-    laserBtn.emit('pointerup');
+    (laserBtn as HTMLButtonElement).click();
 
     const cashAfter = w.__STATE__.cash;
     const installed = w.__STATE__.installedAt(slotPayload.slotId);
-    const pickerDismissed = !ui.weaponPickerLayer;
-    return {
-      pickerOpen, cashBefore, cashAfter, installed, pickerDismissed, layerShape,
-      listenerFired, listenerCount,
-    };
+    const pickerDismissed = !ui.weaponPickerDomLayer;
+    return { pickerOpen, cashBefore, cashAfter, installed, pickerDismissed };
   }, pickerPayload);
 
-  expect(result.pickerOpen, 'open-weapon-picker must render the modal').toBe(true);
-  expect(
-    result.installed?.typeId,
-    `clicking Laser must install a laser at the slot — picker shape was ${JSON.stringify(result.layerShape)}`,
-  ).toBe('laser');
+  expect(result.pickerOpen, 'open-weapon-picker must render the DOM modal').toBe(true);
+  expect(result.installed?.typeId, 'clicking Laser must install a laser at the slot').toBe('laser');
   expect(result.cashAfter, 'cash must be debited by the buy cost').toBeLessThan(result.cashBefore!);
   expect(result.pickerDismissed, 'picker must dismiss after a weapon button is clicked').toBe(true);
 });
