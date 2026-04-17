@@ -8,6 +8,8 @@ import {
   type CategoryDef,
 } from '../game/weaponCatalog';
 import { costAtLevel, isMaxed, type UpgradeDef } from '../game/upgradeCatalog';
+import { prestigeState } from '../game/prestigeState';
+import { PRESTIGE_SHOP, shopCostAtLevel, isShopMaxed } from '../game/prestigeShopCatalog';
 import type { GameScene } from './GameScene';
 
 const BAR_X = 16;
@@ -28,6 +30,12 @@ export class UIScene extends Phaser.Scene {
   private saveToastTween: Phaser.Tweens.Tween | null = null;
   private escKey: Phaser.Input.Keyboard.Key | null = null;
   private fullscreenKey: Phaser.Input.Keyboard.Key | null = null;
+  private shardsText: Phaser.GameObjects.Text | null = null;
+  private prestigeCountText: Phaser.GameObjects.Text | null = null;
+  private prestigeModal: Phaser.GameObjects.Container | null = null;
+  private prestigeShopContainer: Phaser.GameObjects.Container | null = null;
+  private runConfigContainer: Phaser.GameObjects.Container | null = null;
+  private seedInputEl: HTMLInputElement | null = null;
 
   constructor() {
     super('ui');
@@ -43,6 +51,7 @@ export class UIScene extends Phaser.Scene {
 
     this.buildWeaponBar();
     this.buildOptionsGear();
+    this.buildBottomBar();
 
     this.unsubs.push(
       gameplayState.on('cashChanged', (cash) => {
@@ -73,9 +82,20 @@ export class UIScene extends Phaser.Scene {
         this.activePanel?.refresh();
       }),
     );
+    this.unsubs.push(prestigeState.on('shardsChanged', () => this.refreshBottomBar()));
+    this.unsubs.push(prestigeState.on('prestigeRegistered', () => this.refreshBottomBar()));
+    const gs = this.scene.get('game') as Phaser.Scene;
+    const pendingHandler = (): void => this.refreshBottomBar();
+    gs.events.on('pendingShardsChanged', pendingHandler);
+    this.unsubs.push(() => gs.events.off('pendingShardsChanged', pendingHandler));
+
     this.events.once('shutdown', () => {
       for (const u of this.unsubs) u();
       this.unsubs = [];
+      if (this.seedInputEl) {
+        this.seedInputEl.remove();
+        this.seedInputEl = null;
+      }
       if (this.escKey) {
         this.escKey.removeAllListeners();
         this.input.keyboard?.removeKey(this.escKey);
@@ -233,6 +253,306 @@ export class UIScene extends Phaser.Scene {
 
     // Keep a handle in case we need to re-layout later.
     void label;
+  }
+
+  private buildBottomBar(): void {
+    const W = this.scale.width;
+    const H = this.scale.height;
+    const BAR_H = 72;
+
+    this.add
+      .rectangle(0, H - BAR_H, W, BAR_H, 0x0c0c14, 0.9)
+      .setOrigin(0, 0)
+      .setDepth(50);
+
+    this.shardsText = this.add
+      .text(24, H - BAR_H + 20, '', {
+        font: 'bold 30px ui-monospace',
+        color: '#c9a0ff',
+      })
+      .setDepth(51);
+
+    this.prestigeCountText = this.add
+      .text(W / 2, H - BAR_H + 24, '', {
+        font: 'bold 26px ui-monospace',
+        color: '#9090c8',
+      })
+      .setOrigin(0.5, 0)
+      .setDepth(51);
+
+    const btnW = 260;
+    const btnH = 48;
+    const btnX = W - btnW - 24;
+    const btnY = H - BAR_H + 12;
+    const btnBg = this.add
+      .rectangle(btnX, btnY, btnW, btnH, 0x5a2fbe)
+      .setOrigin(0, 0)
+      .setStrokeStyle(2, 0x8a4aee)
+      .setInteractive({ useHandCursor: true })
+      .setDepth(51);
+    this.add
+      .text(btnX + btnW / 2, btnY + btnH / 2, '🔮 Prestige →', {
+        font: 'bold 24px ui-monospace',
+        color: '#ffffff',
+      })
+      .setOrigin(0.5)
+      .setDepth(52);
+
+    btnBg.on('pointerover', () => btnBg.setFillStyle(0x6a3fce));
+    btnBg.on('pointerout', () => btnBg.setFillStyle(0x5a2fbe));
+    btnBg.on('pointerdown', () => this.openPrestigeModal());
+
+    this.refreshBottomBar();
+  }
+
+  private refreshBottomBar(): void {
+    if (!this.shardsText || !this.prestigeCountText) return;
+    const gs = this.scene.get('game') as GameScene | null;
+    const pending = gs?.getPendingShardsThisRun?.() ?? 0;
+    this.shardsText.setText(`🔮 ${pending} this run  (banked: ${prestigeState.shards})`);
+    this.prestigeCountText.setText(`prestige #${prestigeState.prestigeCount}`);
+  }
+
+  private openPrestigeModal(): void {
+    if (this.prestigeModal) return;
+    const W = this.scale.width;
+    const H = this.scale.height;
+    const cx = W / 2;
+    const cy = H / 2;
+    const gs = this.scene.get('game') as GameScene;
+    const pending = gs.getPendingShardsThisRun();
+
+    const container = this.add.container(0, 0).setDepth(300);
+    const backdrop = this.add
+      .rectangle(0, 0, W, H, 0x000000, 0.7)
+      .setOrigin(0, 0)
+      .setInteractive();
+    const panel = this.add
+      .rectangle(cx, cy, 760, 460, 0x1a1a28)
+      .setStrokeStyle(4, 0x5a2fbe);
+    const title = this.add
+      .text(cx, cy - 180, 'Prestige now?', { font: 'bold 48px ui-monospace', color: '#ffffff' })
+      .setOrigin(0.5);
+    const body1 = this.add
+      .text(cx, cy - 90, 'Resets: cash, in-run upgrades,\nall placed weapons.', {
+        font: '26px ui-monospace', color: '#d0d0e0', align: 'center',
+      })
+      .setOrigin(0.5);
+    const body2 = this.add
+      .text(cx, cy + 10, 'Keeps: 🔮 Shards + Prestige Shop.', {
+        font: '26px ui-monospace', color: '#d0d0e0',
+      })
+      .setOrigin(0.5);
+    const gain = this.add
+      .text(cx, cy + 80, `You will gain: 🔮 ${pending} Shards`, {
+        font: 'bold 30px ui-monospace', color: '#c9a0ff',
+      })
+      .setOrigin(0.5);
+
+    const cancelBg = this.add
+      .rectangle(cx - 150, cy + 160, 180, 56, 0x4a4a5a)
+      .setStrokeStyle(2, 0x6a6a7a)
+      .setInteractive({ useHandCursor: true });
+    const cancelText = this.add
+      .text(cx - 150, cy + 160, 'Cancel', { font: 'bold 24px ui-monospace', color: '#ffffff' })
+      .setOrigin(0.5);
+
+    const confirmBg = this.add
+      .rectangle(cx + 150, cy + 160, 180, 56, 0x5a2fbe)
+      .setStrokeStyle(2, 0x8a4aee)
+      .setInteractive({ useHandCursor: true });
+    const confirmText = this.add
+      .text(cx + 150, cy + 160, 'Prestige', { font: 'bold 24px ui-monospace', color: '#ffffff' })
+      .setOrigin(0.5);
+
+    container.add([backdrop, panel, title, body1, body2, gain, cancelBg, cancelText, confirmBg, confirmText]);
+    this.prestigeModal = container;
+
+    cancelBg.on('pointerdown', () => this.closePrestigeModal());
+    confirmBg.on('pointerdown', () => {
+      this.closePrestigeModal();
+      gs.confirmPrestige();
+      this.openPrestigeShop();
+    });
+  }
+
+  private closePrestigeModal(): void {
+    this.prestigeModal?.destroy();
+    this.prestigeModal = null;
+  }
+
+  private openPrestigeShop(): void {
+    if (this.prestigeShopContainer) return;
+    const W = this.scale.width;
+    const H = this.scale.height;
+    const container = this.add.container(0, 0).setDepth(300);
+    const backdrop = this.add
+      .rectangle(0, 0, W, H, 0x000000, 0.94)
+      .setOrigin(0, 0)
+      .setInteractive();
+    const title = this.add
+      .text(W / 2, 60, 'Prestige Shop', { font: 'bold 48px ui-monospace', color: '#ffffff' })
+      .setOrigin(0.5);
+    const shardsHeader = this.add
+      .text(W / 2, 120, '', { font: 'bold 32px ui-monospace', color: '#c9a0ff' })
+      .setOrigin(0.5);
+    container.add([backdrop, title, shardsHeader]);
+
+    const FAMILY_HEADERS: Array<['free-weapon' | 'multiplier' | 'material' | 'economy', string]> = [
+      ['free-weapon', 'FREE WEAPONS'],
+      ['multiplier', 'MULTIPLIERS'],
+      ['material', 'MATERIAL'],
+      ['economy', 'ECONOMY'],
+    ];
+
+    const rowRefreshers: Array<() => void> = [];
+    const refreshHeader = (): void => {
+      shardsHeader.setText(`Banked: 🔮 ${prestigeState.shards}`);
+      for (const r of rowRefreshers) r();
+    };
+
+    let y = 190;
+    const leftX = W / 2 - 560;
+    const rightX = W / 2 + 360;
+    for (const [family, headerLabel] of FAMILY_HEADERS) {
+      const header = this.add
+        .text(leftX, y, headerLabel, { font: 'bold 26px ui-monospace', color: '#9090c8' });
+      container.add(header);
+      y += 42;
+      for (const entry of PRESTIGE_SHOP.filter((e) => e.family === family)) {
+        const rowY = y;
+        const label = this.add.text(leftX, rowY, '', {
+          font: '22px ui-monospace', color: '#ffffff', wordWrap: { width: 880 },
+        });
+        const btnBg = this.add
+          .rectangle(rightX, rowY - 4, 180, 44, 0x5a2fbe)
+          .setOrigin(0, 0)
+          .setStrokeStyle(2, 0x8a4aee)
+          .setInteractive({ useHandCursor: true });
+        const btnText = this.add
+          .text(rightX + 90, rowY + 18, '', { font: 'bold 22px ui-monospace', color: '#ffffff' })
+          .setOrigin(0.5);
+
+        const refreshRow = (): void => {
+          const lv = prestigeState.shopLevel(entry.id);
+          const maxed = isShopMaxed(entry, lv);
+          const cost = maxed ? 0 : shopCostAtLevel(entry, lv);
+          const maxPart = Number.isFinite(entry.maxLevel) ? ` / ${entry.maxLevel}` : '';
+          label.setText(`${entry.name}  ·  Lv ${lv}${maxPart}  ·  ${entry.description}`);
+          if (maxed) {
+            btnText.setText('MAX');
+            btnBg.setFillStyle(0x404050).disableInteractive();
+          } else {
+            btnText.setText(`🔮 ${cost}`);
+            if (prestigeState.shards >= cost) {
+              btnBg.setFillStyle(0x5a2fbe).setInteractive({ useHandCursor: true });
+            } else {
+              btnBg.setFillStyle(0x2a1a4a).setInteractive({ useHandCursor: true });
+            }
+          }
+        };
+        rowRefreshers.push(refreshRow);
+
+        btnBg.on('pointerdown', () => {
+          const lv = prestigeState.shopLevel(entry.id);
+          if (isShopMaxed(entry, lv)) return;
+          const cost = shopCostAtLevel(entry, lv);
+          if (!prestigeState.trySpend(cost)) return;
+          prestigeState.setShopLevel(entry.id, lv + 1);
+          refreshHeader();
+        });
+
+        container.add([label, btnBg, btnText]);
+        y += 50;
+      }
+      y += 24;
+    }
+
+    const nextBtn = this.add
+      .rectangle(W / 2, H - 90, 340, 60, 0x3a7aff)
+      .setStrokeStyle(2, 0x5a9aff)
+      .setInteractive({ useHandCursor: true });
+    const nextText = this.add
+      .text(W / 2, H - 90, 'Next → Run Config', { font: 'bold 28px ui-monospace', color: '#ffffff' })
+      .setOrigin(0.5);
+    nextBtn.on('pointerdown', () => {
+      this.closePrestigeShop();
+      this.openRunConfig();
+    });
+    container.add([nextBtn, nextText]);
+
+    refreshHeader();
+    this.prestigeShopContainer = container;
+  }
+
+  private closePrestigeShop(): void {
+    this.prestigeShopContainer?.destroy();
+    this.prestigeShopContainer = null;
+  }
+
+  private openRunConfig(): void {
+    if (this.runConfigContainer) return;
+    const W = this.scale.width;
+    const H = this.scale.height;
+    const cx = W / 2;
+    const container = this.add.container(0, 0).setDepth(300);
+    const backdrop = this.add
+      .rectangle(0, 0, W, H, 0x000000, 0.97)
+      .setOrigin(0, 0)
+      .setInteractive();
+    const title = this.add
+      .text(cx, 220, 'Run Config', { font: 'bold 48px ui-monospace', color: '#ffffff' })
+      .setOrigin(0.5);
+    const seedLabel = this.add
+      .text(cx, 330, 'Seed:', { font: '28px ui-monospace', color: '#d0d0e0' })
+      .setOrigin(0.5);
+
+    const defaultSeed = `cosmic-dust-${Date.now().toString(36)}`;
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = defaultSeed;
+    input.style.cssText =
+      'position:absolute; left:50%; top:50%; transform:translate(-50%, -10%); ' +
+      'font-size:22px; padding:10px 16px; width:520px; z-index:999;';
+    document.body.appendChild(input);
+    this.seedInputEl = input;
+
+    const rerollBg = this.add
+      .rectangle(cx + 340, 380, 180, 48, 0x4a4a5a)
+      .setStrokeStyle(2, 0x6a6a7a)
+      .setInteractive({ useHandCursor: true });
+    const rerollText = this.add
+      .text(cx + 340, 380, '🎲 Re-roll', { font: 'bold 22px ui-monospace', color: '#ffffff' })
+      .setOrigin(0.5);
+    rerollBg.on('pointerdown', () => {
+      if (this.seedInputEl) this.seedInputEl.value = `cosmic-dust-${Date.now().toString(36)}`;
+    });
+
+    const startBg = this.add
+      .rectangle(cx, H - 140, 340, 72, 0x3a7aff)
+      .setStrokeStyle(2, 0x5a9aff)
+      .setInteractive({ useHandCursor: true });
+    const startText = this.add
+      .text(cx, H - 140, '🚀 Start Run', { font: 'bold 32px ui-monospace', color: '#ffffff' })
+      .setOrigin(0.5);
+    startBg.on('pointerdown', () => {
+      const seed = this.seedInputEl?.value ?? defaultSeed;
+      this.closeRunConfig();
+      const gs = this.scene.get('game') as GameScene;
+      gs.startNewRun(seed);
+    });
+
+    container.add([backdrop, title, seedLabel, rerollBg, rerollText, startBg, startText]);
+    this.runConfigContainer = container;
+  }
+
+  private closeRunConfig(): void {
+    this.runConfigContainer?.destroy();
+    this.runConfigContainer = null;
+    if (this.seedInputEl) {
+      this.seedInputEl.remove();
+      this.seedInputEl = null;
+    }
   }
 
   openOptions(): void {

@@ -207,6 +207,8 @@ export class GameScene extends Phaser.Scene {
         this.rateTracker.observe(amount, dt);
       }),
     );
+    this.unsubs.push(prestigeState.on('shopLevelChanged', () => this.snapshotNow()));
+    this.unsubs.push(prestigeState.on('shardsChanged', () => this.snapshotNow()));
 
     this.autosaveTimer = this.time.addEvent({
       delay: 5000,
@@ -562,6 +564,46 @@ export class GameScene extends Phaser.Scene {
   }
 
   // Clear the persisted save and hard-reload. Detach the beforeunload handler
+  /**
+   * Bank pending shards, register prestige, wipe the run, and persist. Does
+   * NOT restart the scene — UIScene keeps the prestige shop overlay open on
+   * top of the reset run beneath, and the next Start Run re-enters fresh.
+   */
+  confirmPrestige(): void {
+    if (this.pendingShardsThisRun > 0) {
+      prestigeState.addShards(this.pendingShardsThisRun);
+      this.pendingShardsThisRun = 0;
+      this.events.emit('pendingShardsChanged', 0, 0);
+    }
+    prestigeState.registerPrestige();
+
+    // Tear down weapons + asteroids before resetting counts (instance list
+    // drives destroy loops; resetting counts first would orphan Matter bodies).
+    for (const inst of this.weaponInstances) {
+      inst.behavior.destroy();
+      inst.sprite.destroy();
+    }
+    this.weaponInstances = [];
+    for (const ast of this.liveAsteroids) ast.destroy();
+    this.liveAsteroids = [];
+    for (const d of this.deadChunks) d.destroy();
+    this.deadChunks.clear();
+
+    gameplayState.resetData();
+    const defaults: Record<string, number> = {};
+    for (const w of WEAPON_TYPES.filter((w) => !w.locked)) defaults[w.id] = w.startCount;
+    gameplayState.initWeaponCounts(defaults);
+
+    this.snapshotNow();
+  }
+
+  /** Seed the spawner and restart the scene with a clean slate. */
+  startNewRun(seed: string): void {
+    gameplayState.setRunSeed(seed);
+    this.snapshotNow();
+    this.scene.restart();
+  }
+
   // first so snapshotNow() doesn't immediately re-write the slot we just cleared.
   restartGame(): void {
     if (this.beforeUnloadHandler) {
