@@ -82,6 +82,102 @@ test('golden path: arena generates, grinder chops, clean console', async ({ page
   expect(errors, 'clean console — no errors or warnings').toEqual([]);
 });
 
+// Slot → buy weapon round-trip. Clicks an unlocked empty slot, picks a
+// weapon from the modal, asserts the weapon is installed and cash debited.
+// Backstops the "cannot buy when clicking slot" regression from 2026-04-17.
+test('slot-click opens picker and buying a weapon installs it at the slot', async ({ page }) => {
+  await page.goto('/');
+  await page.evaluate(() => {
+    window.localStorage.removeItem('asteroid-grinder:save:v1');
+    window.localStorage.removeItem('asteroid-grinder:save:v2');
+    window.localStorage.removeItem('asteroid-grinder:save:v3');
+  });
+  await page.reload();
+  await page.waitForFunction(
+    () => Boolean((window as unknown as { __GAME__?: unknown }).__GAME__),
+    { timeout: 10_000 },
+  );
+
+  // Seed enough cash for the buy (placeholder economy is $1/weapon).
+  await page.evaluate(() => {
+    const w = window as unknown as { __STATE__: { addCash: (n: number, o?: unknown) => void } };
+    w.__STATE__.addCash(1000);
+  });
+
+  // Find an unlocked empty slot. Pre-installed saw occupies one; pick the other.
+  const slot = await page.evaluate(() => {
+    const w = window as unknown as {
+      __GAME__: { scene: { getScene: (k: string) => unknown } };
+      __STATE__: {
+        isSlotUnlocked: (id: string) => boolean;
+        installedAt: (id: string) => unknown;
+      };
+    };
+    const scene = w.__GAME__.scene.getScene('game') as unknown as {
+      arenaLayout: { slots: { id: string; x: number; y: number }[] };
+    };
+    const empty = scene.arenaLayout.slots.find(
+      (s) => w.__STATE__.isSlotUnlocked(s.id) && !w.__STATE__.installedAt(s.id),
+    );
+    return empty ? { id: empty.id, x: empty.x, y: empty.y } : null;
+  });
+  expect(slot, 'there must be at least one unlocked empty slot after boot').not.toBeNull();
+
+  // Trigger the slot-click handler through the actual scene API (mirrors a
+  // mouse click on the slot marker — we avoid coordinate math across the
+  // scaled canvas) and then click the "Laser" button in the modal via the
+  // same emit path the UI uses.
+  // The picker's openWeaponPicker + install-weapon emitters key off `slotId`,
+  // not `id`. Reshape the slot payload to match before firing.
+  const pickerPayload = { slotId: slot!.id, x: slot!.x, y: slot!.y };
+  const result = await page.evaluate((slotPayload) => {
+    const w = window as unknown as {
+      __GAME__: { scene: { getScene: (k: string) => unknown } };
+      __STATE__: {
+        cash: number;
+        installedAt: (id: string) => { typeId: string; instanceId: string } | undefined;
+      };
+    };
+    const ui = w.__GAME__.scene.getScene('ui') as unknown as {
+      events: { emit: (n: string, p: unknown) => void };
+      weaponPickerLayer: Array<Phaser.GameObjects.GameObject & { emit: (name: string) => void }> | null;
+    };
+    const cashBefore = w.__STATE__.cash;
+    ui.events.emit('open-weapon-picker', slotPayload);
+    const pickerOpen = !!ui.weaponPickerLayer;
+
+    const layer = ui.weaponPickerLayer ?? [];
+    const layerShape = layer.map((o) => (o.constructor as { name: string }).name);
+    // Hook the install-weapon listener to trace whether it fires + what it sees.
+    let listenerFired: null | { slotId: string; typeId: string } = null;
+    ui.events.on('install-weapon', (p: { slotId: string; typeId: string }) => {
+      listenerFired = { slotId: p.slotId, typeId: p.typeId };
+    });
+    const listenerCount = ui.events.listenerCount('install-weapon');
+    const laserBtn = layer[6];
+    if (!laserBtn) {
+      return { pickerOpen, error: 'laserBtn missing', layerShape };
+    }
+    laserBtn.emit('pointerup');
+
+    const cashAfter = w.__STATE__.cash;
+    const installed = w.__STATE__.installedAt(slotPayload.slotId);
+    const pickerDismissed = !ui.weaponPickerLayer;
+    return {
+      pickerOpen, cashBefore, cashAfter, installed, pickerDismissed, layerShape,
+      listenerFired, listenerCount,
+    };
+  }, pickerPayload);
+
+  expect(result.pickerOpen, 'open-weapon-picker must render the modal').toBe(true);
+  expect(
+    result.installed?.typeId,
+    `clicking Laser must install a laser at the slot — picker shape was ${JSON.stringify(result.layerShape)}`,
+  ).toBe('laser');
+  expect(result.cashAfter, 'cash must be debited by the buy cost').toBeLessThan(result.cashBefore!);
+  expect(result.pickerDismissed, 'picker must dismiss after a weapon button is clicked').toBe(true);
+});
+
 // Arena seed determinism: set a specific runSeed, compare layouts across two
 // boots. Same seed → byte-identical walls + slots.
 test('arena: same run seed produces identical layout across reloads', async ({ page }) => {

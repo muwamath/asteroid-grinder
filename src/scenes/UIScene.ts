@@ -150,7 +150,10 @@ export class UIScene extends Phaser.Scene {
     });
   }
 
+  private welcomeBackLayer: Phaser.GameObjects.GameObject[] | null = null;
+
   private showWelcomeBack(award: number, elapsedMs: number): void {
+    this.dismissWelcomeBack();
     const { width, height } = this.scale;
     const layer: Phaser.GameObjects.GameObject[] = [];
     const overlay = this.add
@@ -213,8 +216,15 @@ export class UIScene extends Phaser.Scene {
       // Silent: offline award is not organic earnings — don't let it spike
       // the rolling cash-rate EMA, which would inflate the next offline payout.
       gameplayState.addCash(award, { silent: true });
-      for (const obj of layer) obj.destroy();
+      this.dismissWelcomeBack();
     });
+    this.welcomeBackLayer = layer;
+  }
+
+  private dismissWelcomeBack(): void {
+    if (!this.welcomeBackLayer) return;
+    for (const obj of this.welcomeBackLayer) obj.destroy();
+    this.welcomeBackLayer = null;
   }
 
   private buildWeaponBar(): void {
@@ -516,20 +526,29 @@ export class UIScene extends Phaser.Scene {
 
   private openRunConfig(): void {
     if (this.runConfigContainer) return;
+    // Any open welcome-back / picker would block clicks on this modal — kill
+    // them first so Start Run + Re-roll actually respond.
+    this.dismissWelcomeBack();
+    this.dismissWeaponPicker();
     const W = this.scale.width;
     const H = this.scale.height;
     const cx = W / 2;
-    const container = this.add.container(0, 0).setDepth(300);
+    // High depth so nothing at depth 0 (bar buttons) can steal our clicks.
+    const DEPTH = 8000;
+    const container = this.add.container(0, 0).setDepth(DEPTH);
     const backdrop = this.add
       .rectangle(0, 0, W, H, 0x000000, 0.97)
       .setOrigin(0, 0)
-      .setInteractive();
+      .setInteractive()
+      .setDepth(DEPTH);
     const title = this.add
       .text(cx, 220, 'Run Config', { font: 'bold 48px ui-monospace', color: '#ffffff' })
-      .setOrigin(0.5);
+      .setOrigin(0.5)
+      .setDepth(DEPTH + 1);
     const seedLabel = this.add
       .text(cx, 330, 'Seed:', { font: '28px ui-monospace', color: '#d0d0e0' })
-      .setOrigin(0.5);
+      .setOrigin(0.5)
+      .setDepth(DEPTH + 1);
 
     const defaultSeed = `cosmic-dust-${Date.now().toString(36)}`;
     const input = document.createElement('input');
@@ -544,10 +563,12 @@ export class UIScene extends Phaser.Scene {
     const rerollBg = this.add
       .rectangle(cx + 340, 380, 180, 48, 0x4a4a5a)
       .setStrokeStyle(2, 0x6a6a7a)
-      .setInteractive({ useHandCursor: true });
+      .setInteractive({ useHandCursor: true })
+      .setDepth(DEPTH + 1);
     const rerollText = this.add
       .text(cx + 340, 380, '🎲 Re-roll', { font: 'bold 22px ui-monospace', color: '#ffffff' })
-      .setOrigin(0.5);
+      .setOrigin(0.5)
+      .setDepth(DEPTH + 2);
     rerollBg.on('pointerdown', () => {
       if (this.seedInputEl) this.seedInputEl.value = `cosmic-dust-${Date.now().toString(36)}`;
     });
@@ -555,10 +576,12 @@ export class UIScene extends Phaser.Scene {
     const startBg = this.add
       .rectangle(cx, H - 140, 340, 72, 0x3a7aff)
       .setStrokeStyle(2, 0x5a9aff)
-      .setInteractive({ useHandCursor: true });
+      .setInteractive({ useHandCursor: true })
+      .setDepth(DEPTH + 1);
     const startText = this.add
       .text(cx, H - 140, '🚀 Start Run', { font: 'bold 32px ui-monospace', color: '#ffffff' })
-      .setOrigin(0.5);
+      .setOrigin(0.5)
+      .setDepth(DEPTH + 2);
     startBg.on('pointerdown', () => {
       const seed = this.seedInputEl?.value ?? defaultSeed;
       this.closeRunConfig();
@@ -680,6 +703,10 @@ export class UIScene extends Phaser.Scene {
 
   private openWeaponPicker(payload: { slotId: string; x: number; y: number }): void {
     this.dismissWeaponPicker();
+    // Any open welcome-back overlay blocks input to this picker even though
+    // it renders below — full-screen interactive rects confuse Phaser's
+    // multi-object hit dispatch. Dismiss it first.
+    this.dismissWelcomeBack();
     const { width, height } = this.scale;
     const W = 520;
     const H = 360;
@@ -687,10 +714,13 @@ export class UIScene extends Phaser.Scene {
     const cy = height / 2;
     const layer: Phaser.GameObjects.GameObject[] = [];
 
+    // Render well above anything else in the scene (welcome-back 1000-1003,
+    // options modal, etc.) so clicks on the picker always reach it.
+    const DEPTH = 9000;
     const backdrop = this.add
       .rectangle(0, 0, width, height, 0x000000, 0.55)
       .setOrigin(0)
-      .setDepth(1500)
+      .setDepth(DEPTH)
       .setInteractive();
     backdrop.on('pointerup', () => this.dismissWeaponPicker());
     layer.push(backdrop);
@@ -698,7 +728,7 @@ export class UIScene extends Phaser.Scene {
     const panel = this.add
       .rectangle(cx, cy, W, H, 0x18182a, 0.98)
       .setStrokeStyle(2, 0x3a3a4c)
-      .setDepth(1501)
+      .setDepth(DEPTH + 1)
       .setInteractive();
     // Eat clicks on the panel so backdrop dismiss doesn't fire.
     panel.on('pointerup', (_: unknown, __: unknown, ___: unknown, ev: Phaser.Types.Input.EventData) => {
@@ -712,7 +742,7 @@ export class UIScene extends Phaser.Scene {
         color: '#f5d66d',
       })
       .setOrigin(0.5)
-      .setDepth(1502);
+      .setDepth(DEPTH + 2);
     layer.push(title);
 
     const categories = WEAPON_TYPES.filter((w) => !w.locked && w.id !== 'grinder');
@@ -735,7 +765,7 @@ export class UIScene extends Phaser.Scene {
         .rectangle(bx, by, btnW, btnH, 0x202030, 1)
         .setStrokeStyle(2, 0x3a3a4c)
         .setInteractive({ useHandCursor: true })
-        .setDepth(1502);
+        .setDepth(DEPTH + 2);
       layer.push(bg);
 
       const nameText = this.add
@@ -744,7 +774,7 @@ export class UIScene extends Phaser.Scene {
           color: '#eeeeff',
         })
         .setOrigin(0.5)
-        .setDepth(1503);
+        .setDepth(DEPTH + 3);
       layer.push(nameText);
 
       const costText = this.add
@@ -753,7 +783,7 @@ export class UIScene extends Phaser.Scene {
           color: cost === 0 ? '#9fe79f' : '#ffd166',
         })
         .setOrigin(0.5)
-        .setDepth(1503);
+        .setDepth(DEPTH + 3);
       layer.push(costText);
 
       bg.on('pointerup', () => {
@@ -773,7 +803,7 @@ export class UIScene extends Phaser.Scene {
         color: '#888899',
       })
       .setOrigin(0.5)
-      .setDepth(1502);
+      .setDepth(DEPTH + 2);
     layer.push(hint);
 
     this.weaponPickerLayer = layer;
