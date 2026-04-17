@@ -71,4 +71,56 @@ describe('gameplayState', () => {
       expect(gameplayState.levelOf('dropRate')).toBe(2);
     });
   });
+
+  describe('arena slot tracking', () => {
+    it('initArenaSlots clears installation map and unlock state', () => {
+      gameplayState.initArenaSlots(['a', 'b']);
+      gameplayState.installWeapon('a', 'saw', 'inst-1');
+      gameplayState.tryUnlockSlot('a', 0);
+      gameplayState.markFreeUnlockUsed();
+      gameplayState.initArenaSlots(['x', 'y']);
+      expect(gameplayState.installedAt('x')).toBeUndefined();
+      expect(gameplayState.isSlotUnlocked('a')).toBe(false);
+      expect(gameplayState.freeUnlockUsed).toBe(false);
+    });
+
+    it('tryUnlockSlot debits cash, emits slotUnlocked, updates mask', () => {
+      gameplayState.addCash(1000);
+      gameplayState.initArenaSlots(['a', 'b']);
+      const events: string[] = [];
+      gameplayState.on('slotUnlocked', (id) => events.push(id));
+      expect(gameplayState.tryUnlockSlot('a', 100)).toBe(true);
+      expect(gameplayState.cash).toBe(900);
+      expect(gameplayState.isSlotUnlocked('a')).toBe(true);
+      expect(events).toEqual(['a']);
+    });
+
+    it('tryUnlockSlot with cost 0 succeeds even at $0 cash', () => {
+      gameplayState.initArenaSlots(['a']);
+      expect(gameplayState.tryUnlockSlot('a', 0)).toBe(true);
+      expect(gameplayState.cash).toBe(0);
+    });
+
+    it('tryUnlockSlot with insufficient cash fails and does not mutate', () => {
+      gameplayState.addCash(50);
+      gameplayState.initArenaSlots(['a']);
+      expect(gameplayState.tryUnlockSlot('a', 100)).toBe(false);
+      expect(gameplayState.cash).toBe(50);
+      expect(gameplayState.isSlotUnlocked('a')).toBe(false);
+    });
+
+    it('installWeapon + uninstallWeapon maintain install map and emit events', () => {
+      gameplayState.initArenaSlots(['a']);
+      const installs: string[] = [];
+      const uninstalls: string[] = [];
+      gameplayState.on('weaponInstalled', (slotId) => installs.push(slotId));
+      gameplayState.on('weaponUninstalled', (slotId) => uninstalls.push(slotId));
+      gameplayState.installWeapon('a', 'saw', 'inst-1');
+      expect(gameplayState.installedAt('a')).toEqual({ typeId: 'saw', instanceId: 'inst-1' });
+      gameplayState.uninstallWeapon('a');
+      expect(gameplayState.installedAt('a')).toBeUndefined();
+      expect(installs).toEqual(['a']);
+      expect(uninstalls).toEqual(['a']);
+    });
+  });
 });

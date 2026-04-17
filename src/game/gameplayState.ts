@@ -5,6 +5,9 @@ interface Events {
   cashEarned: [amount: number];
   upgradeLevelChanged: [id: string, level: number];
   weaponCountChanged: [id: string, count: number];
+  slotUnlocked: [slotId: string];
+  weaponInstalled: [slotId: string, typeId: string, instanceId: string];
+  weaponUninstalled: [slotId: string];
 }
 
 export interface GameplaySnapshot {
@@ -19,11 +22,18 @@ class GameplayState {
   private readonly _weaponCounts = new Map<string, number>();
   private readonly _instancesBoughtThisRun = new Map<string, number>();
   private _runSeed = '';
+  private _allSlotIds: readonly string[] = [];
+  private readonly _unlockedSlots = new Set<string>();
+  private _freeUnlockUsed = false;
+  private readonly _installs = new Map<string, { typeId: string; instanceId: string }>();
   private readonly listeners: { [K in keyof Events]: Set<Listener<Events[K]>> } = {
     cashChanged: new Set(),
     cashEarned: new Set(),
     upgradeLevelChanged: new Set(),
     weaponCountChanged: new Set(),
+    slotUnlocked: new Set(),
+    weaponInstalled: new Set(),
+    weaponUninstalled: new Set(),
   };
 
   get cash(): number {
@@ -91,6 +101,59 @@ class GameplayState {
   get runSeed(): string { return this._runSeed; }
   setRunSeed(seed: string): void { this._runSeed = seed; }
 
+  initArenaSlots(ids: readonly string[]): void {
+    this._allSlotIds = ids;
+    this._unlockedSlots.clear();
+    this._freeUnlockUsed = false;
+    this._installs.clear();
+  }
+
+  isSlotUnlocked(id: string): boolean {
+    return this._unlockedSlots.has(id);
+  }
+
+  tryUnlockSlot(id: string, cost: number): boolean {
+    if (cost > 0 && !this.trySpend(cost)) return false;
+    this._unlockedSlots.add(id);
+    this.emit('slotUnlocked', id);
+    return true;
+  }
+
+  get freeUnlockUsed(): boolean {
+    return this._freeUnlockUsed;
+  }
+
+  markFreeUnlockUsed(): void {
+    this._freeUnlockUsed = true;
+  }
+
+  installWeapon(slotId: string, typeId: string, instanceId: string): void {
+    this._installs.set(slotId, { typeId, instanceId });
+    this.emit('weaponInstalled', slotId, typeId, instanceId);
+  }
+
+  uninstallWeapon(slotId: string): void {
+    if (!this._installs.has(slotId)) return;
+    this._installs.delete(slotId);
+    this.emit('weaponUninstalled', slotId);
+  }
+
+  installedAt(slotId: string): { typeId: string; instanceId: string } | undefined {
+    return this._installs.get(slotId);
+  }
+
+  unlockedSlotIds(): readonly string[] {
+    return [...this._unlockedSlots];
+  }
+
+  allInstalls(): readonly { slotId: string; typeId: string; instanceId: string }[] {
+    return [...this._installs].map(([slotId, v]) => ({ slotId, ...v }));
+  }
+
+  get allSlotIds(): readonly string[] {
+    return this._allSlotIds;
+  }
+
   sellWeapon(id: string): boolean {
     const current = this.weaponCount(id);
     if (current <= 1) return false;
@@ -137,6 +200,10 @@ class GameplayState {
     this._weaponCounts.clear();
     this._instancesBoughtThisRun.clear();
     this._runSeed = '';
+    this._allSlotIds = [];
+    this._unlockedSlots.clear();
+    this._freeUnlockUsed = false;
+    this._installs.clear();
   }
 
   // Full reset including listeners. Used by tests for isolation between cases.
@@ -146,6 +213,9 @@ class GameplayState {
     this.listeners.cashEarned.clear();
     this.listeners.upgradeLevelChanged.clear();
     this.listeners.weaponCountChanged.clear();
+    this.listeners.slotUnlocked.clear();
+    this.listeners.weaponInstalled.clear();
+    this.listeners.weaponUninstalled.clear();
   }
 
   private emit<E extends keyof Events>(event: E, ...args: Events[E]): void {
