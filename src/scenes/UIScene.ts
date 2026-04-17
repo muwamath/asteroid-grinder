@@ -121,6 +121,33 @@ export class UIScene extends Phaser.Scene {
       this.game.registry.set('offlineAward', 0);
       this.game.registry.set('offlineElapsedMs', 0);
     }
+
+    const wipedReason = this.game.registry.get('saveWipedReason') as string | null;
+    if (wipedReason) {
+      this.showWipeToast(wipedReason, 5000);
+      this.game.registry.set('saveWipedReason', null);
+    }
+  }
+
+  private showWipeToast(message: string, durationMs: number): void {
+    const { width } = this.scale;
+    const toast = this.add
+      .text(width / 2, 48, message, {
+        font: 'bold 24px ui-monospace',
+        color: '#ffd166',
+        backgroundColor: '#000000cc',
+        padding: { x: 20, y: 12 },
+      })
+      .setOrigin(0.5, 0)
+      .setDepth(3000);
+    this.time.delayedCall(durationMs, () => {
+      this.tweens.add({
+        targets: toast,
+        alpha: 0,
+        duration: 500,
+        onComplete: () => toast.destroy(),
+      });
+    });
   }
 
   private showWelcomeBack(award: number, elapsedMs: number): void {

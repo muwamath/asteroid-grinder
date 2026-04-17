@@ -143,7 +143,11 @@ export class GameScene extends Phaser.Scene {
     const { width, height } = this.scale;
 
     this.buildArena(width, height);
-    const arenaSeed = seedFromString(gameplayState.runSeed || 'default');
+    // Prefer the snapshot's arenaSeed so a reload preserves layout — otherwise
+    // derive from runSeed (fresh run with a seed input) or fallback.
+    const arenaSeed = snap && snap.arenaSeed
+      ? snap.arenaSeed
+      : seedFromString(gameplayState.runSeed || 'default');
     this.arenaLayout = generateArena(arenaSeed, {
       width,
       height,
@@ -152,25 +156,39 @@ export class GameScene extends Phaser.Scene {
     });
     this.buildArenaFromLayout(this.arenaLayout);
     gameplayState.initArenaSlots(this.arenaLayout.slots.map((s) => s.id));
-    this.applyStartingUnlocks();
+    if (snap && snap.arenaSlotsUnlocked.length > 0) {
+      // Restore from v3 snapshot — preserves every slot the player opened.
+      for (const id of snap.arenaSlotsUnlocked) gameplayState.tryUnlockSlot(id, 0);
+      if (snap.arenaFreeUnlockUsed) gameplayState.markFreeUnlockUsed();
+    } else {
+      this.applyStartingUnlocks();
+    }
     this.buildHud(width);
     this.wireCollisions();
     this.wireDrag();
 
-    // Spawn initial weapon instances. Priority:
-    //   1) Saved per-instance positions (from snapshot) — restores drag state.
-    //   2) Saved counts (legacy snapshot) — stacked default positions.
-    //   3) Fresh game — catalog startCount at stacked defaults.
-    const unlocked = WEAPON_TYPES.filter((w) => !w.locked && w.id !== 'grinder');
+    // Weapon instantiation:
+    //   1) If we have v3 installations, instantiate at each saved slot.
+    //   2) Otherwise fresh game — catalog startCount at stacked defaults.
+    const unlockedTypes = WEAPON_TYPES.filter((w) => !w.locked && w.id !== 'grinder');
     const yBottom = DEATH_LINE_Y - ARBOR_RADIUS - 10;
     const ySpacing = ARBOR_RADIUS * 3;
     if (snap && snap.weaponInstallations.length > 0) {
-      // Phase-4-TODO: restore per-slot installations once arena slot binding lands.
-      // For now this branch is a no-op — any legacy v2 save was already wiped on load.
-      void createBehavior;
+      for (const inst of snap.weaponInstallations) {
+        const slot = this.arenaLayout.slots.find((s) => s.id === inst.slotId);
+        if (!slot) continue; // Layout changed — stale slotId silently dropped.
+        const proto = createBehavior(inst.typeId);
+        if (!proto) continue;
+        const spawned = this.spawnWeaponInstance(inst.typeId, slot.x, slot.y);
+        if (!spawned) continue;
+        if (spawned.behavior instanceof SawBehavior && inst.clockwise === false) {
+          spawned.behavior.setClockwise(false);
+        }
+        gameplayState.installWeapon(inst.slotId, inst.typeId, spawned.id);
+      }
     } else {
-      for (let wi = 0; wi < unlocked.length; wi++) {
-        const wt = unlocked[wi];
+      for (let wi = 0; wi < unlockedTypes.length; wi++) {
+        const wt = unlockedTypes[wi];
         const spawnY = yBottom - wi * ySpacing;
         const count = snap ? (snap.weaponCounts[wt.id] ?? 0) : wt.startCount;
         for (let i = 0; i < count; i++) {

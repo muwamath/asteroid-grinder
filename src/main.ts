@@ -3,12 +3,20 @@ import { GameScene } from './scenes/GameScene';
 import { UIScene } from './scenes/UIScene';
 import { gameplayState } from './game/gameplayState';
 import { prestigeState } from './game/prestigeState';
-import { loadFromLocalStorage, MIN_OFFLINE_MS } from './game/saveState';
+import { loadFromLocalStorage, MIN_OFFLINE_MS, hasLegacySave, clearSave } from './game/saveState';
 import { computeOfflineAward } from './game/offlineProgress';
 import { applyPrestigeEffects } from './game/prestigeEffects';
 import { BASE_PARAMS } from './game/upgradeApplier';
 
 const debug = new URLSearchParams(window.location.search).has('debug');
+
+// Save schema bumped v2→v3 with no migration. Any stale v1/v2 blob is wiped
+// and UIScene shows a one-time toast on next create.
+let saveWipedReason: string | null = null;
+if (hasLegacySave()) {
+  clearSave();
+  saveWipedReason = 'Save reset — game updated';
+}
 
 const snapshot = loadFromLocalStorage();
 
@@ -65,6 +73,7 @@ const game = new Phaser.Game({
 game.registry.set('pendingSnapshot', snapshot);
 game.registry.set('offlineAward', offlineAward);
 game.registry.set('offlineElapsedMs', Math.min(offlineElapsedMs, offlineCap));
+game.registry.set('saveWipedReason', saveWipedReason);
 
 const w = window as unknown as {
   __GAME__: unknown;
