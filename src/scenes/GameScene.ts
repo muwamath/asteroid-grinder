@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { CompoundAsteroid, CHUNK_PIXEL_SIZE } from '../game/compoundAsteroid';
+import { CompoundAsteroid, CHUNK_PIXEL_SIZE, type WeaponKillSource } from '../game/compoundAsteroid';
 import { AsteroidSpawner } from '../game/asteroidSpawner';
 import { gameplayState } from '../game/gameplayState';
 import { BASE_PARAMS, applyUpgrades, type EffectiveGameplayParams } from '../game/upgradeApplier';
@@ -272,7 +272,7 @@ export class GameScene extends Phaser.Scene {
         if (chunk.bodyPart.position.y > DEATH_LINE_Y) toGrind.push(chunk.chunkId);
       }
       for (const id of toGrind) {
-        const killed = this.damageLiveChunk(ast, id, Number.POSITIVE_INFINITY);
+        const killed = this.damageLiveChunk(ast, id, Number.POSITIVE_INFINITY, 'grinder');
         if (killed) {
           gameplayState.addCash(1);
           this.cashFromLine += 1;
@@ -342,7 +342,7 @@ export class GameScene extends Phaser.Scene {
           x: pos.x, y: pos.y,
           vx: vx + tvx, vy: vy + tvy,
           dead: false, tier: chunk.material.tier,
-          damage: (amount) => this.damageLiveChunk(ast, chunkId, amount),
+          damage: (amount, killer) => this.damageLiveChunk(ast, chunkId, amount, killer),
         });
       }
     }
@@ -356,20 +356,25 @@ export class GameScene extends Phaser.Scene {
         x: dead.x, y: dead.y,
         vx: body.velocity.x, vy: body.velocity.y,
         dead: true, tier,
-        damage: () => false,
+        damage: (_amount, _killer) => false,
       });
     }
     return targets;
   }
 
-  damageLiveChunk(ast: CompoundAsteroid, chunkId: string, amount: number): boolean {
+  damageLiveChunk(
+    ast: CompoundAsteroid,
+    chunkId: string,
+    amount: number,
+    killerType: WeaponKillSource,
+  ): boolean {
     const result = ast.damageChunk(chunkId, amount);
     if (!result.killed) return false;
 
     const { prunedAdjacency, components } = applyKillAndSplit(ast.adjacency, chunkId);
 
     const extracted = ast.extractDeadChunk(chunkId);
-    if (extracted) this.spawnDeadConfettiChunk(extracted);
+    if (extracted) this.spawnDeadConfettiChunk(extracted, killerType);
 
     if (components.length >= 2) {
       const idx = this.liveAsteroids.indexOf(ast);
@@ -394,7 +399,7 @@ export class GameScene extends Phaser.Scene {
     velocityX: number; velocityY: number;
     material: Material; textureKey: string;
     isCore: boolean;
-  }): void {
+  }, killerType: WeaponKillSource): void {
     const chunk = this.matter.add.image(info.worldX, info.worldY, info.textureKey);
     chunk.setRectangle(CHUNK_PIXEL_SIZE, CHUNK_PIXEL_SIZE);
     chunk.setMass(0.25);
@@ -409,13 +414,20 @@ export class GameScene extends Phaser.Scene {
     chunk.setData('tier', info.material.tier);
     chunk.setData('material', info.material);
     chunk.setData('isCore', info.isCore);
+    chunk.setData('killerType', killerType);
     this.deadChunks.add(chunk);
   }
 
   private collectDeadAtDeathLine(chunk: Phaser.Physics.Matter.Image): void {
     const tier = (chunk.getData('tier') as number | undefined) ?? 1;
-    gameplayState.addCash(tier);
-    this.cashFromSaw += tier;
+    const killerType = (chunk.getData('killerType') as WeaponKillSource | undefined) ?? 'saw';
+    const reward = killerType === 'grinder' ? 1 : tier;
+    gameplayState.addCash(reward);
+    if (killerType === 'grinder') {
+      this.cashFromLine += reward;
+    } else {
+      this.cashFromSaw += reward;
+    }
     this.collectedDead++;
     this.spawnConfetti(chunk.x, chunk.y);
     this.deadChunks.delete(chunk);

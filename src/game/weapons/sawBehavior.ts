@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import type { ChunkTarget } from '../chunkTarget';
-import type { CompoundAsteroid } from '../compoundAsteroid';
+import type { CompoundAsteroid, WeaponKillSource } from '../compoundAsteroid';
 import type { EffectiveGameplayParams } from '../upgradeApplier';
 import { BASE_PARAMS } from '../upgradeApplier';
 import type { WeaponBehavior } from './weaponBehavior';
@@ -11,7 +11,12 @@ const LAST_HIT_PRUNE_INTERVAL_MS = 1000;
 const LAST_HIT_STALE_MS = 1000;
 
 interface SceneWithDamage extends Phaser.Scene {
-  damageLiveChunk(ast: CompoundAsteroid, chunkId: string, amount: number): boolean;
+  damageLiveChunk(
+    ast: CompoundAsteroid,
+    chunkId: string,
+    amount: number,
+    killer: WeaponKillSource,
+  ): boolean;
 }
 
 export class SawBehavior implements WeaponBehavior {
@@ -114,7 +119,7 @@ export class SawBehavior implements WeaponBehavior {
     this.lastHitAt.set(key, now);
 
     const sceneTyped = scene as SceneWithDamage;
-    const killed = sceneTyped.damageLiveChunk(asteroid, chunkId, params.sawDamage);
+    const killed = sceneTyped.damageLiveChunk(asteroid, chunkId, params.sawDamage, 'saw');
     this.hitCount++;
 
     const cx = chunk.bodyPart.position.x;

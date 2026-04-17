@@ -78,7 +78,7 @@ export class MissileBehavior implements WeaponBehavior {
           const dx = chunk.x - detonation.x;
           const dy = chunk.y - detonation.y;
           if (dx * dx + dy * dy <= r2) {
-            chunk.damage(m.proj.damage);
+            chunk.damage(m.proj.damage, 'missile');
           }
         }
         const flash = scene.add.circle(detonation.x, detonation.y, m.proj.blastRadius, 0xff8833, 0.4);

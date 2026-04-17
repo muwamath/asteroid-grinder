@@ -58,7 +58,7 @@ export class LaserBehavior implements WeaponBehavior {
       this.beamGfx.strokePath();
 
       if (fireResult.damagePerTick > 0) {
-        fireResult.target.damage(fireResult.damagePerTick);
+        fireResult.target.damage(fireResult.damagePerTick, 'laser');
       }
     }
   }

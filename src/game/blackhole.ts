@@ -75,7 +75,7 @@ export class BlackHole {
     candidates.sort((a, b) => a.dist - b.dist);
     const count = Math.min(params.maxTargets, candidates.length);
     for (let i = 0; i < count; i++) {
-      candidates[i].target.damage(params.coreDamage * dt);
+      candidates[i].target.damage(params.coreDamage * dt, 'blackhole');
     }
   }
 }

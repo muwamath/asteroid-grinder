@@ -1,3 +1,5 @@
+import type { WeaponKillSource } from './compoundAsteroid';
+
 export interface ChunkTarget {
   /** Stable identity across frames. Use to re-acquire a target in later frames. */
   readonly id: string;
@@ -9,5 +11,5 @@ export interface ChunkTarget {
   readonly dead: boolean;
   readonly tier: number;
   /** Apply `amount` damage. Returns true if this call killed the chunk. */
-  damage(amount: number): boolean;
+  damage(amount: number, killer: WeaponKillSource): boolean;
 }
