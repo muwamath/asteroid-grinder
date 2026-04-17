@@ -76,9 +76,10 @@ test('golden path: arena generates, grinder chops, clean console', async ({ page
 
   expect(probe.spawnedCount, 'asteroids must spawn within 30s').toBeGreaterThan(0);
   expect(probe.grinderBladeCount, 'grinder must spawn with blades tiling the floor').toBeGreaterThan(0);
-  if (probe.liveCount > 0) {
-    expect(probe.anyRotating, 'live asteroids must have non-zero angular velocity').toBe(true);
-  }
+  // The rotation invariant from the single-chute era no longer holds — in
+  // the procedural arena, asteroids may settle on slanted walls with
+  // angular velocity 0. Rely on spawn + grinder tiling as the tripwire.
+  void probe.anyRotating;
   expect(errors, 'clean console — no errors or warnings').toEqual([]);
 });
 

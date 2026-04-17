@@ -12,8 +12,15 @@ export const UNLOCK_BASE = 50;
 export const UNLOCK_GROWTH = 2.5;
 
 export const MAX_DEPTH = 4;
-export const SPLIT_P_DECAY = 0.6;
-export const VERTICAL_AXIS_WEIGHT = 2;
+// Higher = deeper tree → more walls per map. 0.8 keeps depth-3 splits at
+// ~51% likely (vs 22% at 0.6), lifting avg wall count ~3→~5 and avg slants
+// ~1.9→~3 when paired with the horizontal-axis bias below.
+export const SPLIT_P_DECAY = 0.8;
+// Horizontal-axis bias: P(vertical) = WEIGHT / (WEIGHT + 1). At 0.5 → 33%
+// vertical, 67% horizontal. With ~4.5 total splits per map that yields ~3
+// slanted walls on average — busier, more "cascading ledges" feel than
+// the original vertical-dominant layouts.
+export const VERTICAL_AXIS_WEIGHT = 0.5;
 export const MIN_WALL_SLANT_DEG = 8;
 export const MIN_LEAF_DIM = 220;
 export const SLOT_SPACING = 180;
