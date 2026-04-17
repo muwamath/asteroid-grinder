@@ -4,8 +4,8 @@ import { MissileLauncher, MissileProjectile } from '../missile';
 import type { EffectiveGameplayParams } from '../upgradeApplier';
 import type { WeaponBehavior } from './weaponBehavior';
 
-const TURRET_RADIUS = 10;
-const DEATH_LINE_Y = 652;
+const TURRET_RADIUS = 12;
+const DEATH_LINE_Y = 1304;
 
 export class MissileBehavior implements WeaponBehavior {
   readonly textureKey = 'missile-turret';

@@ -6,7 +6,7 @@ import type { EffectiveGameplayParams } from '../upgradeApplier';
 import { BASE_PARAMS } from '../upgradeApplier';
 import type { WeaponBehavior } from './weaponBehavior';
 
-const ARBOR_RADIUS = 20;
+const ARBOR_RADIUS = 12;
 const SAW_HIT_COOLDOWN_MS = 120;
 const LAST_HIT_PRUNE_INTERVAL_MS = 1000;
 const LAST_HIT_STALE_MS = 1000;

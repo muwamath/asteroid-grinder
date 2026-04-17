@@ -4,7 +4,7 @@ import { Laser } from '../laser';
 import type { EffectiveGameplayParams } from '../upgradeApplier';
 import type { WeaponBehavior } from './weaponBehavior';
 
-const TURRET_RADIUS = 10;
+const TURRET_RADIUS = 12;
 
 export class LaserBehavior implements WeaponBehavior {
   readonly textureKey = 'laser-turret';

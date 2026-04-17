@@ -20,9 +20,21 @@
         align-items: flex-start;
         padding: 16px;
       }
+      #game:fullscreen {
+        padding: 0;
+        align-items: center;
+        justify-content: center;
+        width: 100vw;
+        height: 100vh;
+        background: #0b0b14;
+      }
       canvas {
         box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
         border-radius: 4px;
+      }
+      #game:fullscreen canvas {
+        box-shadow: none;
+        border-radius: 0;
       }
     </style>
   </head>

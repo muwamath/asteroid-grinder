@@ -4,7 +4,7 @@ import { BlackHole } from '../blackhole';
 import type { EffectiveGameplayParams } from '../upgradeApplier';
 import type { WeaponBehavior, WeaponRawAccess } from './weaponBehavior';
 
-const TURRET_RADIUS = 10;
+const TURRET_RADIUS = 12;
 
 export class BlackholeBehavior implements WeaponBehavior {
   readonly textureKey = 'blackhole-turret';

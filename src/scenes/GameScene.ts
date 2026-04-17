@@ -12,10 +12,10 @@ import type { ChunkTarget } from '../game/chunkTarget';
 import type { ChunkPartPlugin } from '../game/compoundAsteroid';
 import { applyKillAndSplit } from '../game/asteroidGraph';
 
-const ARBOR_RADIUS = 20;
+const ARBOR_RADIUS = 12;
 
 const SPAWN_Y = -80;
-const DEATH_LINE_Y = 652;
+const DEATH_LINE_Y = 1304;
 
 const CHANNEL_WALL_THICKNESS = 12;
 // The Matter collision body is thicker than the visual rectangle. Deep
@@ -23,7 +23,7 @@ const CHANNEL_WALL_THICKNESS = 12;
 // solver has limited correction range. Giving the collider extra depth
 // outside the channel face fixes this without changing visuals.
 const CHANNEL_WALL_COLLIDER_THICKNESS = 40;
-const CHANNEL_TOP_Y = 80;
+const CHANNEL_TOP_Y = 160;
 
 interface WeaponInstance {
   id: string;
@@ -426,13 +426,7 @@ export class GameScene extends Phaser.Scene {
     this.matter.add.rectangle(-wallT / 2, height / 2, wallT, height * 2, { isStatic: true });
     this.matter.add.rectangle(width + wallT / 2, height / 2, wallT, height * 2, { isStatic: true });
 
-    this.add.rectangle(width / 2, DEATH_LINE_Y, width, 3, 0xff3355, 0.9).setOrigin(0.5);
-    this.add
-      .text(width - 12, DEATH_LINE_Y - 18, 'DEATH LINE', {
-        font: '11px ui-monospace',
-        color: '#ff6680',
-      })
-      .setOrigin(1, 1);
+    this.add.rectangle(width / 2, DEATH_LINE_Y, width, 6, 0xff3355, 0.9).setOrigin(0.5);
   }
 
   private spawnWeaponInstance(typeId: string, x: number, y: number): WeaponInstance | null {
@@ -503,10 +497,10 @@ export class GameScene extends Phaser.Scene {
         const halfW = this.scale.width / 2;
         const halfChannel = this.effectiveParams.channelHalfWidth;
         const r = inst.behavior.bodyRadius;
-        const minX = halfW - halfChannel + r + 4;
-        const maxX = halfW + halfChannel - r - 4;
+        const minX = halfW - halfChannel + r + 8;
+        const maxX = halfW + halfChannel - r - 8;
         const cx = Phaser.Math.Clamp(dragX, minX, maxX);
-        const cy = Phaser.Math.Clamp(dragY, CHANNEL_TOP_Y + r + 4, DEATH_LINE_Y - r - 4);
+        const cy = Phaser.Math.Clamp(dragY, CHANNEL_TOP_Y + r + 8, DEATH_LINE_Y - r - 8);
         inst.sprite.setPosition(cx, cy);
     };
     this.input.on(Phaser.Input.Events.DRAG, this.dragHandler);
@@ -566,11 +560,11 @@ export class GameScene extends Phaser.Scene {
   private buildHud(_width: number): void {
     // Always build the overlay text — visibility is gated on debugMode so
     // the options-menu toggle + backtick hotkey can flip it at runtime.
-    this.debugText = this.add.text(14, this.scale.height - 108, '', {
-      font: '11px ui-monospace',
+    this.debugText = this.add.text(28, this.scale.height - 216, '', {
+      font: '22px ui-monospace',
       color: '#6cf',
       backgroundColor: '#0008',
-      padding: { x: 6, y: 4 },
+      padding: { x: 12, y: 8 },
     });
     this.debugText.setVisible(this.debugMode);
     this.debugText.setDepth(900);
@@ -647,7 +641,7 @@ export class GameScene extends Phaser.Scene {
     // the saw can't keep up with incoming flow (e.g. max Drop Rate + weak
     // damage). Skipped spawns are silently lost — gameplay incentive to buy
     // more / stronger weapons.
-    const spawnGateY = CHANNEL_TOP_Y + 40;
+    const spawnGateY = CHANNEL_TOP_Y + 80;
     for (const ast of this.liveAsteroids) {
       for (const chunk of ast.chunks.values()) {
         if (chunk.bodyPart.position.y < spawnGateY) return;

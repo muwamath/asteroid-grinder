@@ -9,12 +9,12 @@ import {
 import { costAtLevel, isMaxed, type UpgradeDef } from '../game/upgradeCatalog';
 import type { GameScene } from './GameScene';
 
-const BAR_X = 8;
-const BAR_Y = 44;
-const BAR_BUTTON_SIZE = 52;
-const BAR_GAP = 6;
-const SUBPANEL_X = BAR_X + BAR_BUTTON_SIZE + 6;
-const SUBPANEL_W = 170;
+const BAR_X = 16;
+const BAR_Y = 88;
+const BAR_BUTTON_SIZE = 104;
+const BAR_GAP = 12;
+const SUBPANEL_X = BAR_X + BAR_BUTTON_SIZE + 12;
+const SUBPANEL_W = 340;
 
 export class UIScene extends Phaser.Scene {
   private cashText!: Phaser.GameObjects.Text;
@@ -26,6 +26,7 @@ export class UIScene extends Phaser.Scene {
   private saveToast: Phaser.GameObjects.Text | null = null;
   private saveToastTween: Phaser.Tweens.Tween | null = null;
   private escKey: Phaser.Input.Keyboard.Key | null = null;
+  private fullscreenKey: Phaser.Input.Keyboard.Key | null = null;
 
   constructor() {
     super('ui');
@@ -34,8 +35,8 @@ export class UIScene extends Phaser.Scene {
   create(): void {
     // Seed from current state — GameScene's loadSnapshot fires cashChanged
     // before UIScene is launched, so a cold subscription would miss it.
-    this.cashText = this.add.text(BAR_X, 10, `$${gameplayState.cash}`, {
-      font: 'bold 26px ui-monospace',
+    this.cashText = this.add.text(BAR_X, 20, `$${gameplayState.cash}`, {
+      font: 'bold 52px ui-monospace',
       color: '#ffd166',
     });
 
@@ -85,6 +86,11 @@ export class UIScene extends Phaser.Scene {
         this.input.keyboard?.removeKey(this.escKey);
         this.escKey = null;
       }
+      if (this.fullscreenKey) {
+        this.fullscreenKey.removeAllListeners();
+        this.input.keyboard?.removeKey(this.fullscreenKey);
+        this.fullscreenKey = null;
+      }
     });
 
     const award = (this.game.registry.get('offlineAward') as number | undefined) ?? 0;
@@ -104,11 +110,11 @@ export class UIScene extends Phaser.Scene {
       .setOrigin(0, 0)
       .setInteractive()
       .setDepth(1000);
-    const panelW = 440;
-    const panelH = 220;
+    const panelW = 880;
+    const panelH = 440;
     const panel = this.add
       .rectangle(width / 2, height / 2, panelW, panelH, 0x1f1f30)
-      .setStrokeStyle(2, 0xffffff, 0.3)
+      .setStrokeStyle(4, 0xffffff, 0.3)
       .setDepth(1001);
 
     const hours = Math.floor(elapsedMs / 3_600_000);
@@ -116,9 +122,9 @@ export class UIScene extends Phaser.Scene {
     const away = hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
 
     const title = this.add
-      .text(width / 2, height / 2 - 70, 'Welcome back!', {
+      .text(width / 2, height / 2 - 140, 'Welcome back!', {
         fontFamily: 'sans-serif',
-        fontSize: '28px',
+        fontSize: '56px',
         color: '#ffd166',
       })
       .setOrigin(0.5)
@@ -127,11 +133,11 @@ export class UIScene extends Phaser.Scene {
     const body = this.add
       .text(
         width / 2,
-        height / 2 - 15,
+        height / 2 - 30,
         `Away for ${away}.\nYour saws earned $${award.toLocaleString()}.`,
         {
           fontFamily: 'sans-serif',
-          fontSize: '18px',
+          fontSize: '36px',
           color: '#cccccc',
           align: 'center',
         },
@@ -140,14 +146,14 @@ export class UIScene extends Phaser.Scene {
       .setDepth(1002);
 
     const btn = this.add
-      .rectangle(width / 2, height / 2 + 60, 160, 44, 0x2d7a3d)
-      .setStrokeStyle(2, 0xffffff, 0.5)
+      .rectangle(width / 2, height / 2 + 120, 320, 88, 0x2d7a3d)
+      .setStrokeStyle(4, 0xffffff, 0.5)
       .setInteractive({ useHandCursor: true })
       .setDepth(1002);
     const btnText = this.add
-      .text(width / 2, height / 2 + 60, 'Collect', {
+      .text(width / 2, height / 2 + 120, 'Collect', {
         fontFamily: 'sans-serif',
-        fontSize: '20px',
+        fontSize: '40px',
         color: '#ffffff',
       })
       .setOrigin(0.5)
@@ -177,11 +183,11 @@ export class UIScene extends Phaser.Scene {
     }
 
     // Divider.
-    this.add.text(BAR_X, y + 2, '─WEAPONS─', {
-      font: 'bold 8px ui-monospace',
+    this.add.text(BAR_X, y + 4, '─WEAPONS─', {
+      font: 'bold 16px ui-monospace',
       color: '#606078',
     });
-    y += 18;
+    y += 36;
 
     // Weapons.
     for (const wt of WEAPON_TYPES) {
@@ -198,19 +204,19 @@ export class UIScene extends Phaser.Scene {
 
   private buildOptionsGear(): void {
     const { width } = this.scale;
-    const btnSize = 34;
-    const x = width - btnSize - 10;
-    const y = 10;
+    const btnSize = 68;
+    const x = width - btnSize - 20;
+    const y = 20;
 
     const bg = this.add
       .rectangle(x, y, btnSize, btnSize, 0x202030)
       .setOrigin(0, 0)
-      .setStrokeStyle(1, 0x4a4a5c)
+      .setStrokeStyle(2, 0x4a4a5c)
       .setInteractive({ useHandCursor: true })
       .setDepth(500);
     const label = this.add
       .text(x + btnSize / 2, y + btnSize / 2, '⚙', {
-        font: 'bold 20px ui-monospace',
+        font: 'bold 40px ui-monospace',
         color: '#c0c0d8',
       })
       .setOrigin(0.5)
@@ -226,6 +232,8 @@ export class UIScene extends Phaser.Scene {
         if (this.optionsModal) this.closeOptions();
         else this.openOptions();
       });
+      this.fullscreenKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.F);
+      this.fullscreenKey.on('down', () => this.doToggleFullscreen());
     }
 
     // Keep a handle in case we need to re-layout later.
@@ -263,6 +271,15 @@ export class UIScene extends Phaser.Scene {
     return gs.debugEnabled;
   }
 
+  doToggleFullscreen(): void {
+    if (this.scale.isFullscreen) this.scale.stopFullscreen();
+    else this.scale.startFullscreen();
+  }
+
+  getFullscreenEnabled(): boolean {
+    return this.scale.isFullscreen;
+  }
+
   private flashSaveToast(): void {
     if (this.saveToastTween) {
       this.saveToastTween.stop();
@@ -270,11 +287,11 @@ export class UIScene extends Phaser.Scene {
     }
     if (!this.saveToast) {
       this.saveToast = this.add
-        .text(this.scale.width - 10, 52, 'Saved', {
-          font: 'bold 14px ui-monospace',
+        .text(this.scale.width - 20, 104, 'Saved', {
+          font: 'bold 28px ui-monospace',
           color: '#b0ffa8',
           backgroundColor: '#00000080',
-          padding: { x: 8, y: 4 },
+          padding: { x: 16, y: 8 },
         })
         .setOrigin(1, 0)
         .setDepth(600);
@@ -339,7 +356,7 @@ class WeaponBarButton {
     this.bg = scene.add
       .rectangle(x, y, BAR_BUTTON_SIZE, BAR_BUTTON_SIZE, this.isLocked ? 0x141420 : 0x202030)
       .setOrigin(0, 0)
-      .setStrokeStyle(1, 0x4a4a5c);
+      .setStrokeStyle(2, 0x4a4a5c);
 
     if (!this.isLocked) {
       this.bg.setInteractive({ useHandCursor: true });
@@ -348,15 +365,15 @@ class WeaponBarButton {
 
     // Icon placeholder — first letter of name, large.
     scene.add
-      .text(x + BAR_BUTTON_SIZE / 2, y + BAR_BUTTON_SIZE / 2 - 4, def.name.charAt(0), {
-        font: 'bold 20px ui-monospace',
+      .text(x + BAR_BUTTON_SIZE / 2, y + BAR_BUTTON_SIZE / 2 - 8, def.name.charAt(0), {
+        font: 'bold 40px ui-monospace',
         color: this.isLocked ? '#303040' : '#8080a0',
       })
       .setOrigin(0.5);
 
     scene.add
-      .text(x + BAR_BUTTON_SIZE / 2, y + BAR_BUTTON_SIZE - 6, def.name, {
-        font: '7px ui-monospace',
+      .text(x + BAR_BUTTON_SIZE / 2, y + BAR_BUTTON_SIZE - 12, def.name, {
+        font: '14px ui-monospace',
         color: this.isLocked ? '#404050' : '#a0a0b8',
       })
       .setOrigin(0.5);
@@ -364,8 +381,8 @@ class WeaponBarButton {
     if (isWeapon && !this.isLocked && def.id !== 'grinder') {
       const initialCount = gameplayState.weaponCount(def.id);
       this.countText = scene.add
-        .text(x + BAR_BUTTON_SIZE - 4, y + 3, `×${initialCount}`, {
-          font: 'bold 9px ui-monospace',
+        .text(x + BAR_BUTTON_SIZE - 8, y + 6, `×${initialCount}`, {
+          font: 'bold 18px ui-monospace',
           color: '#b0ffa8',
         })
         .setOrigin(1, 0)
@@ -377,7 +394,7 @@ class WeaponBarButton {
 
   setSelected(selected: boolean): void {
     if (this.isLocked) return;
-    this.bg.setStrokeStyle(selected ? 2 : 1, selected ? 0xff6666 : 0x4a4a5c);
+    this.bg.setStrokeStyle(selected ? 4 : 2, selected ? 0xff6666 : 0x4a4a5c);
     this.bg.setFillStyle(selected ? 0x2a1a1a : 0x202030);
   }
 
@@ -416,32 +433,32 @@ class SubPanel {
     const bg = scene.add
       .rectangle(0, 0, SUBPANEL_W, bgH, 0x1a1a28, 0.92)
       .setOrigin(0, 0)
-      .setStrokeStyle(1, 0x3a3a4c);
+      .setStrokeStyle(2, 0x3a3a4c);
     this.container.add(bg);
-    yOff += 8;
+    yOff += 16;
 
     // Header.
-    this.headerText = scene.add.text(8, yOff, def.name, {
-      font: 'bold 12px ui-monospace',
+    this.headerText = scene.add.text(16, yOff, def.name, {
+      font: 'bold 24px ui-monospace',
       color: '#e8e8f0',
     });
     this.container.add(this.headerText);
-    yOff += 22;
+    yOff += 44;
 
     // Buy/Sell for weapons (not grinder — it IS the death line).
     const showBuySell = isWeapon && def.id !== 'grinder';
     if (showBuySell) {
-      const btnW = (SUBPANEL_W - 22) / 2;
-      const btnH = 30;
+      const btnW = (SUBPANEL_W - 44) / 2;
+      const btnH = 60;
 
       this.buyButton = scene.add
-        .rectangle(8, yOff, btnW, btnH, 0x233024)
+        .rectangle(16, yOff, btnW, btnH, 0x233024)
         .setOrigin(0, 0)
-        .setStrokeStyle(1, 0x4a5c4a)
+        .setStrokeStyle(2, 0x4a5c4a)
         .setInteractive({ useHandCursor: true });
       this.buyText = scene.add
-        .text(8 + btnW / 2, yOff + btnH / 2, 'Buy $1', {
-          font: 'bold 10px ui-monospace',
+        .text(16 + btnW / 2, yOff + btnH / 2, 'Buy $1', {
+          font: 'bold 20px ui-monospace',
           color: '#b0ffa8',
         })
         .setOrigin(0.5);
@@ -449,34 +466,34 @@ class SubPanel {
       this.container.add([this.buyButton, this.buyText]);
 
       this.sellButton = scene.add
-        .rectangle(8 + btnW + 6, yOff, btnW, btnH, 0x302323)
+        .rectangle(16 + btnW + 12, yOff, btnW, btnH, 0x302323)
         .setOrigin(0, 0)
-        .setStrokeStyle(1, 0x5c4a4a)
+        .setStrokeStyle(2, 0x5c4a4a)
         .setInteractive({ useHandCursor: true });
       this.sellText = scene.add
-        .text(8 + btnW + 6 + btnW / 2, yOff + btnH / 2, 'Sell $1', {
-          font: 'bold 10px ui-monospace',
+        .text(16 + btnW + 12 + btnW / 2, yOff + btnH / 2, 'Sell $1', {
+          font: 'bold 20px ui-monospace',
           color: '#ffa0a0',
         })
         .setOrigin(0.5);
       this.sellButton.on('pointerdown', () => this.onSell());
       this.container.add([this.sellButton, this.sellText]);
 
-      yOff += btnH + 8;
+      yOff += btnH + 16;
 
       // CW/CCW toggle (saw only).
       if (def.id === 'saw') {
-        const toggleW = (SUBPANEL_W - 22) / 2;
-        const toggleH = 24;
+        const toggleW = (SUBPANEL_W - 44) / 2;
+        const toggleH = 48;
 
         this.cwButton = scene.add
-          .rectangle(8, yOff, toggleW, toggleH, 0x2a3040)
+          .rectangle(16, yOff, toggleW, toggleH, 0x2a3040)
           .setOrigin(0, 0)
-          .setStrokeStyle(1, 0x4a5c6a)
+          .setStrokeStyle(2, 0x4a5c6a)
           .setInteractive({ useHandCursor: true });
         this.cwText = scene.add
-          .text(8 + toggleW / 2, yOff + toggleH / 2, 'CW', {
-            font: 'bold 10px ui-monospace',
+          .text(16 + toggleW / 2, yOff + toggleH / 2, 'CW', {
+            font: 'bold 20px ui-monospace',
             color: '#a0c0e0',
           })
           .setOrigin(0.5);
@@ -484,36 +501,36 @@ class SubPanel {
         this.container.add([this.cwButton, this.cwText]);
 
         this.ccwButton = scene.add
-          .rectangle(8 + toggleW + 6, yOff, toggleW, toggleH, 0x1a1a28)
+          .rectangle(16 + toggleW + 12, yOff, toggleW, toggleH, 0x1a1a28)
           .setOrigin(0, 0)
-          .setStrokeStyle(1, 0x3a3a4c)
+          .setStrokeStyle(2, 0x3a3a4c)
           .setInteractive({ useHandCursor: true });
         this.ccwText = scene.add
-          .text(8 + toggleW + 6 + toggleW / 2, yOff + toggleH / 2, 'CCW', {
-            font: 'bold 10px ui-monospace',
+          .text(16 + toggleW + 12 + toggleW / 2, yOff + toggleH / 2, 'CCW', {
+            font: 'bold 20px ui-monospace',
             color: '#606078',
           })
           .setOrigin(0.5);
         this.ccwButton.on('pointerdown', () => gameplayState.setSawClockwise(false));
         this.container.add([this.ccwButton, this.ccwText]);
 
-        yOff += toggleH + 6;
+        yOff += toggleH + 12;
       }
     }
 
     // Upgrades.
     if (def.upgrades.length > 0) {
-      const upgLabel = scene.add.text(8, yOff, 'UPGRADES', {
-        font: 'bold 9px ui-monospace',
+      const upgLabel = scene.add.text(16, yOff, 'UPGRADES', {
+        font: 'bold 18px ui-monospace',
         color: '#a0a0b8',
       });
       this.container.add(upgLabel);
-      yOff += 16;
+      yOff += 32;
 
       for (const upgDef of def.upgrades) {
-        const btn = new UpgradeButton(scene, 8, yOff, SUBPANEL_W - 16, 40, upgDef, this.container);
+        const btn = new UpgradeButton(scene, 16, yOff, SUBPANEL_W - 32, 80, upgDef, this.container);
         this.upgradeButtons.push(btn);
-        yOff += 44;
+        yOff += 88;
       }
     }
   }
@@ -542,10 +559,10 @@ class SubPanel {
     if (this.cwButton) {
       const cw = gameplayState.sawClockwise;
       this.cwButton.setFillStyle(cw ? 0x2a3040 : 0x1a1a28);
-      this.cwButton.setStrokeStyle(1, cw ? 0x4a5c6a : 0x3a3a4c);
+      this.cwButton.setStrokeStyle(2, cw ? 0x4a5c6a : 0x3a3a4c);
       this.cwText?.setColor(cw ? '#a0c0e0' : '#606078');
       this.ccwButton?.setFillStyle(cw ? 0x1a1a28 : 0x2a3040);
-      this.ccwButton?.setStrokeStyle(1, cw ? 0x3a3a4c : 0x4a5c6a);
+      this.ccwButton?.setStrokeStyle(2, cw ? 0x3a3a4c : 0x4a5c6a);
       this.ccwText?.setColor(cw ? '#606078' : '#a0c0e0');
     }
 
@@ -557,14 +574,14 @@ class SubPanel {
   }
 
   private estimateHeight(): number {
-    let h = 8 + 22; // padding + header
-    if (this.isWeapon && this.def.id !== 'grinder') h += 38; // buy/sell row
-    if (this.def.id === 'saw') h += 30; // CW/CCW toggle
+    let h = 16 + 44; // padding + header
+    if (this.isWeapon && this.def.id !== 'grinder') h += 76; // buy/sell row
+    if (this.def.id === 'saw') h += 60; // CW/CCW toggle
     if (this.def.upgrades.length > 0) {
-      h += 16; // upgrades label
-      h += this.def.upgrades.length * 44; // upgrade rows
+      h += 32; // upgrades label
+      h += this.def.upgrades.length * 88; // upgrade rows
     }
-    return h + 8; // bottom padding
+    return h + 16; // bottom padding
   }
 
   private onBuy(): void {
@@ -605,7 +622,7 @@ class UpgradeButton {
     this.bg = scene.add
       .rectangle(x, y, w, h, 0x202030)
       .setOrigin(0, 0)
-      .setStrokeStyle(1, 0x4a4a5c);
+      .setStrokeStyle(2, 0x4a4a5c);
     this.bg.setInteractive({ useHandCursor: true });
     this.bg.on('pointerdown', () => this.tryBuy());
     this.bg.on('pointerover', () => {
@@ -617,16 +634,16 @@ class UpgradeButton {
       this.applyFill();
     });
 
-    this.nameText = scene.add.text(x + 8, y + 4, def.name, {
-      font: 'bold 11px ui-monospace',
+    this.nameText = scene.add.text(x + 16, y + 8, def.name, {
+      font: 'bold 22px ui-monospace',
       color: '#e8e8f0',
     });
-    this.statsText = scene.add.text(x + 8, y + 18, '', {
-      font: '9px ui-monospace',
+    this.statsText = scene.add.text(x + 16, y + 36, '', {
+      font: '18px ui-monospace',
       color: '#a0a0b8',
     });
-    this.descText = scene.add.text(x + 8, y + 28, def.description, {
-      font: '9px ui-monospace',
+    this.descText = scene.add.text(x + 16, y + 56, def.description, {
+      font: '18px ui-monospace',
       color: '#707088',
     });
 
@@ -693,13 +710,13 @@ class OptionsModal {
     backdrop.on('pointerdown', () => scene.closeOptions());
     this.objects.push(backdrop);
 
-    const panelW = 360;
-    const panelH = 300;
+    const panelW = 720;
+    const panelH = 720;
     const panelX = width / 2;
     const panelY = height / 2;
     const panel = scene.add
       .rectangle(panelX, panelY, panelW, panelH, 0x1f1f30)
-      .setStrokeStyle(2, 0xffffff, 0.3)
+      .setStrokeStyle(4, 0xffffff, 0.3)
       .setDepth(801)
       .setInteractive();
     // Swallow clicks on the panel itself (don't bubble to backdrop).
@@ -709,34 +726,40 @@ class OptionsModal {
     this.objects.push(panel);
 
     const title = scene.add
-      .text(panelX, panelY - panelH / 2 + 22, 'Options', {
-        font: 'bold 20px ui-monospace',
+      .text(panelX, panelY - panelH / 2 + 44, 'Options', {
+        font: 'bold 40px ui-monospace',
         color: '#ffd166',
       })
       .setOrigin(0.5)
       .setDepth(802);
     this.objects.push(title);
 
-    const btnW = 220;
-    const btnH = 40;
-    const gap = 12;
-    const firstY = panelY - 50;
+    const btnW = 440;
+    const btnH = 80;
+    const gap = 24;
+    const firstY = panelY - 160;
 
     this.addButton(panelX, firstY, btnW, btnH, 'Save Now', '#b0ffa8', () => {
       scene.doManualSave();
     });
     this.addButton(panelX, firstY + (btnH + gap), btnW, btnH, () => {
-      return scene.getDebugEnabled() ? 'Hide Debug Overlay' : 'Show Debug Overlay';
-    }, '#a0c0e0', () => {
-      scene.doToggleDebug();
-      // Re-render to update button label.
+      return scene.getFullscreenEnabled() ? 'Exit Fullscreen (F)' : 'Enter Fullscreen (F)';
+    }, '#ffd166', () => {
+      scene.doToggleFullscreen();
       scene.closeOptions();
       scene.openOptions();
     });
-    this.addButton(panelX, firstY + 2 * (btnH + gap), btnW, btnH, 'Restart Game', '#ffa0a0', () => {
+    this.addButton(panelX, firstY + 2 * (btnH + gap), btnW, btnH, () => {
+      return scene.getDebugEnabled() ? 'Hide Debug Overlay' : 'Show Debug Overlay';
+    }, '#a0c0e0', () => {
+      scene.doToggleDebug();
+      scene.closeOptions();
+      scene.openOptions();
+    });
+    this.addButton(panelX, firstY + 3 * (btnH + gap), btnW, btnH, 'Restart Game', '#ffa0a0', () => {
       this.showRestartConfirm();
     });
-    this.addButton(panelX, firstY + 3 * (btnH + gap), btnW, btnH, 'Close', '#c0c0d8', () => {
+    this.addButton(panelX, firstY + 4 * (btnH + gap), btnW, btnH, 'Close', '#c0c0d8', () => {
       scene.closeOptions();
     });
   }
@@ -749,12 +772,12 @@ class OptionsModal {
   ): void {
     const bg = this.scene.add
       .rectangle(cx, cy, w, h, 0x2a2a3c)
-      .setStrokeStyle(1, 0x4a4a5c)
+      .setStrokeStyle(2, 0x4a4a5c)
       .setInteractive({ useHandCursor: true })
       .setDepth(802);
     const text = this.scene.add
       .text(cx, cy, typeof label === 'function' ? label() : label, {
-        font: 'bold 14px ui-monospace',
+        font: 'bold 28px ui-monospace',
         color,
       })
       .setOrigin(0.5)
@@ -785,17 +808,17 @@ class OptionsModal {
     });
     layer.push(shade);
 
-    const panelW = 380;
-    const panelH = 180;
+    const panelW = 760;
+    const panelH = 360;
     const panel = this.scene.add
       .rectangle(width / 2, height / 2, panelW, panelH, 0x1f1f30)
-      .setStrokeStyle(2, 0xff6666, 0.5)
+      .setStrokeStyle(4, 0xff6666, 0.5)
       .setDepth(901);
     layer.push(panel);
 
     const title = this.scene.add
-      .text(width / 2, height / 2 - 50, 'Restart game?', {
-        font: 'bold 18px ui-monospace',
+      .text(width / 2, height / 2 - 100, 'Restart game?', {
+        font: 'bold 36px ui-monospace',
         color: '#ff9090',
       })
       .setOrigin(0.5)
@@ -805,10 +828,10 @@ class OptionsModal {
     const body = this.scene.add
       .text(
         width / 2,
-        height / 2 - 18,
+        height / 2 - 36,
         'This clears your save and starts fresh.',
         {
-          font: '13px ui-monospace',
+          font: '26px ui-monospace',
           color: '#c0c0d0',
           align: 'center',
         },
@@ -818,13 +841,13 @@ class OptionsModal {
     layer.push(body);
 
     const cancelBg = this.scene.add
-      .rectangle(width / 2 - 85, height / 2 + 40, 140, 36, 0x2a2a3c)
-      .setStrokeStyle(1, 0x4a4a5c)
+      .rectangle(width / 2 - 170, height / 2 + 80, 280, 72, 0x2a2a3c)
+      .setStrokeStyle(2, 0x4a4a5c)
       .setInteractive({ useHandCursor: true })
       .setDepth(902);
     const cancelText = this.scene.add
-      .text(width / 2 - 85, height / 2 + 40, 'Cancel', {
-        font: 'bold 13px ui-monospace',
+      .text(width / 2 - 170, height / 2 + 80, 'Cancel', {
+        font: 'bold 26px ui-monospace',
         color: '#c0c0d8',
       })
       .setOrigin(0.5)
@@ -836,13 +859,13 @@ class OptionsModal {
     layer.push(cancelBg, cancelText);
 
     const confirmBg = this.scene.add
-      .rectangle(width / 2 + 85, height / 2 + 40, 140, 36, 0x402020)
-      .setStrokeStyle(1, 0x803030)
+      .rectangle(width / 2 + 170, height / 2 + 80, 280, 72, 0x402020)
+      .setStrokeStyle(2, 0x803030)
       .setInteractive({ useHandCursor: true })
       .setDepth(902);
     const confirmText = this.scene.add
-      .text(width / 2 + 85, height / 2 + 40, 'Restart', {
-        font: 'bold 13px ui-monospace',
+      .text(width / 2 + 170, height / 2 + 80, 'Restart', {
+        font: 'bold 26px ui-monospace',
         color: '#ffa0a0',
       })
       .setOrigin(0.5)

@@ -5,9 +5,11 @@ import { test, expect, type ConsoleMessage } from '@playwright/test';
 // them, and nothing screams in the console. A failure here means
 // something load-bearing in DESIGN_INVARIANTS.md almost certainly broke.
 //
-// Why 30s and not 10s: at L0 Fall Speed (0.3 px/tick ≈ 18 px/sec) an
-// asteroid takes ~40s to traverse the 720px arena. 30s guarantees the
-// first wave reaches the saw with default starting upgrades.
+// Why 30s and not 10s: asteroids fall from above the channel down to the
+// death line at current gravity; the full traverse takes longer than the
+// window. We teleport the saw to the top of the channel immediately after
+// boot so it intercepts the first wave within the 30s budget regardless
+// of where defaults drop it.
 test('golden path: game boots, grinding loop runs, clean console', async ({ page }) => {
   const errors: string[] = [];
   // Headless Chromium emits WebGL GPU-driver performance warnings
@@ -37,6 +39,19 @@ test('golden path: game boots, grinding loop runs, clean console', async ({ page
 
   await page.waitForFunction(() => Boolean((window as unknown as { __GAME__?: unknown }).__GAME__), {
     timeout: 10_000,
+  });
+
+  // Teleport the saw to the top of the chute so the first wave reaches it
+  // well within the 30s test budget. Without this, default-positioned saws
+  // sit mid-channel and the fall from spawn takes longer than 30s.
+  await page.evaluate(() => {
+    const w = window as unknown as { __GAME__: { scene: { getScene: (k: string) => unknown } } };
+    const scene = w.__GAME__.scene.getScene('game') as unknown as {
+      weaponInstances: Array<{ type: string; sprite: { setPosition: (x: number, y: number) => void } }>;
+      scale: { width: number };
+    };
+    const saw = scene.weaponInstances.find((wi) => wi.type === 'saw');
+    if (saw) saw.sprite.setPosition(scene.scale.width / 2, 200);
   });
 
   await page.waitForTimeout(30_000);

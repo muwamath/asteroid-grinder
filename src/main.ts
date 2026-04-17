@@ -24,12 +24,13 @@ if (snapshot) {
 const game = new Phaser.Game({
   type: Phaser.AUTO,
   parent: 'game',
-  width: 1280,
-  height: 720,
+  width: 2560,
+  height: 1440,
   backgroundColor: '#1a1a28',
   scale: {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
+    fullscreenTarget: 'game',
   },
   physics: {
     default: 'matter',

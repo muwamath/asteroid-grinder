@@ -35,6 +35,10 @@ Biggest adds — new reasons to keep playing.
   - **Offline-earnings cap extender.** Prestige-tier upgrade that raises `OFFLINE_CAP_MS` (default 8h → 12h → 24h → 48h) at steep prestige cost.
 - **More weapons.** Tesla Coil, Freeze Ray, Flak Cannon, Gravity Well, Rail Gun, Drone Swarm (from the Unity prototype backlog). One `WeaponBehavior` file + catalog entry each.
 - **Saw shape library.** Purchase unlocks alternate blade silhouettes (circular, bladed, star, crescent). Needs a `SawShape` concept (sprite + collider profile per shape) plus a selector UI.
+- **Grinder overhaul.** Currently the grinder is a plain red death line — any chunk crossing it dies for cash. Full rebuild:
+  - **Creation** — model the grinder as a proper entity at the death line position, not a hardcoded `DEATH_LINE_Y` constant + ad-hoc chunk-below-Y check. Same `WeaponBehavior` pattern as saws/laser.
+  - **Upgrades** — ties into the existing `grinder` weapon type in the catalog. Needs real per-level upgrades (damage, throughput, teeth count, chew speed, width).
+  - **Visuals** — teeth, rotation animation, conveyor-belt feel, chew particles. Subsumes the §5 "Grinder visual overhaul" bullet.
 
 ## 4. Economy & balance
 
@@ -52,7 +56,6 @@ Visual and sonic polish.
 - Palette tuning, particle polish, general readability pass.
 - Shop-panel styling: typography, spacing, framing, hover/press feedback, category icon art.
 - **Live-demo category icons** — render each category's hero entity into the button (e.g. a miniature spinning saw inside the Saw icon).
-- **Grinder visual overhaul.** Replace the plain death line with teeth, rotation animation, conveyor-belt feel, chew-effect particles.
 - **Background pass.** Flat `#1a1a28` → stars / nebula gradient / parallax / subtle animated field. Should read as "space" without distracting.
 - Spark-burst upgrade: swap the procedural 1×1 white for a star/plus glyph, warmer toward centre.
 - Saw hub + blade sprites: bump procedural 64×64 art or ship proper assets.
