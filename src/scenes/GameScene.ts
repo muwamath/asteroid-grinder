@@ -8,6 +8,7 @@ import { CashRateTracker } from '../game/cashRate';
 import { saveToLocalStorage, clearSave, type SaveStateV1 } from '../game/saveState';
 import { type WeaponBehavior, createBehavior, allBehaviorPrototypes } from '../game/weapons';
 import { SawBehavior } from '../game/weapons/sawBehavior';
+import { GrinderBehavior } from '../game/weapons/grinderBehavior';
 import { MATERIALS, type Material, textureKeyFor } from '../game/materials';
 import type { ChunkTarget } from '../game/chunkTarget';
 import type { ChunkPartPlugin } from '../game/compoundAsteroid';
@@ -141,6 +142,8 @@ export class GameScene extends Phaser.Scene {
         Object.fromEntries(WEAPON_TYPES.filter((w) => !w.locked).map((w) => [w.id, w.startCount])),
       );
     }
+
+    this.spawnGrinder(width);
 
     this.spawner = new AsteroidSpawner(this);
     this.rebuildSpawnTimer(this.effectiveParams.spawnIntervalMs);
@@ -471,6 +474,28 @@ export class GameScene extends Phaser.Scene {
     return instance;
   }
 
+  // The grinder is a fixed full-width entity, not a draggable weapon. One
+  // instance per scene, created at scene start. Its `sprite` is a hidden
+  // sensor satisfying the WeaponBehavior handle; the behavior manages the
+  // real blade bodies internally.
+  private spawnGrinder(sceneWidth: number): void {
+    const behavior = new GrinderBehavior({
+      deathLineY: DEATH_LINE_Y,
+      channelCenterX: sceneWidth / 2,
+    });
+    behavior.createTextures(this);
+    const id = `grinder-${this.nextInstanceId++}`;
+    const hiddenSprite = this.matter.add.image(-9999, -9999, 'grinder-housing');
+    hiddenSprite.setStatic(true);
+    hiddenSprite.setSensor(true);
+    hiddenSprite.setVisible(false);
+    hiddenSprite.setData('kind', 'grinder-root');
+    hiddenSprite.setData('instanceId', id);
+    const instance: WeaponInstance = { id, type: 'grinder', sprite: hiddenSprite, behavior };
+    this.weaponInstances.push(instance);
+    behavior.init(this, hiddenSprite, this.effectiveParams);
+  }
+
   // Double-click a saw arbor to reverse THIS saw's direction (each saw is
   // configured independently). Detects on pointerdown (not pointerup) so a
   // click that ALSO starts a drag still registers — the drag flag only
@@ -512,15 +537,19 @@ export class GameScene extends Phaser.Scene {
     const weaponIds = WEAPON_TYPES.filter((w) => !w.locked).map((w) => w.id);
     const weaponCounts: Record<string, number> = {};
     for (const id of weaponIds) weaponCounts[id] = gameplayState.weaponCount(id);
-    const weaponInstances = this.weaponInstances.map((inst) => {
-      const base: { typeId: string; x: number; y: number; clockwise?: boolean } = {
-        typeId: inst.type,
-        x: inst.sprite.x,
-        y: inst.sprite.y,
-      };
-      if (inst.behavior instanceof SawBehavior) base.clockwise = inst.behavior.clockwise;
-      return base;
-    });
+    // Grinder is a singleton auto-spawned in create(); don't serialize its
+    // hidden sensor sprite. Save-state only tracks draggable weapon instances.
+    const weaponInstances = this.weaponInstances
+      .filter((inst) => inst.type !== 'grinder')
+      .map((inst) => {
+        const base: { typeId: string; x: number; y: number; clockwise?: boolean } = {
+          typeId: inst.type,
+          x: inst.sprite.x,
+          y: inst.sprite.y,
+        };
+        if (inst.behavior instanceof SawBehavior) base.clockwise = inst.behavior.clockwise;
+        return base;
+      });
     const snap: SaveStateV1 = {
       v: 1,
       cash: gameplayState.cash,
@@ -728,14 +757,21 @@ export class GameScene extends Phaser.Scene {
     }
     if (!chunkPart || !otherPart || !plugin) return;
 
+    // Saw blades are created via matter.add.image so they have a gameObject
+    // with Phaser data. Grinder blades are created via matter.add.rectangle
+    // (no gameObject) and carry their routing via body.plugin instead.
     const goOther = (otherPart as { gameObject?: Phaser.GameObjects.GameObject }).gameObject;
-    const otherKind = goOther?.getData?.('kind') as string | undefined;
-    if (otherKind !== 'saw') return;
-
-    // Route the hit to the owning weapon instance — blades carry their
-    // arbor's instanceId. Without this match, multi-saw setups would
-    // drive every hit into the first instance's cooldown + stats.
-    const instanceId = goOther?.getData?.('instanceId') as string | undefined;
+    const pluginOther = (otherPart as unknown as { plugin?: { kind?: string; instanceId?: string } }).plugin;
+    let otherKind: string | undefined;
+    let instanceId: string | undefined;
+    if (goOther) {
+      otherKind = goOther.getData?.('kind') as string | undefined;
+      instanceId = goOther.getData?.('instanceId') as string | undefined;
+    } else if (pluginOther?.kind) {
+      otherKind = pluginOther.kind;
+      instanceId = pluginOther.instanceId;
+    }
+    if (otherKind !== 'saw' && otherKind !== 'grinder') return;
     if (!instanceId) return;
     const inst = this.weaponInstances.find((w) => w.id === instanceId);
     if (!inst?.behavior.handleCompoundHit) return;
