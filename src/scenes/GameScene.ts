@@ -789,7 +789,8 @@ export class GameScene extends Phaser.Scene {
         isStatic: true,
         angle,
       });
-      const visual = this.add.rectangle(cx, cy, len, 12, 0x3a3a4c).setRotation(angle);
+      // Visual matches the collider thickness so "what you see = what blocks".
+      const visual = this.add.rectangle(cx, cy, len, t, 0x3a3a4c).setRotation(angle);
       this.arenaWallBodies.push(body);
       this.arenaWallVisuals.push(visual);
     }
@@ -812,14 +813,19 @@ export class GameScene extends Phaser.Scene {
     if (installed) return;
     const unlocked = gameplayState.isSlotUnlocked(slot.id);
     if (unlocked) {
-      g.lineStyle(3, 0xf5d66d, 0.9);
-      g.strokeCircle(slot.x, slot.y, 18);
-      g.lineStyle(2, 0xf5d66d, 0.4);
-      g.strokeCircle(slot.x, slot.y, 24);
+      // "Buyable" ring — thick bright yellow + outer glow halo. Load-bearing
+      // visual: every unlocked empty slot must read "click here to buy a
+      // weapon" at a glance.
+      g.fillStyle(0x3a3020, 0.45);
+      g.fillCircle(slot.x, slot.y, 24);
+      g.lineStyle(6, 0xffd166, 1);
+      g.strokeCircle(slot.x, slot.y, 22);
+      g.lineStyle(3, 0xffd166, 0.5);
+      g.strokeCircle(slot.x, slot.y, 30);
     } else {
-      g.fillStyle(0x2a2a34, 0.8);
+      g.fillStyle(0x2a2a34, 0.85);
       g.fillCircle(slot.x, slot.y, 18);
-      g.lineStyle(2, 0x555568, 1);
+      g.lineStyle(3, 0x555568, 1);
       g.strokeCircle(slot.x, slot.y, 18);
       g.lineStyle(2, 0x888899, 1);
       g.beginPath();

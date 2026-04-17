@@ -19,7 +19,7 @@ Paired with the Playwright golden-path smoke test (`tests/e2e/smoke.spec.ts`), w
 - **Slots are kept clear of the grinder row by `MIN_SLOT_FLOOR_CLEARANCE` (160px).** The generator clamps every slot's y so clicks on slot markers can never be eaten by the grinder blade hit area.
 - **Death line is `DEATH_LINE_Y = 1304`.** Dead chunks falling past this collect cash and despawn. Live chunks from surviving asteroids are culled below this line too. NOTE: `missileBehavior.ts` keeps a private duplicate of this constant — update both when moving the line.
 - **Asteroids spawn at `SPAWN_Y = -80`, above the visible canvas.** They must rotate into view, not pop in. The spawner x oscillates (`centerX + amplitude · sin(phase)`) — step `PHASE_STEP_RAD = 0.37`. No center-jitter anymore.
-- **Arena wall colliders are `WALL_COLLIDER_THICKNESS = 40 px` thick.** The visual is 12px; the extra depth extends outward from the face, the same trick the old channel walls used to prevent dense-pile penetration. Never unify the two numbers.
+- **Arena wall colliders are `WALL_COLLIDER_THICKNESS = 40 px` thick, and the visual rectangle matches.** "What you see is what blocks" — no hidden collider padding. The 40px thickness keeps dense piles from penetrating; halving the visual to 12px (the pre-2026-04-17 convention) masked why certain collisions happened, so we now render the full collider.
 - **Asteroid fall is kinematic, not gravity-driven.** Alive chunks have per-body `gravityScale = {x:0, y:0}` and get `setVelocityY(fallSpeedMultiplier)` each tick. Dead chunks flip back to normal gravity so confetti snaps to the death line.
 - **Per-body `gravityScale` is a `{x, y}` object, not a scalar.** Phaser doesn't wrap this setter — mutate the raw Matter body directly.
 
