@@ -18,6 +18,7 @@ class GameplayState {
   private readonly _levels = new Map<string, number>();
   private readonly _weaponCounts = new Map<string, number>();
   private readonly _instancesBoughtThisRun = new Map<string, number>();
+  private _runSeed = '';
   private readonly listeners: { [K in keyof Events]: Set<Listener<Events[K]>> } = {
     cashChanged: new Set(),
     cashEarned: new Set(),
@@ -86,6 +87,9 @@ class GameplayState {
     this._instancesBoughtThisRun.clear();
     for (const [k, v] of Object.entries(m)) this._instancesBoughtThisRun.set(k, v);
   }
+
+  get runSeed(): string { return this._runSeed; }
+  setRunSeed(seed: string): void { this._runSeed = seed; }
 
   sellWeapon(id: string): boolean {
     const current = this.weaponCount(id);

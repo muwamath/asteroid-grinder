@@ -5,7 +5,7 @@ import { gameplayState } from '../game/gameplayState';
 import { BASE_PARAMS, applyUpgrades, type EffectiveGameplayParams } from '../game/upgradeApplier';
 import { WEAPON_TYPES } from '../game/weaponCatalog';
 import { CashRateTracker } from '../game/cashRate';
-import { saveToLocalStorage, clearSave, type SaveStateV1 } from '../game/saveState';
+import { saveToLocalStorage, clearSave, type SaveStateV2 } from '../game/saveState';
 import { type WeaponBehavior, createBehavior, allBehaviorPrototypes } from '../game/weapons';
 import { SawBehavior } from '../game/weapons/sawBehavior';
 import { GrinderBehavior } from '../game/weapons/grinderBehavior';
@@ -102,13 +102,16 @@ export class GameScene extends Phaser.Scene {
     gameplayState.resetData();
     this.pendingShardsThisRun = 0;
 
-    const snap = this.game.registry.get('pendingSnapshot') as SaveStateV1 | null;
+    const snap = this.game.registry.get('pendingSnapshot') as SaveStateV2 | null;
     if (snap) {
       gameplayState.loadSnapshot({
         cash: snap.cash,
         levels: snap.levels,
         weaponCounts: snap.weaponCounts,
       });
+      gameplayState.setInstancesBoughtThisRun(snap.instancesBoughtThisRun);
+      gameplayState.setRunSeed(snap.runSeed);
+      this.pendingShardsThisRun = snap.pendingShardsThisRun;
       this.rateTracker = new CashRateTracker(60_000, snap.emaCashPerSec);
       // Consume once — a future scene restart should NOT re-apply.
       this.game.registry.set('pendingSnapshot', null);
@@ -590,14 +593,20 @@ export class GameScene extends Phaser.Scene {
         if (inst.behavior instanceof SawBehavior) base.clockwise = inst.behavior.clockwise;
         return base;
       });
-    const snap: SaveStateV1 = {
-      v: 1,
+    const snap: SaveStateV2 = {
+      v: 2,
       cash: gameplayState.cash,
       levels: gameplayState.levels(),
       weaponCounts,
       weaponInstances,
       emaCashPerSec: this.rateTracker.rate(),
       savedAt: Date.now(),
+      runSeed: gameplayState.runSeed,
+      pendingShardsThisRun: this.pendingShardsThisRun,
+      prestigeShards: prestigeState.shards,
+      prestigeCount: prestigeState.prestigeCount,
+      prestigeShopLevels: prestigeState.shopLevels() as Record<string, number>,
+      instancesBoughtThisRun: gameplayState.allInstancesBoughtThisRun() as Record<string, number>,
     };
     saveToLocalStorage(snap);
   }
