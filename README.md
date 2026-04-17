@@ -2,7 +2,7 @@
 
 An idle physics sandbox. Asteroids fall into a narrow chute where draggable saw weapons chew them into chunks. Collect the debris at the death line, earn cash, buy more weapons, upgrade everything. Watch the physics. Relax.
 
-Phaser 3 + Matter.js + TypeScript + Vite. 1280×720 (16:9) with auto-scaling.
+Phaser 3 + Matter.js + TypeScript + Vite. 2560×1440 (16:9) with auto-scaling and fullscreen (F key or options menu).
 
 ## Status
 

@@ -8,8 +8,8 @@ Paired with the Playwright golden-path smoke test (`tests/e2e/smoke.spec.ts`), w
 
 ## Arena & physics
 
-- **Canvas is 1280×720, 16:9, `Scale.FIT`.** Gameplay tuning, spawn positions, death line — all hard-coded pixel constants against this base.
-- **Death line is `DEATH_LINE_Y = 652`.** Dead chunks falling past this collect cash and despawn. Live chunks from surviving asteroids are culled below this line too.
+- **Canvas is 2560×1440, 16:9, `Scale.FIT`.** Gameplay tuning, spawn positions, death line — all hard-coded pixel constants against this base. Fullscreen target is the `#game` div (`fullscreenTarget: 'game'`) with `:fullscreen` CSS stripping padding and canvas border-radius.
+- **Death line is `DEATH_LINE_Y = 1304`.** Dead chunks falling past this collect cash and despawn. Live chunks from surviving asteroids are culled below this line too. NOTE: `missileBehavior.ts` keeps a private duplicate of this constant — update both when moving the line.
 - **Asteroids spawn at `SPAWN_Y = -80`, above the visible canvas.** They must rotate into view, not pop in.
 - **Channel wall visual is 12px; Matter collider is 40px (`CHANNEL_WALL_COLLIDER_THICKNESS`).** The thicker collider extends outward from the channel face — needed so dense piles don't penetrate the static wall. Never unify these two numbers.
 - **Asteroid fall is kinematic, not gravity-driven.** Alive chunks have per-body `gravityScale = {x:0, y:0}` and get `setVelocityY(fallSpeedMultiplier)` each tick. Dead chunks flip back to normal gravity so confetti snaps to the death line.

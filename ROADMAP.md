@@ -22,7 +22,7 @@ Shipped on `feature/tech-hygiene`, FF-merged to main.
 
 Smaller player-facing wins. Land before content so resolution/layout changes don't invalidate later art work.
 
-- **Text crispness on HiDPI displays.** `Scale.FIT` upscales the 1280×720 canvas without re-rasterizing text — retina screens see grainy `$cash` and welcome-back text. Cheapest: `crispText()` helper setting `resolution: window.devicePixelRatio` on every Text object. Medium: bump base to 2560×1440. Biggest: switch to `Scale.RESIZE` with proportional layout.
+- ✅ **Text crispness on HiDPI displays.** Shipped 2026-04-16. Bumped base canvas to 2560×1440 (1:1 on retina) and swept all UI/arena/weapon layout constants; added fullscreen toggle (F key + options menu). Font sizes, panel sizes, death line, channel top, weapon radii all doubled. `channelHalfWidth` + gravity left untouched by explicit call — channel reads narrower and chunks fall slightly slower, tolerated for now.
 - **Chunk containment.** Dead chunks from high-velocity saw hits can escape the top of the arena. Options: raise walls, add a ceiling collider, clamp chunk velocity on death, or add drag post-death. Diagnose in play first.
 - **Saw direction on double-click.** Replace the CW/CCW menu toggle with double-click on the arbor to reverse. Tactile.
 - **Mobile / portrait mode.** Currently desktop-landscape only.
