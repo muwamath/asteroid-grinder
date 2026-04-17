@@ -58,7 +58,7 @@ export const WEAPON_TYPES: readonly WeaponTypeDef[] = [
     name: 'Saw',
     icon: 'saw',
     locked: false,
-    startCount: 1,
+    startCount: 0,
     upgrades: [
       {
         id: 'saw.damage',
@@ -157,7 +157,7 @@ export const WEAPON_TYPES: readonly WeaponTypeDef[] = [
     name: 'Missile',
     icon: 'missile',
     locked: false,
-    startCount: 0,
+    startCount: 1,
     upgrades: [
       {
         id: 'missile.fireRate',

@@ -29,9 +29,9 @@ describe('weaponCatalog', () => {
     expect(ids).toEqual(['asteroids']);
   });
 
-  it('grinder and saw start at 1; other weapons start at 0', () => {
+  it('grinder and missile start at 1; other weapons start at 0', () => {
     for (const w of WEAPON_TYPES) {
-      if (w.id === 'grinder' || w.id === 'saw') {
+      if (w.id === 'grinder' || w.id === 'missile') {
         expect(w.startCount).toBe(1);
       } else {
         expect(w.startCount).toBe(0);

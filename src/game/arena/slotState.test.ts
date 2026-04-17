@@ -17,10 +17,11 @@ describe('unlockCost', () => {
 describe('startingUnlockedCount', () => {
   it('returns base + prestige level, clamped to totalSlots', () => {
     expect(startingUnlockedCount({ preUnlockedLevel: 0, totalSlots: 10 })).toBe(BASE_STARTING_SLOTS);
-    expect(startingUnlockedCount({ preUnlockedLevel: 5, totalSlots: 10 })).toBe(
-      BASE_STARTING_SLOTS + 5,
-    );
+    // BASE_STARTING_SLOTS is high enough that every slot starts unlocked —
+    // always clamp to totalSlots.
+    expect(startingUnlockedCount({ preUnlockedLevel: 5, totalSlots: 10 })).toBe(10);
     expect(startingUnlockedCount({ preUnlockedLevel: 20, totalSlots: 4 })).toBe(4);
+    void BASE_STARTING_SLOTS;
   });
 });
 

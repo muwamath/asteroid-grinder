@@ -3,7 +3,10 @@
 
 export const MIN_SLOTS = 4;
 export const MAX_SLOTS = 10;
-export const BASE_STARTING_SLOTS = 2;
+// Every slot starts unlocked — locking was deprecated 2026-04-17 after the
+// UI felt confusing with grey padlock markers. Prestige `preUnlockedSlots`
+// is now vestigial (always ≥ MAX_SLOTS after this).
+export const BASE_STARTING_SLOTS = MAX_SLOTS;
 
 export const UNLOCK_BASE = 50;
 export const UNLOCK_GROWTH = 2.5;
