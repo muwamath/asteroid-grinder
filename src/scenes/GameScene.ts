@@ -193,10 +193,11 @@ export class GameScene extends Phaser.Scene {
         }
         gameplayState.installWeapon(inst.slotId, inst.typeId, spawned.id);
       }
-    } else if (!snap) {
-      // Fresh run — auto-install each weapon's startCount instances at the
-      // closest-to-center unlocked slots. Preserves the "start with 1 saw"
-      // tuning while the new arena requires every weapon to live at a slot.
+    } else {
+      // No saved installations — could be a fresh boot, a post-prestige run,
+      // or a Start Run with a new seed. Auto-install each weapon's
+      // startCount at the closest-to-center unlocked slots so every run
+      // begins with its default weapon(s) already placed.
       void yBottom; void ySpacing;
       const sortedSlots = [...this.arenaLayout.slots]
         .filter((s) => gameplayState.isSlotUnlocked(s.id))
