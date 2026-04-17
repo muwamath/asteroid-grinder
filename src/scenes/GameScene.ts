@@ -5,7 +5,7 @@ import { gameplayState } from '../game/gameplayState';
 import { BASE_PARAMS, applyUpgrades, type EffectiveGameplayParams } from '../game/upgradeApplier';
 import { WEAPON_TYPES } from '../game/weaponCatalog';
 import { CashRateTracker } from '../game/cashRate';
-import { saveToLocalStorage, clearSave, type SaveStateV3 } from '../game/saveState';
+import { saveToLocalStorage, clearSave, loadFromLocalStorage, type SaveStateV3 } from '../game/saveState';
 import { type WeaponBehavior, createBehavior, allBehaviorPrototypes } from '../game/weapons';
 import { SawBehavior } from '../game/weapons/sawBehavior';
 import { GrinderBehavior } from '../game/weapons/grinderBehavior';
@@ -750,6 +750,11 @@ export class GameScene extends Phaser.Scene {
   startNewRun(seed: string): void {
     gameplayState.setRunSeed(seed);
     this.snapshotNow();
+    // Re-hydrate the registry snapshot so create() picks up the new seed
+    // after scene.restart(). Without this, create() → gameplayState.resetData()
+    // wipes runSeed and the arena regenerates from an empty-seed hash.
+    const fresh = loadFromLocalStorage();
+    this.game.registry.set('pendingSnapshot', fresh);
     this.scene.restart();
   }
 
