@@ -601,9 +601,12 @@ export class UIScene extends Phaser.Scene {
     reroll.style.cssText =
       'font:bold 22px ui-monospace; padding:12px 20px; border-radius:6px; ' +
       'background:#4a4a5a; color:#fff; border:2px solid #6a6a7a; cursor:pointer;';
-    reroll.addEventListener('click', () => {
+    const rerollFn = (e: Event): void => {
+      e.stopPropagation();
       input.value = `cosmic-dust-${Date.now().toString(36)}`;
-    });
+    };
+    reroll.addEventListener('pointerdown', rerollFn);
+    reroll.addEventListener('click', rerollFn);
 
     row.appendChild(input);
     row.appendChild(reroll);
@@ -614,12 +617,15 @@ export class UIScene extends Phaser.Scene {
       'font:bold 32px ui-monospace; padding:18px 44px; border-radius:8px; ' +
       'background:#3a7aff; color:#fff; border:2px solid #5a9aff; cursor:pointer; ' +
       'margin-top:40px; pointer-events:auto;';
-    start.addEventListener('click', () => {
+    const startFn = (e: Event): void => {
+      e.stopPropagation();
       const seed = input.value || defaultSeed;
       this.closeRunConfig();
       const gs = this.scene.get('game') as GameScene;
       gs.startNewRun(seed);
-    });
+    };
+    start.addEventListener('pointerdown', startFn);
+    start.addEventListener('click', startFn);
 
     layer.appendChild(row);
     layer.appendChild(start);
@@ -749,9 +755,16 @@ export class UIScene extends Phaser.Scene {
     backdrop.style.cssText =
       'position:fixed; inset:0; z-index:2147483000; background:rgba(0,0,0,0.55); ' +
       'display:flex; align-items:center; justify-content:center; pointer-events:auto;';
-    backdrop.addEventListener('click', (e) => {
-      if (e.target === backdrop) this.dismissWeaponPicker();
-    });
+    // Dismiss only on backdrop click — listen on pointerdown here too so a
+    // single press-and-release on a button doesn't race with the backdrop.
+    const maybeDismiss = (e: Event): void => {
+      if (e.target === backdrop) {
+        e.stopPropagation();
+        this.dismissWeaponPicker();
+      }
+    };
+    backdrop.addEventListener('pointerdown', maybeDismiss);
+    backdrop.addEventListener('click', maybeDismiss);
 
     const panel = document.createElement('div');
     panel.style.cssText =
@@ -782,7 +795,14 @@ export class UIScene extends Phaser.Scene {
       price.style.font = '16px ui-monospace';
       btn.appendChild(name);
       btn.appendChild(price);
-      btn.addEventListener('click', () => {
+      // Use pointerdown (fires on press, doesn't need a matching pointerup
+      // on the same element) and stopPropagation so the backdrop's click
+      // handler can't dismiss us on the way through. Needed because Phaser's
+      // canvas input captures some events in fullscreen and the click event
+      // never lands.
+      const install = (e: Event): void => {
+        e.stopPropagation();
+        e.preventDefault();
         this.events.emit('install-weapon', {
           slotId: payload.slotId,
           typeId: wt.id,
@@ -790,7 +810,9 @@ export class UIScene extends Phaser.Scene {
           y: payload.y,
         });
         this.dismissWeaponPicker();
-      });
+      };
+      btn.addEventListener('pointerdown', install);
+      btn.addEventListener('click', install);
       grid.appendChild(btn);
     }
     panel.appendChild(grid);
@@ -842,17 +864,22 @@ export class UIScene extends Phaser.Scene {
     cancel.style.cssText =
       'font:bold 20px ui-monospace; padding:12px 24px; border-radius:6px; ' +
       'background:#4a4a5a; color:#fff; border:2px solid #6a6a7a; cursor:pointer;';
-    cancel.addEventListener('click', () => this.dismissSellConfirm());
+    const cancelFn = (e: Event): void => { e.stopPropagation(); this.dismissSellConfirm(); };
+    cancel.addEventListener('pointerdown', cancelFn);
+    cancel.addEventListener('click', cancelFn);
     const sell = document.createElement('button');
     sell.textContent = `Sell (${typeId})`;
     sell.style.cssText =
       'font:bold 20px ui-monospace; padding:12px 24px; border-radius:6px; ' +
       'background:#5c2323; color:#fff; border:2px solid #8a4040; cursor:pointer;';
-    sell.addEventListener('click', () => {
+    const sellFn = (e: Event): void => {
+      e.stopPropagation();
       const gs = this.scene.get('game') as GameScene;
       gs.sellWeaponAt(slotId);
       this.dismissSellConfirm();
-    });
+    };
+    sell.addEventListener('pointerdown', sellFn);
+    sell.addEventListener('click', sellFn);
     row.appendChild(cancel);
     row.appendChild(sell);
     panel.appendChild(row);
