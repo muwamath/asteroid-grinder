@@ -87,6 +87,9 @@ game.registry.set('pendingSnapshot', snapshot);
 game.registry.set('offlineAward', offlineAward);
 game.registry.set('offlineElapsedMs', Math.min(offlineElapsedMs, offlineCap));
 game.registry.set('saveWipedReason', saveWipedReason);
+// ?restart=1 playtest bonus: seed $10k so you can exercise the economy
+// without grinding. Consumed once by GameScene on create.
+game.registry.set('forceRestartCash', forceRestart ? 10000 : 0);
 
 const w = window as unknown as {
   __GAME__: unknown;

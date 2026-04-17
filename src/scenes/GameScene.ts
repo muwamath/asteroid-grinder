@@ -225,6 +225,11 @@ export class GameScene extends Phaser.Scene {
       if (this.effectiveParams.startingCash > 0) {
         gameplayState.addCash(this.effectiveParams.startingCash, { silent: true });
       }
+      const forceRestartCash = (this.game.registry.get('forceRestartCash') as number | undefined) ?? 0;
+      if (forceRestartCash > 0) {
+        gameplayState.addCash(forceRestartCash, { silent: true });
+        this.game.registry.set('forceRestartCash', 0);
+      }
     }
 
     this.spawnGrinder(width);
