@@ -94,6 +94,14 @@ This project is a **port of an earlier Unity prototype** (local-only, not public
 - **Cross-scene handoff via `game.registry`.** Parallel scenes can't receive events fired during a sibling's `create()` (see gotcha below). Phase 7 uses `game.registry` keys (`pendingSnapshot`, `offlineAward`, `offlineElapsedMs`) as a consume-once mailbox that survives scene restarts. Use this pattern for any GameScene→UIScene data that must cross the `create()` boundary.
 - **Devtools handles.** `window.__GAME__` (Phaser.Game) and `window.__STATE__` (gameplayState) are exposed unconditionally in `main.ts`. Use these for in-console inspection; no need to add more.
 
+## External docs — use Context7
+
+Always use Context7 when you need library/API documentation, code generation, setup, or configuration steps — without waiting to be asked. This project depends on Phaser 3 + Matter.js + Vite + TypeScript + Vitest + Playwright, and each has subtle API shape changes between versions. Your training data may be stale; Context7 is authoritative.
+
+- First call: `resolve-library-id` with the library name (e.g. `phaser`, `matter-js`, `vite`) and the user's question as `query`, to get a Context7-compatible ID like `/photonstorm/phaser`.
+- Then call: `query-docs` with the resolved ID and your query to fetch current docs.
+- Skip when: refactoring, writing pure business logic, debugging the project's own code, or general-programming questions not tied to a specific library.
+
 ## Phaser + Matter gotchas (fill in as we hit them)
 
 - **Static bodies can still be teleported via `setPosition` and broadphase updates.** Used for the orbiting saw blade and arbor in `GameScene.ts` — both static + manual orbit positioning.
