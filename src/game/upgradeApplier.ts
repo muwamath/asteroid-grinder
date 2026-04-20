@@ -48,7 +48,7 @@ export interface EffectiveGameplayParams {
 export const BASE_PARAMS: EffectiveGameplayParams = {
   sawDamage: 1,
   bladeCount: 1,
-  spawnIntervalMs: 1800,
+  spawnIntervalMs: 1400,
   // L0 = 0.5 (half the arena width); upgrade widens toward 1.0 at L10 cap.
   // Scene clamps to maxAmplitude so asteroids stay inside the arena.
   spawnAmplitudeMultiplier: 0.5,
@@ -60,7 +60,7 @@ export const BASE_PARAMS: EffectiveGameplayParams = {
   bladeRadius: 6,
   laserAimSpeed: 30,
   laserRange: 60,
-  laserDamage: 1,
+  laserDamage: 3,
   laserCooldown: 2,
   missileFireInterval: 5,
   missileDamage: 2,

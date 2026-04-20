@@ -34,7 +34,7 @@ describe('applyUpgrades', () => {
   });
 
   it('shortens spawn interval per spawn.rate level but clamps at 300ms', () => {
-    expect(applyUpgrades({ 'spawn.rate': 2 }).spawnIntervalMs).toBe(1800 - 260);
+    expect(applyUpgrades({ 'spawn.rate': 2 }).spawnIntervalMs).toBe(1400 - 260);
     expect(applyUpgrades({ 'spawn.rate': 99 }).spawnIntervalMs).toBe(300);
   });
 
@@ -81,8 +81,8 @@ describe('applyUpgrades', () => {
   });
 
   it('increases laserDamage per level', () => {
-    expect(applyUpgrades({}).laserDamage).toBe(1);
-    expect(applyUpgrades({ 'laser.damage': 6 }).laserDamage).toBeCloseTo(1 + 6 * 0.5);
+    expect(applyUpgrades({}).laserDamage).toBe(3);
+    expect(applyUpgrades({ 'laser.damage': 6 }).laserDamage).toBeCloseTo(3 + 6 * 0.5);
   });
 
   it('decreases laserCooldown per level with floor', () => {
