@@ -29,6 +29,48 @@ describe('weaponCatalog', () => {
     expect(ids).toEqual(['asteroids', 'spawn']);
   });
 
+  describe('audit-locked cost curves (2026-04-19)', () => {
+    it('saw.damage: $15 / 1.25× / uncapped', () => {
+      const u = findUpgrade('saw.damage')!;
+      expect(u.baseCost).toBe(15);
+      expect(u.growthRate).toBe(1.25);
+      expect(u.maxLevel).toBe(Number.POSITIVE_INFINITY);
+    });
+    it('saw.bladeCount: $2500 / 4.0× / cap 5', () => {
+      const u = findUpgrade('saw.bladeCount')!;
+      expect(u.baseCost).toBe(2500);
+      expect(u.growthRate).toBe(4);
+      expect(u.maxLevel).toBe(5);
+    });
+    it('spawn.rate: $200 / 2.2× / cap 12', () => {
+      const u = findUpgrade('spawn.rate')!;
+      expect(u.baseCost).toBe(200);
+      expect(u.growthRate).toBe(2.2);
+      expect(u.maxLevel).toBe(12);
+    });
+    it('spawn.amplitude: $80 / 1.5× / cap 10', () => {
+      const u = findUpgrade('spawn.amplitude')!;
+      expect(u.baseCost).toBe(80);
+      expect(u.growthRate).toBe(1.5);
+      expect(u.maxLevel).toBe(10);
+    });
+    it('chunkHp, grinder.damage, saw.damage, laser.damage share Tier-S curve', () => {
+      const ids = ['asteroids.chunkHp', 'grinder.damage', 'saw.damage', 'laser.damage'];
+      for (const id of ids) {
+        const u = findUpgrade(id)!;
+        expect(u.baseCost).toBe(15);
+        expect(u.growthRate).toBe(1.25);
+        expect(u.maxLevel).toBe(Number.POSITIVE_INFINITY);
+      }
+    });
+    it('asteroidSize cap raised to 20', () => {
+      expect(findUpgrade('asteroids.asteroidSize')!.maxLevel).toBe(20);
+    });
+    it('blackhole.maxTargets cap raised to 20', () => {
+      expect(findUpgrade('blackhole.maxTargets')!.maxLevel).toBe(20);
+    });
+  });
+
   it('grinder and missile start at 1; other weapons start at 0', () => {
     for (const w of WEAPON_TYPES) {
       if (w.id === 'grinder' || w.id === 'missile') {
