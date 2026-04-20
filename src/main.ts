@@ -54,6 +54,7 @@ if (snapshot) {
       rate: snapshot.emaCashPerSec,
       elapsedMs: offlineElapsedMs,
       capMs: offlineCap,
+      rateMultiplier: prestigeParams.offlineRateMultiplier,
     });
   }
 }

@@ -26,4 +26,10 @@ describe('computeOfflineAward', () => {
   it('floors to integer cash', () => {
     expect(computeOfflineAward({ rate: 1.7, elapsedMs: 3_500, capMs })).toBe(5);
   });
+
+  it('rateMultiplier scales the effective rate before capping', () => {
+    expect(computeOfflineAward({ rate: 10, elapsedMs: 1000, capMs: 10_000, rateMultiplier: 1 })).toBe(10);
+    expect(computeOfflineAward({ rate: 10, elapsedMs: 1000, capMs: 10_000, rateMultiplier: 2 })).toBe(20);
+    expect(computeOfflineAward({ rate: 10, elapsedMs: 1000, capMs: 10_000, rateMultiplier: 1.5 })).toBe(15);
+  });
 });
