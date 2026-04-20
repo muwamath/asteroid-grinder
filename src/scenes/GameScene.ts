@@ -512,7 +512,11 @@ export class GameScene extends Phaser.Scene {
       // and pays only the flat $1 cash, never Shards. This keeps weapons
       // strictly more valuable than letting cores drop into the blades.
       if (extracted.isCore && killerType !== 'grinder') {
-        const shards = computeVaultShardReward(extracted.material, this.effectiveParams.shardYieldBonus);
+        const shards = computeVaultShardReward(
+          extracted.material,
+          this.effectiveParams.shardYieldBonus,
+          this.effectiveParams.shardYieldMultiplier,
+        );
         if (shards > 0) {
           this.pendingShardsThisRun += shards;
           this.events.emit('pendingShardsChanged', this.pendingShardsThisRun, shards);

@@ -8,7 +8,9 @@ import type { Material } from './materials';
 export function computeVaultShardReward(
   material: Material | null | undefined,
   shardYieldBonus: number,
+  shardYieldMultiplier: number = 1,
 ): number {
   if (!material) return 0;
-  return material.tier + Math.max(0, shardYieldBonus);
+  const base = material.tier + Math.max(0, shardYieldBonus);
+  return Math.floor(base * Math.max(0, shardYieldMultiplier));
 }
