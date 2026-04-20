@@ -66,6 +66,8 @@ export class GameScene extends Phaser.Scene {
 
   private arenaWallBodies: MatterJS.BodyType[] = [];
   private arenaWallVisuals: Phaser.GameObjects.Rectangle[] = [];
+  private arenaObstacleBodies: MatterJS.BodyType[] = [];
+  private arenaObstacleVisuals: Phaser.GameObjects.GameObject[] = [];
   private screenEdgeWalls: MatterJS.BodyType[] = [];
   private slotMarkers = new Map<string, Phaser.GameObjects.Graphics>();
   private arenaDebugOverlay?: Phaser.GameObjects.Graphics;
@@ -837,9 +839,13 @@ export class GameScene extends Phaser.Scene {
   private buildArenaFromLayout(layout: ArenaLayout): void {
     for (const b of this.arenaWallBodies) this.matter.world.remove(b);
     for (const v of this.arenaWallVisuals) v.destroy();
+    for (const b of this.arenaObstacleBodies) this.matter.world.remove(b);
+    for (const v of this.arenaObstacleVisuals) v.destroy();
     for (const b of this.screenEdgeWalls) this.matter.world.remove(b);
     this.arenaWallBodies = [];
     this.arenaWallVisuals = [];
+    this.arenaObstacleBodies = [];
+    this.arenaObstacleVisuals = [];
     this.screenEdgeWalls = [];
     this.slotMarkers.forEach((g) => g.destroy());
     this.slotMarkers.clear();
@@ -867,6 +873,37 @@ export class GameScene extends Phaser.Scene {
       const visual = this.add.rectangle(cx, cy, len, t, 0x3a3a4c).setRotation(angle);
       this.arenaWallBodies.push(body);
       this.arenaWallVisuals.push(visual);
+    }
+
+    for (const ob of layout.obstacles) {
+      if (ob.kind === 'circle' || ob.kind === 'peg') {
+        const body = this.matter.add.circle(ob.x, ob.y, ob.r, { isStatic: true });
+        const visual = this.add.circle(ob.x, ob.y, ob.r, 0x3a3a4c).setStrokeStyle(2, 0x5a5a70);
+        this.arenaObstacleBodies.push(body);
+        this.arenaObstacleVisuals.push(visual);
+      } else {
+        // Diamond = axis-aligned square rotated 45°. Matter polygon built
+        // from the four corner vertices; Phaser graphics draws the fill.
+        const vs = [
+          { x: 0, y: -ob.half },
+          { x: ob.half, y: 0 },
+          { x: 0, y: ob.half },
+          { x: -ob.half, y: 0 },
+        ];
+        const body = this.matter.add.fromVertices(ob.x, ob.y, [vs], { isStatic: true });
+        const g = this.add.graphics();
+        g.fillStyle(0x3a3a4c, 1).lineStyle(2, 0x5a5a70, 1);
+        g.beginPath();
+        g.moveTo(ob.x, ob.y - ob.half);
+        g.lineTo(ob.x + ob.half, ob.y);
+        g.lineTo(ob.x, ob.y + ob.half);
+        g.lineTo(ob.x - ob.half, ob.y);
+        g.closePath();
+        g.fillPath();
+        g.strokePath();
+        this.arenaObstacleBodies.push(body);
+        this.arenaObstacleVisuals.push(g);
+      }
     }
 
     for (const slot of layout.slots) {

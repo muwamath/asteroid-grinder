@@ -671,6 +671,31 @@ export class UIScene extends Phaser.Scene {
         ctx.lineTo(w.x2 * sx, w.y2 * sy);
         ctx.stroke();
       }
+      // Obstacles: circles, diamonds, pegs.
+      ctx.fillStyle = '#3a3a4c';
+      ctx.strokeStyle = '#5a5a70';
+      ctx.lineWidth = 1;
+      for (const ob of layout.obstacles) {
+        if (ob.kind === 'circle' || ob.kind === 'peg') {
+          ctx.beginPath();
+          ctx.arc(ob.x * sx, ob.y * sy, Math.max(1, ob.r * sx), 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+        } else {
+          const cx = ob.x * sx;
+          const cy = ob.y * sy;
+          const hx = ob.half * sx;
+          const hy = ob.half * sy;
+          ctx.beginPath();
+          ctx.moveTo(cx, cy - hy);
+          ctx.lineTo(cx + hx, cy);
+          ctx.lineTo(cx, cy + hy);
+          ctx.lineTo(cx - hx, cy);
+          ctx.closePath();
+          ctx.fill();
+          ctx.stroke();
+        }
+      }
       // Slot dots.
       ctx.fillStyle = '#ffd166';
       for (const s of layout.slots) {
