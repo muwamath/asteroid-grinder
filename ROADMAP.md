@@ -9,6 +9,7 @@ Backlog below is open work only, ranked P1–P4. Tactical todos (currently scope
 ## P1 — bugs + small polish (ship next)
 
 - **Slot-marker state bug.** Some unlocked slots render no yellow ring; some occupied slots still show the ring. Audit `GameScene.redrawSlotMarker` + every install/uninstall/unlock transition that should trigger a redraw.
+- **Weapon-count sidebar desync.** Seen 2026-04-19: 3 missiles installed on-field, left-panel badge reads `×1`. The sidebar label is driven by `gameplayState.weaponCount(typeId)` but live-installed instances can drift from that count (e.g. missile respawn / prestige free-slot / save-load path). Audit the paths that push a WeaponInstance into `weaponInstances` without bumping `weaponCount`, and reconcile on install/uninstall.
 - **Sell refund prestige-free exploit.** Selling a weapon acquired via a `free.<type>` prestige slot refunds the Nth-buy curve value → net-cash gain per free slot. Thread `instancesBoughtThisRun(type)` + prestige `free.<type>` into `sellWeaponAt` so free-slot weapons refund $0.
 - **Physics playtest — tunneling sweep.** Real gravity + accelerating piles may push chunks through static walls at solver limits. If tunneling appears, bump `positionIterations` / `velocityIterations` in `main.ts`.
 - **Spawn-interval baseline retune.** Asteroids now accelerate under real gravity; original 1400ms baseline was sized for a terminal-velocity fall. Walk pacing once shelf piles settle — may need to lengthen interval so the grinder isn't saturated instantly.
