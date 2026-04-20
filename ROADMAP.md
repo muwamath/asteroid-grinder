@@ -52,6 +52,20 @@ Biggest adds — new reasons to keep playing.
 - **Saw shape library.** Purchase unlocks alternate blade silhouettes (circular, bladed, star, crescent). Needs a `SawShape` concept (sprite + collider profile per shape) plus a selector UI.
 - ✅ **Grinder overhaul.** Shipped 2026-04-16. Replaced the red-line death boundary with a `GrinderBehavior` — a row of counter-rotating rectangular blades (16w × 48h) tiled across the channel bottom. Live chunks collide with blades; dead chunks pass through via `CAT_DEAD_CHUNK` collision category. Three upgrades: Grinder Damage / Spin Speed / Blade Size. Kill-attribution plumbing added (`killerType` on dead chunks) so grinder kills pay flat $1 while weapon kills keep tier-scaled reward. Death line retained as visual failsafe behind blades. Chew particles deferred to §5 art pass.
 
+## 3.5. Physics overhaul — real gravity (next up)
+
+Current alive-asteroid physics are **kinematic-fall only**: `gravityScale={0, 0}` and Y velocity is clamped each tick to `fallSpeedMultiplier` (base 0.3 → cap 3.0 px/tick). Result: asteroids feel weightless, post-bounce X velocity accumulates with no decay, and fall speed ceiling is locked at ~3 px/tick regardless of upgrade.
+
+**Scope:**
+- Switch alive asteroids to `gravityScale={0, 1}` (or tunable ratio per upgrade level).
+- Remove `applyKinematicFall` from the update loop.
+- Recast `asteroids.fallSpeed` upgrade as a gravity multiplier (e.g. `0.3 + L × 0.2`, L9 ≈ 2.1× gravity).
+- Retune `spawnIntervalMs` baseline since asteroids now accelerate — stack-up at the grinder may otherwise saturate instantly.
+- Verify the "chunks piled on weapons don't push through" invariant still holds with real gravity + higher velocities (may need `positionIterations` / `velocityIterations` bump in `main.ts` if tunneling appears).
+- Playtest: damage numbers, grinder DPS, spawn-amplitude feel all shift once asteroids have weight.
+
+**Why now:** current drift/spin-forever behavior is directly caused by the kinematic override only clamping Y. Fixing properly unlocks a more satisfying "chunky impact" feel *and* raises the fall-speed ceiling so the upgrade matters more.
+
 ## 4. Economy & balance
 
 Makes progression feel earned.
