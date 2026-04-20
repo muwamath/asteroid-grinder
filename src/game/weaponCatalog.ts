@@ -131,16 +131,22 @@ export function findUpgrade(id: string): UpgradeDef | undefined {
 }
 
 export interface WeaponBuyCostArgs {
-  readonly boughtThisRun: number;
-  readonly freeSlots: number;
-  readonly baseCost: number;
+  readonly globalBought: number;        // total non-grinder weapons bought this run
+  readonly typeBought: number;          // count of THIS type bought this run
+  readonly freeSlotsForType: number;    // prestige free.<type> level
 }
 
 /**
- * Prestige free-slot override: the first `freeSlots` buys of a weapon type
- * this run cost $0. After that, the normal `baseCost` applies.
+ * Global Nth-weapon purchase curve (audit 2026-04-19).
+ * - 1st purchase is always $0 — every run has at least one weapon.
+ * - N >= 2: cost = 1000 * 3^(N-2).
+ * - Prestige `free.<type>` grants $0 on purchases #1..N of that type (up to
+ *   freeSlotsForType); those purchases still increment globalBought so the
+ *   global curve is not exploitable.
  */
-export function weaponBuyCost({ boughtThisRun, freeSlots, baseCost }: WeaponBuyCostArgs): number {
-  if (boughtThisRun < freeSlots) return 0;
-  return baseCost;
+export function weaponBuyCost({ globalBought, typeBought, freeSlotsForType }: WeaponBuyCostArgs): number {
+  if (typeBought < freeSlotsForType) return 0;
+  const N = globalBought + 1;
+  if (N <= 1) return 0;
+  return Math.floor(1000 * Math.pow(3, N - 2));
 }

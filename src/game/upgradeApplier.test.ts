@@ -281,6 +281,16 @@ describe('gameplayState', () => {
     expect(events).toEqual([['saw', 2]]);
   });
 
+  it('totalInstancesBoughtThisRun sums non-grinder types', () => {
+    gameplayState.reset();
+    gameplayState.initWeaponCounts({ grinder: 1 });
+    expect(gameplayState.totalInstancesBoughtThisRun()).toBe(0);
+    gameplayState.buyWeapon('saw');
+    gameplayState.buyWeapon('laser');
+    gameplayState.buyWeapon('laser');
+    expect(gameplayState.totalInstancesBoughtThisRun()).toBe(3);
+  });
+
   it('sellWeapon decrements count down to zero and refuses below', () => {
     gameplayState.reset();
     gameplayState.initWeaponCounts({ saw: 2 });

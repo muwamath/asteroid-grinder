@@ -854,9 +854,10 @@ export class UIScene extends Phaser.Scene {
     grid.style.cssText = 'display:grid; grid-template-columns:1fr 1fr; gap:12px;';
     const categories = WEAPON_TYPES.filter((w) => !w.locked && w.id !== 'grinder');
     for (const wt of categories) {
-      const bought = gameplayState.instancesBoughtThisRun(wt.id);
-      const freeSlots = prestigeState.shopLevels()[`free.${wt.id}`] ?? 0;
-      const cost = weaponBuyCost({ boughtThisRun: bought, freeSlots, baseCost: 1 });
+      const typeBought = gameplayState.instancesBoughtThisRun(wt.id);
+      const globalBought = gameplayState.totalInstancesBoughtThisRun();
+      const freeSlotsForType = prestigeState.shopLevels()[`free.${wt.id}`] ?? 0;
+      const cost = weaponBuyCost({ globalBought, typeBought, freeSlotsForType });
       const btn = document.createElement('button');
       btn.style.cssText =
         'background:#202030; border:2px solid #3a3a4c; border-radius:6px; padding:14px 10px; ' +

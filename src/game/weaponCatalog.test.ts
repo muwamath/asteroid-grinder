@@ -131,18 +131,22 @@ describe('weaponCatalog', () => {
   });
 });
 
-describe('weaponBuyCost', () => {
-  it('returns 0 when boughtThisRun < freeSlots', () => {
-    expect(weaponBuyCost({ boughtThisRun: 0, freeSlots: 2, baseCost: 100 })).toBe(0);
-    expect(weaponBuyCost({ boughtThisRun: 1, freeSlots: 2, baseCost: 100 })).toBe(0);
+describe('weaponBuyCost (global Nth curve)', () => {
+  it('1st purchase is always $0 regardless of free slots', () => {
+    expect(weaponBuyCost({ globalBought: 0, typeBought: 0, freeSlotsForType: 0 })).toBe(0);
+    expect(weaponBuyCost({ globalBought: 0, typeBought: 0, freeSlotsForType: 3 })).toBe(0);
   });
 
-  it('returns baseCost when boughtThisRun >= freeSlots', () => {
-    expect(weaponBuyCost({ boughtThisRun: 2, freeSlots: 2, baseCost: 100 })).toBe(100);
-    expect(weaponBuyCost({ boughtThisRun: 5, freeSlots: 2, baseCost: 100 })).toBe(100);
+  it('follows 1000 * 3^(N-2) for N >= 2 when no free slots apply', () => {
+    expect(weaponBuyCost({ globalBought: 1, typeBought: 0, freeSlotsForType: 0 })).toBe(1000);
+    expect(weaponBuyCost({ globalBought: 2, typeBought: 0, freeSlotsForType: 0 })).toBe(3000);
+    expect(weaponBuyCost({ globalBought: 5, typeBought: 0, freeSlotsForType: 0 })).toBe(81000);
+    expect(weaponBuyCost({ globalBought: 9, typeBought: 0, freeSlotsForType: 0 })).toBe(6561000);
   });
 
-  it('returns baseCost when freeSlots is 0', () => {
-    expect(weaponBuyCost({ boughtThisRun: 0, freeSlots: 0, baseCost: 50 })).toBe(50);
+  it('free.<type> grants $0 up to freeSlotsForType; global curve applies after', () => {
+    expect(weaponBuyCost({ globalBought: 3, typeBought: 0, freeSlotsForType: 2 })).toBe(0);
+    expect(weaponBuyCost({ globalBought: 3, typeBought: 1, freeSlotsForType: 2 })).toBe(0);
+    expect(weaponBuyCost({ globalBought: 3, typeBought: 2, freeSlotsForType: 2 })).toBe(9000);
   });
 });

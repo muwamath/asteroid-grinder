@@ -86,6 +86,20 @@ class GameplayState {
     return this._instancesBoughtThisRun.get(id) ?? 0;
   }
 
+  /**
+   * Sum of non-grinder weapon instances purchased this run. Grinder is
+   * excluded because it's a singleton (starts at 1, not purchasable).
+   * Used by `weaponBuyCost` to price the global Nth-weapon curve.
+   */
+  totalInstancesBoughtThisRun(): number {
+    let total = 0;
+    for (const [typeId, n] of this._instancesBoughtThisRun) {
+      if (typeId === 'grinder') continue;
+      total += n;
+    }
+    return total;
+  }
+
   allInstancesBoughtThisRun(): Readonly<Record<string, number>> {
     const out: Record<string, number> = {};
     for (const [k, v] of this._instancesBoughtThisRun) out[k] = v;
