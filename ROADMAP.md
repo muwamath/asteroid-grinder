@@ -21,6 +21,7 @@ Backlog below is open work only, ranked P1–P4. Tactical todos (currently scope
 ## P2 — content & mechanics
 
 - **Missile range upgrade.** Missile acquisition / engagement range is currently fixed. Add a new upgrade lane + missile-behavior hook so players can buy longer reach.
+- **Surface DPS + asteroid HP at decision points.** Show estimated DPS per weapon in the Install Weapon panel (and/or the sidebar weapon category icons) so players can compare before buying; show average chunk HP for the current Asteroid Quality + `chunkHp` level somewhere visible (HUD line or spawner sub-panel) so they can tell when their damage outruns / lags incoming hp. Pure-logic calc: `baseDps × upgradeMultipliers` for weapons; `tier × hpMultiplier` averaged over the tier distribution for HP. Distinct from the P4 live-DPS overlay — this is static / pre-purchase.
 - **Dead-chunk slide tuning.** Current dead-chunk friction = 0.02, frictionAir = 0 ("space-like"). Walls use Matter default 0.1; Matter takes `min()` so the chunk is the floor. Dial the chunk value if glides feel too long.
 - **New weapons.** One `WeaponBehavior` file + catalog entry each (from the Unity prototype backlog): Tesla Coil, Freeze Ray, Flak Cannon, Gravity Well, Rail Gun, Drone Swarm.
 - **Saw shape library.** Alternate blade silhouettes (circular, bladed, star, crescent). Needs a `SawShape` concept (sprite + collider profile per shape) + a selector UI.
