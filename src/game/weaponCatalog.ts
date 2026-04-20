@@ -137,9 +137,9 @@ export interface WeaponBuyCostArgs {
 }
 
 /**
- * Global Nth-weapon purchase curve (audit 2026-04-19).
+ * Global Nth-weapon purchase curve (audit 2026-04-19, rebased 2026-04-19 ×1/10).
  * - 1st purchase is always $0 — every run has at least one weapon.
- * - N >= 2: cost = 1000 * 3^(N-2).
+ * - N >= 2: cost = 100 * 3^(N-2).
  * - Prestige `free.<type>` grants $0 on purchases #1..N of that type (up to
  *   freeSlotsForType); those purchases still increment globalBought so the
  *   global curve is not exploitable.
@@ -148,5 +148,5 @@ export function weaponBuyCost({ globalBought, typeBought, freeSlotsForType }: We
   if (typeBought < freeSlotsForType) return 0;
   const N = globalBought + 1;
   if (N <= 1) return 0;
-  return Math.floor(1000 * Math.pow(3, N - 2));
+  return Math.floor(100 * Math.pow(3, N - 2));
 }

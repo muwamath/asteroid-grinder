@@ -138,9 +138,11 @@ export function sampleTieredMaterial(qualityLevel: number, rng: SeededRng): Mate
   return mat;
 }
 
-// Kinematic fall: fallSpeedMultiplier is pixels/tick applied directly as
-// velocityY to alive chunks. gravityScale is zeroed for alive chunks. Dead
-// chunks fall under normal gravity so confetti is snappy.
+// Real gravity: fallSpeedMultiplier is the per-body gravityScale.y applied
+// to alive compound asteroids. 1.0 = full Matter world gravity, so the L0
+// baseline of 0.3 is sub-gravity (floaty entry) and L9 = 3.0 is ~3× g.
+// Asteroids accelerate naturally from spawn and can build momentum against
+// the grinder/saw. Dead chunks use the default gravityScale = 1.0.
 const FALL_BASE = 0.3;
 const FALL_PER_LEVEL = 0.3;
 

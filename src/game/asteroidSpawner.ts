@@ -49,6 +49,7 @@ export class AsteroidSpawner {
 
     return new CompoundAsteroid(
       this.scene, shape, worldX, worldY, params.hpMultiplier, materialsByChunk,
+      params.fallSpeedMultiplier,
     );
   }
 }

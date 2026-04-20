@@ -120,6 +120,13 @@ export class GameScene extends Phaser.Scene {
   }
 
   create(): void {
+    // Phaser reuses the same Scene instance across stop+start, so class-field
+    // initializers don't re-run on restart. Clear per-run collections here so
+    // stale compound bodies (referenced by the old Matter world, detached
+    // from the new one) don't linger in the spawn-gate check.
+    this.liveAsteroids = [];
+    this.deadChunks.clear();
+
     gameplayState.resetData();
     this.pendingShardsThisRun = 0;
 
@@ -361,38 +368,11 @@ export class GameScene extends Phaser.Scene {
     }
 
     const maxY = this.scale.height + 120;
-    const fall = this.effectiveParams.fallSpeedMultiplier;
 
     // Screen-edge walls are the only outer horizontal bound in the
     // procedural arena. enforceWalls keeps compound bodies inside.
     const wallInnerL = 0;
     const wallInnerR = this.scale.width;
-
-    // Wake any asteroid whose chunks are near an active weapon (saw arbor
-    // etc). Otherwise Matter's sleeping optimization hides the pile from
-    // the orbiting blade and the saw passes through chunks without
-    // pushing them. Wake radius = arbor + chunk half + margin.
-    const wakeRadiusSq: { x: number; y: number; r2: number }[] = [];
-    for (const inst of this.weaponInstances) {
-      const wakeR = inst.behavior.bodyRadius + 20;
-      wakeRadiusSq.push({ x: inst.sprite.x, y: inst.sprite.y, r2: wakeR * wakeR });
-    }
-    for (const ast of this.liveAsteroids) {
-      if (!ast.body.isSleeping) continue;
-      for (const zone of wakeRadiusSq) {
-        const dx = ast.body.position.x - zone.x;
-        const dy = ast.body.position.y - zone.y;
-        if (dx * dx + dy * dy <= zone.r2 + 2500) { // +50px slop via r2 pad
-          const Matter = (this.matter as unknown as {
-            Sleeping: { set: (body: MatterJS.BodyType, isSleeping: boolean) => void };
-          });
-          Matter.Sleeping?.set?.(ast.body, false);
-          // Fallback: direct property touch wakes body in all Matter versions.
-          (ast.body as unknown as { isSleeping: boolean }).isSleeping = false;
-          break;
-        }
-      }
-    }
 
     for (let i = this.liveAsteroids.length - 1; i >= 0; i--) {
       const ast = this.liveAsteroids[i];
@@ -401,7 +381,6 @@ export class GameScene extends Phaser.Scene {
         this.liveAsteroids.splice(i, 1);
         continue;
       }
-      ast.applyKinematicFall(fall);
       // Kinematic wall barrier: Matter's solver can't always keep a heavy
       // pile inside a thin channel. After physics steps, find the chunk
       // part that's penetrated the wall deepest and shove the whole
@@ -692,10 +671,17 @@ export class GameScene extends Phaser.Scene {
     inst.sprite.destroy();
     this.weaponInstances = this.weaponInstances.filter((w) => w !== inst);
     gameplayState.uninstallWeapon(slotId);
-    // Only refund cash if the count actually decremented. Prevents a $1
-    // exploit when the count was already at the floor.
-    if (gameplayState.sellWeapon(installed.typeId)) {
-      gameplayState.addCash(1, { silent: true });
+    // Refund equals the Nth-buy cost at the moment this weapon was the Nth.
+    // With N = count BEFORE sell, that's weaponBuyCost({globalBought: N-1}).
+    // Selling the 1st weapon refunds $0 (it was free), 2nd refunds $100, etc.
+    const countBefore = gameplayState.totalInstancesBoughtThisRun();
+    const refund = weaponBuyCost({
+      globalBought: Math.max(0, countBefore - 1),
+      typeBought: 0,
+      freeSlotsForType: 0,
+    });
+    if (gameplayState.sellWeapon(installed.typeId) && refund > 0) {
+      gameplayState.addCash(refund, { silent: true });
     }
     // Re-draw the slot marker so its yellow ring comes back.
     const slot = this.arenaLayout?.slots.find((s) => s.id === slotId);
@@ -1128,27 +1114,32 @@ export class GameScene extends Phaser.Scene {
     if (this.effectiveParams.spawnIntervalMs !== prev.spawnIntervalMs) {
       this.rebuildSpawnTimer(this.effectiveParams.spawnIntervalMs);
     }
-    // fallSpeedMultiplier doesn't need a per-asteroid refresh: applyKinematicFall()
-    // reads effectiveParams.fallSpeedMultiplier every tick, so upgrades take
-    // effect immediately without touching individual bodies.
+    if (this.effectiveParams.fallSpeedMultiplier !== prev.fallSpeedMultiplier) {
+      for (const ast of this.liveAsteroids) {
+        ast.setGravityMultiplier(this.effectiveParams.fallSpeedMultiplier);
+      }
+    }
   }
 
   // ── gameplay ───────────────────────────────────────────────────────────
 
   private spawnAsteroid(): void {
-    // Spawn gate: don't push a new asteroid in if the top of the channel is
-    // already clogged. Keeps the pile from spilling above the channel when
-    // the saw can't keep up with incoming flow (e.g. max Drop Rate + weak
-    // damage). Skipped spawns are silently lost — gameplay incentive to buy
-    // more / stronger weapons.
-    const spawnGateY = CHANNEL_TOP_Y + 80;
+    // Spawn gate: only skip if another asteroid's chunk is already sitting
+    // at (spawnX, SPAWN_Y) — direct-overlap protection. Unlike the earlier
+    // "any chunk above y240 clogs" rule, a pile resting on an upper shelf
+    // no longer halts the stream; asteroids keep coming as long as the exact
+    // spawn point is free.
+    const spawnX = this.nextOscillatingSpawnX();
+    const minClearR = CHUNK_PIXEL_SIZE * 3;
+    const minClearR2 = minClearR * minClearR;
     for (const ast of this.liveAsteroids) {
       for (const chunk of ast.chunks.values()) {
-        if (chunk.bodyPart.position.y < spawnGateY) return;
+        const dx = chunk.bodyPart.position.x - spawnX;
+        const dy = chunk.bodyPart.position.y - SPAWN_Y;
+        if (dx * dx + dy * dy < minClearR2) return;
       }
     }
 
-    const spawnX = this.nextOscillatingSpawnX();
     const asteroid = this.spawner.spawnOne(spawnX, SPAWN_Y, {
       minChunks: this.effectiveParams.minChunks,
       maxChunks: this.effectiveParams.maxChunks,

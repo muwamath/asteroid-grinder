@@ -973,7 +973,15 @@ export class UIScene extends Phaser.Scene {
     title.style.cssText = 'font:bold 28px ui-monospace; color:#ffa0a0; text-align:center;';
     panel.appendChild(title);
     const body = document.createElement('div');
-    body.textContent = `Refunds $1. Frees up the slot for another buy.`;
+    const countBefore = gameplayState.totalInstancesBoughtThisRun();
+    const refund = weaponBuyCost({
+      globalBought: Math.max(0, countBefore - 1),
+      typeBought: 0,
+      freeSlotsForType: 0,
+    });
+    body.textContent = refund > 0
+      ? `Refunds $${refund}. Frees up the slot for another buy.`
+      : `No refund (this weapon was free). Frees up the slot for another buy.`;
     body.style.cssText = 'font:18px ui-monospace; color:#d0d0e0; text-align:center;';
     panel.appendChild(body);
     const row = document.createElement('div');

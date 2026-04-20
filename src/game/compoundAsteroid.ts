@@ -31,6 +31,7 @@ export class CompoundAsteroid {
   readonly adjacency = new Map<string, Set<string>>();
   private compoundBody!: MatterJS.BodyType;
   private readonly scene: Phaser.Scene;
+  private gravityMultiplier: number;
 
   constructor(
     scene: Phaser.Scene,
@@ -39,8 +40,10 @@ export class CompoundAsteroid {
     spawnY: number,
     hpMultiplier: number,
     materialsByChunk: ReadonlyMap<string, Material>,
+    gravityMultiplier: number,
     vaultHpMultiplier = 10,
   ) {
+    this.gravityMultiplier = gravityMultiplier;
     this.scene = scene;
     this.id = `A${nextAsteroidId++}`;
 
@@ -102,8 +105,13 @@ export class CompoundAsteroid {
     this.compoundBody = body;
 
     (body as unknown as { gravityScale: { x: number; y: number } }).gravityScale = {
-      x: 0, y: 0,
+      x: 0, y: this.gravityMultiplier,
     };
+    // Disable sleeping on alive asteroids — Matter would otherwise freeze a
+    // freshly spawned body whose gravity-per-tick stays below the motion
+    // threshold, leaving it parked mid-air. Piles at rest settle via solver
+    // constraints; we don't rely on sleep for that.
+    (body as unknown as { sleepThreshold: number }).sleepThreshold = -1;
 
     // Parts were created at local offsets (centered around 0,0), so the
     // compound's centroid is at origin. Move it to the spawn location.
@@ -146,39 +154,13 @@ export class CompoundAsteroid {
 
   get isAlive(): boolean { return this.chunks.size > 0; }
 
-  /**
-   * Apply kinematic fall velocity — but not if the asteroid is sleeping
-   * (pile stable) or currently resting on another body (Matter has already
-   * stopped its fall; re-injecting velocity would drive it into the pile
-   * and create unresolvable penetration). `enableSleeping: true` on the
-   * engine lets stacked bodies freeze; this check keeps them settled.
-   */
-  applyKinematicFall(velocityY: number): void {
-    if (this.compoundBody.isSleeping) return;
-
-    const pairs = (this.scene.matter.world as unknown as {
-      engine: { pairs: { list: Array<{
-        isActive: boolean;
-        bodyA: { parent?: unknown };
-        bodyB: { parent?: unknown };
-        collision: { normal: { y: number } };
-      }> } };
-    }).engine.pairs.list;
-
-    for (const p of pairs) {
-      if (!p.isActive) continue;
-      const aMine = p.bodyA.parent === this.compoundBody;
-      const bMine = p.bodyB.parent === this.compoundBody;
-      if (!aMine && !bMine) continue;
-      // normal points bodyA → bodyB. normal.y > 0 means B is below A.
-      const restingNy = aMine ? p.collision.normal.y : -p.collision.normal.y;
-      if (restingNy > 0.5) return; // resting on something below — let Matter hold us
-    }
-
-    this.scene.matter.body.setVelocity(this.compoundBody, {
-      x: this.compoundBody.velocity.x, y: velocityY,
-    });
+  setGravityMultiplier(m: number): void {
+    this.gravityMultiplier = m;
+    (this.compoundBody as unknown as { gravityScale: { x: number; y: number } })
+      .gravityScale = { x: 0, y: m };
   }
+
+  get currentGravityMultiplier(): number { return this.gravityMultiplier; }
 
   syncSprites(): void {
     const pos = this.compoundBody.position;
@@ -411,8 +393,11 @@ export class CompoundAsteroid {
       frictionAir: 0,
     });
     (body as unknown as { gravityScale: { x: number; y: number } }).gravityScale = {
-      x: 0, y: 0,
+      x: 0, y: args.parent.gravityMultiplier,
     };
+    (body as unknown as { sleepThreshold: number }).sleepThreshold = -1;
+    (child as unknown as { gravityMultiplier: number }).gravityMultiplier =
+      args.parent.gravityMultiplier;
     args.scene.matter.body.setPosition(body, args.newCenter);
     args.scene.matter.body.setAngle(body, args.parentAngle);
     args.scene.matter.body.setVelocity(body, args.velocity);
