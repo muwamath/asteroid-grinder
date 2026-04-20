@@ -4,16 +4,30 @@ import {
 } from './prestigeShopCatalog';
 
 describe('prestigeShopCatalog', () => {
-  it('defines exactly 12 entries', () => {
-    expect(PRESTIGE_SHOP.length).toBe(12);
+  it('defines exactly 13 entries', () => {
+    expect(PRESTIGE_SHOP.length).toBe(13);
   });
 
-  it('exposes arena.preUnlockedSlots with level cap MAX_SLOTS - 1', async () => {
-    const { MAX_SLOTS } = await import('./arena/arenaConstants');
-    const entry = findShopEntry('arena.preUnlockedSlots');
-    expect(entry).toBeDefined();
-    expect(entry!.maxLevel).toBe(MAX_SLOTS - 1);
-    expect(entry!.family).toBe('economy');
+  it('arena.preUnlockedSlots is removed (vestigial after slot-lock removal)', () => {
+    expect(findShopEntry('arena.preUnlockedSlots')).toBeUndefined();
+  });
+
+  it('prestige.shardMultiplier exists: multiplier family, $15 base, 1.8× growth, max 20', () => {
+    const e = findShopEntry('prestige.shardMultiplier');
+    expect(e).toBeDefined();
+    expect(e!.family).toBe('multiplier');
+    expect(e!.baseCost).toBe(15);
+    expect(e!.growthRate).toBe(1.8);
+    expect(e!.maxLevel).toBe(20);
+  });
+
+  it('offline.rate exists: economy family, $40 base, 2.5× growth, max 6', () => {
+    const e = findShopEntry('offline.rate');
+    expect(e).toBeDefined();
+    expect(e!.family).toBe('economy');
+    expect(e!.baseCost).toBe(40);
+    expect(e!.growthRate).toBe(2.5);
+    expect(e!.maxLevel).toBe(6);
   });
 
   it('includes all four free-weapon slots', () => {
