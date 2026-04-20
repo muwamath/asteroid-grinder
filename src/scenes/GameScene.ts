@@ -6,7 +6,7 @@ import { gameplayState } from '../game/gameplayState';
 import { BASE_PARAMS, applyUpgrades, type EffectiveGameplayParams } from '../game/upgradeApplier';
 import { WEAPON_TYPES, weaponBuyCost } from '../game/weaponCatalog';
 import { CashRateTracker } from '../game/cashRate';
-import { saveToLocalStorage, clearSave, loadFromLocalStorage, type SaveStateV3 } from '../game/saveState';
+import { saveToLocalStorage, clearSave, loadFromLocalStorage, type SaveStateV4 } from '../game/saveState';
 import { type WeaponBehavior, createBehavior, allBehaviorPrototypes } from '../game/weapons';
 import { SawBehavior } from '../game/weapons/sawBehavior';
 import { GrinderBehavior } from '../game/weapons/grinderBehavior';
@@ -121,7 +121,7 @@ export class GameScene extends Phaser.Scene {
     gameplayState.resetData();
     this.pendingShardsThisRun = 0;
 
-    const snap = this.game.registry.get('pendingSnapshot') as SaveStateV3 | null;
+    const snap = this.game.registry.get('pendingSnapshot') as SaveStateV4 | null;
     if (snap) {
       gameplayState.loadSnapshot({
         cash: snap.cash,
@@ -804,8 +804,8 @@ export class GameScene extends Phaser.Scene {
         return w && w.behavior instanceof SawBehavior ? w.behavior.clockwise : undefined;
       })(),
     }));
-    const snap: SaveStateV3 = {
-      v: 3,
+    const snap: SaveStateV4 = {
+      v: 4,
       cash: gameplayState.cash,
       levels: gameplayState.levels(),
       weaponCounts,

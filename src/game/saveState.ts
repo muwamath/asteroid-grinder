@@ -5,6 +5,31 @@ export interface SavedWeaponInstallation {
   clockwise?: boolean;
 }
 
+/**
+ * Current schema (v4). Added 2026-04-19 as part of the upgrade audit:
+ *  - `asteroids.dropRate` upgrade renamed to `spawn.rate` (new `spawn` category)
+ *  - `arena.preUnlockedSlots` prestige entry removed (dead since slot-lock removal)
+ */
+export interface SaveStateV4 {
+  v: 4;
+  cash: number;
+  levels: Record<string, number>;
+  weaponCounts: Record<string, number>;
+  weaponInstallations: SavedWeaponInstallation[];
+  emaCashPerSec: number;
+  savedAt: number;
+  runSeed: string;
+  arenaSeed: number;
+  arenaSlotsUnlocked: string[];
+  arenaFreeUnlockUsed: boolean;
+  pendingShardsThisRun: number;
+  prestigeShards: number;
+  prestigeCount: number;
+  prestigeShopLevels: Record<string, number>;
+  instancesBoughtThisRun: Record<string, number>;
+}
+
+/** Legacy v3 shape — retained for migration only. */
 export interface SaveStateV3 {
   v: 3;
   cash: number;
@@ -24,18 +49,19 @@ export interface SaveStateV3 {
   instancesBoughtThisRun: Record<string, number>;
 }
 
-export const SAVE_STATE_VERSION = 3;
-export const STORAGE_KEY = 'asteroid-grinder:save:v3';
-export const STORAGE_KEY_V1 = 'asteroid-grinder:save:v1';
+export const SAVE_STATE_VERSION = 4;
+export const STORAGE_KEY = 'asteroid-grinder:save:v4';
+export const STORAGE_KEY_V3 = 'asteroid-grinder:save:v3';
 export const STORAGE_KEY_V2 = 'asteroid-grinder:save:v2';
+export const STORAGE_KEY_V1 = 'asteroid-grinder:save:v1';
 export const OFFLINE_CAP_MS = 8 * 60 * 60 * 1000;
 export const MIN_OFFLINE_MS = 60 * 1000;
 
-export function serialize(state: SaveStateV3): string {
+export function serialize(state: SaveStateV4): string {
   return JSON.stringify(state);
 }
 
-export function deserialize(json: string): SaveStateV3 | null {
+export function deserialize(json: string): SaveStateV4 | null {
   let parsed: unknown;
   try {
     parsed = JSON.parse(json);
@@ -43,13 +69,18 @@ export function deserialize(json: string): SaveStateV3 | null {
     return null;
   }
   if (!parsed || typeof parsed !== 'object') return null;
-  const p = parsed as Partial<SaveStateV3>;
-  if (p.v !== 3) return null;
-  if (!validateV3(p)) return null;
-  return p as SaveStateV3;
+  const p = parsed as Partial<SaveStateV4>;
+  if (p.v !== 4) return null;
+  if (!validateShape(p)) return null;
+  return p as SaveStateV4;
 }
 
-function validateV3(p: Partial<SaveStateV3>): boolean {
+/**
+ * Schema-shape validation shared between v3 and v4 (they're structurally
+ * identical — v4 only changes the `v` field and the *meaning* of certain
+ * level keys, which migration handles).
+ */
+function validateShape(p: Partial<SaveStateV4 | SaveStateV3>): boolean {
   if (typeof p.cash !== 'number' || !Number.isFinite(p.cash)) return false;
   if (!p.levels || typeof p.levels !== 'object') return false;
   for (const v of Object.values(p.levels)) {
@@ -90,7 +121,37 @@ function validateV3(p: Partial<SaveStateV3>): boolean {
   return true;
 }
 
-export function saveToLocalStorage(state: SaveStateV3): void {
+/**
+ * Migrate a v3 snapshot into v4:
+ *  - Rename `asteroids.dropRate` level → `spawn.rate`
+ *  - Drop `arena.preUnlockedSlots` from prestigeShopLevels (dead upgrade)
+ */
+export function migrateV3ToV4(s: SaveStateV3): SaveStateV4 {
+  const levels = { ...s.levels };
+  if ('asteroids.dropRate' in levels) {
+    levels['spawn.rate'] = levels['asteroids.dropRate'];
+    delete levels['asteroids.dropRate'];
+  }
+  const prestigeShopLevels = { ...s.prestigeShopLevels };
+  delete prestigeShopLevels['arena.preUnlockedSlots'];
+  return { ...s, v: 4, levels, prestigeShopLevels };
+}
+
+function tryParseV3(json: string): SaveStateV3 | null {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(json);
+  } catch {
+    return null;
+  }
+  if (!parsed || typeof parsed !== 'object') return null;
+  const p = parsed as Partial<SaveStateV3>;
+  if (p.v !== 3) return null;
+  if (!validateShape(p)) return null;
+  return p as SaveStateV3;
+}
+
+export function saveToLocalStorage(state: SaveStateV4): void {
   try {
     localStorage.setItem(STORAGE_KEY, serialize(state));
   } catch {
@@ -98,11 +159,22 @@ export function saveToLocalStorage(state: SaveStateV3): void {
   }
 }
 
-export function loadFromLocalStorage(): SaveStateV3 | null {
+export function loadFromLocalStorage(): SaveStateV4 | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    return deserialize(raw);
+    if (raw) return deserialize(raw);
+    // v3 → v4 migration path
+    const rawV3 = localStorage.getItem(STORAGE_KEY_V3);
+    if (rawV3) {
+      const parsedV3 = tryParseV3(rawV3);
+      if (parsedV3) {
+        const migrated = migrateV3ToV4(parsedV3);
+        saveToLocalStorage(migrated);
+        localStorage.removeItem(STORAGE_KEY_V3);
+        return migrated;
+      }
+    }
+    return null;
   } catch {
     return null;
   }
@@ -111,6 +183,7 @@ export function loadFromLocalStorage(): SaveStateV3 | null {
 export function clearSave(): void {
   try {
     localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(STORAGE_KEY_V3);
     localStorage.removeItem(STORAGE_KEY_V2);
     localStorage.removeItem(STORAGE_KEY_V1);
   } catch {
@@ -118,8 +191,11 @@ export function clearSave(): void {
   }
 }
 
-// True if a save from a prior schema version exists. Bootstrap clears and
-// toasts when this is true.
+/**
+ * True if a save from v1 or v2 exists (not automigratable). Bootstrap clears
+ * and toasts when this is true. v3 is handled transparently by
+ * `loadFromLocalStorage` and does NOT count as legacy.
+ */
 export function hasLegacySave(): boolean {
   try {
     return (
