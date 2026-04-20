@@ -74,9 +74,10 @@ describe('applyUpgrades', () => {
     expect(applyUpgrades({ 'laser.aimSpeed': 4 }).laserAimSpeed).toBeCloseTo(30 + 4 * 16.5);
   });
 
-  it('increases laserRange per level', () => {
+  it('increases laserRange per level (reaches ~1/4 screen by L20)', () => {
     expect(applyUpgrades({}).laserRange).toBe(60);
-    expect(applyUpgrades({ 'laser.range': 5 }).laserRange).toBe(60 + 5 * 20);
+    expect(applyUpgrades({ 'laser.range': 5 }).laserRange).toBe(60 + 5 * 30);
+    expect(applyUpgrades({ 'laser.range': 20 }).laserRange).toBe(660);
   });
 
   it('increases laserDamage per level', () => {

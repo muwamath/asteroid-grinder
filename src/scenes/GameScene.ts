@@ -928,13 +928,22 @@ export class GameScene extends Phaser.Scene {
       }
       return;
     }
-    if (!gameplayState.installedAt(slot.id)) {
+    const installedHere = gameplayState.installedAt(slot.id);
+    if (!installedHere) {
       this.scene.get('ui').events.emit('open-weapon-picker', {
         slotId: slot.id,
         x: slot.x,
         y: slot.y,
       });
+      return;
     }
+    // Slot is occupied — offer sell. Right-click on the weapon sprite still
+    // works too; this gives a touch-friendly path.
+    this.scene.get('ui').events.emit('open-sell-confirm', {
+      slotId: slot.id,
+      typeId: installedHere.typeId,
+      instanceId: installedHere.instanceId,
+    });
   }
 
   private startingUnlockedCountForThisRun(): number {
