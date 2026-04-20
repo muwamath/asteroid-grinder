@@ -5,7 +5,7 @@ import type { ArenaLayout } from './arenaTypes';
 const PLAYFIELD = { width: 1200, height: 1440 };
 
 function layout(walls: ArenaLayout['walls'], slots: ArenaLayout['slots'] = []): ArenaLayout {
-  return { seed: 1, walls, slots, floorY: 1380, playfield: PLAYFIELD };
+  return { seed: 1, walls, slots, obstacles: [], floorY: 1380, playfield: PLAYFIELD };
 }
 
 describe('isPlayable', () => {

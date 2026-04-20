@@ -55,6 +55,7 @@ function tryGenerate(seed: number, params: ArenaSeedParams): ArenaLayout {
     seed,
     walls,
     slots,
+    obstacles: [],
     floorY,
     playfield: { width: params.width, height: params.height },
   };
@@ -253,6 +254,7 @@ function fallbackChute(params: ArenaSeedParams): ArenaLayout {
     seed: 0,
     walls: [],
     slots,
+    obstacles: [],
     floorY,
     playfield: { width: params.width, height: params.height },
   };

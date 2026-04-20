@@ -40,3 +40,17 @@ export const MIN_SLOT_FLOOR_CLEARANCE = 160;
 // Wall collider half-thickness is 20, weapon sprite radius is ~40, so 80
 // is the minimum "no-overlap" clearance. A bit more for breathing room.
 export const MIN_SLOT_WALL_CLEARANCE = 100;
+
+// Obstacle / peg ranges, sampled per map (arena variety pass 2026-04-19).
+// Obstacles = medium blockers (circles + diamonds) that catch chunks.
+// Pegs = small pachinko deflectors, mostly flavour.
+export const OBSTACLE_COUNT_MIN = 2;
+export const OBSTACLE_COUNT_MAX = 4;
+export const OBSTACLE_CIRCLE_R_MIN = 30;
+export const OBSTACLE_CIRCLE_R_MAX = 60;
+export const OBSTACLE_DIAMOND_HALF_MIN = 30;
+export const OBSTACLE_DIAMOND_HALF_MAX = 55;
+export const PEG_COUNT_MIN = 4;
+export const PEG_COUNT_MAX = 12;
+export const PEG_R_MIN = 8;
+export const PEG_R_MAX = 15;
