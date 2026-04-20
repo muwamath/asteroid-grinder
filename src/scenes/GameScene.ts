@@ -510,20 +510,18 @@ export class GameScene extends Phaser.Scene {
 
     const extracted = ast.extractDeadChunk(chunkId);
     if (extracted) {
-      this.spawnDeadConfettiChunk(extracted, killerType);
-      // Shards are a WEAPON-kill reward — the grinder is brute-force cleanup
-      // and pays only the flat $1 cash, never Shards. This keeps weapons
-      // strictly more valuable than letting cores drop into the blades.
-      if (extracted.isCore && killerType !== 'grinder') {
+      const chunk = this.spawnDeadConfettiChunk(extracted, killerType);
+      // Shards are a WEAPON-kill-ONLY reward (grinder stays flat $1 per design
+      // invariant), but collection is deferred until the core chunk actually
+      // passes through the grinder at the death line. The shards ride along
+      // with the dead chunk as data; `collectDeadAtDeathLine` awards them.
+      if (chunk && extracted.isCore && killerType !== 'grinder') {
         const shards = computeVaultShardReward(
           extracted.material,
           this.effectiveParams.shardYieldBonus,
           this.effectiveParams.shardYieldMultiplier,
         );
-        if (shards > 0) {
-          this.pendingShardsThisRun += shards;
-          this.events.emit('pendingShardsChanged', this.pendingShardsThisRun, shards);
-        }
+        if (shards > 0) chunk.setData('pendingShards', shards);
       }
     }
 
@@ -550,7 +548,7 @@ export class GameScene extends Phaser.Scene {
     velocityX: number; velocityY: number;
     material: Material; textureKey: string;
     isCore: boolean;
-  }, killerType: WeaponKillSource): void {
+  }, killerType: WeaponKillSource): Phaser.Physics.Matter.Image {
     const chunk = this.matter.add.image(info.worldX, info.worldY, info.textureKey);
     chunk.setRectangle(CHUNK_PIXEL_SIZE, CHUNK_PIXEL_SIZE);
     chunk.setMass(0.25);
@@ -573,6 +571,7 @@ export class GameScene extends Phaser.Scene {
     chunk.setCollisionCategory(CAT_DEAD_CHUNK);
     chunk.setCollidesWith(MASK_DEAD_CHUNK);
     this.deadChunks.add(chunk);
+    return chunk;
   }
 
   private collectDeadAtDeathLine(chunk: Phaser.Physics.Matter.Image): void {
@@ -589,6 +588,14 @@ export class GameScene extends Phaser.Scene {
       this.cashFromLine += reward;
     } else {
       this.cashFromSaw += reward;
+    }
+    // Deferred shard award: vault-core kills tag the dead chunk with
+    // `pendingShards`; the shards are only collected when the chunk passes
+    // through the grinder at the death line (this function).
+    const pending = chunk.getData('pendingShards') as number | undefined;
+    if (pending && pending > 0) {
+      this.pendingShardsThisRun += pending;
+      this.events.emit('pendingShardsChanged', this.pendingShardsThisRun, pending);
     }
     this.collectedDead++;
     this.spawnConfetti(chunk.x, chunk.y);
