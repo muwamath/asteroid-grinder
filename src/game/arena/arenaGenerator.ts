@@ -10,8 +10,14 @@ import {
   FLOOR_BAND_HEIGHT,
   MIN_SLOT_FLOOR_CLEARANCE,
   MIN_SLOT_WALL_CLEARANCE,
+  OBSTACLE_COUNT_MIN,
+  OBSTACLE_COUNT_MAX,
+  OBSTACLE_CIRCLE_R_MIN,
+  OBSTACLE_CIRCLE_R_MAX,
+  OBSTACLE_DIAMOND_HALF_MIN,
+  OBSTACLE_DIAMOND_HALF_MAX,
 } from './arenaConstants';
-import type { ArenaLayout, ArenaSeedParams, SlotDef, WallSegment } from './arenaTypes';
+import type { ArenaLayout, ArenaObstacle, ArenaSeedParams, SlotDef, WallSegment } from './arenaTypes';
 
 interface Rect {
   x: number;
@@ -49,12 +55,13 @@ function tryGenerate(seed: number, params: ArenaSeedParams): ArenaLayout {
   }
 
   const slots = placeSlots(leaves, rng, params, floorY, walls);
+  const obstacles = placeObstacles(leaves, walls, slots, rng, floorY);
 
   return {
     seed,
     walls,
     slots,
-    obstacles: [],
+    obstacles,
     floorY,
     playfield: { width: params.width, height: params.height },
   };
@@ -186,6 +193,86 @@ function placeSlots(
     });
   }
   return slots;
+}
+
+/**
+ * Place 2–4 medium blocking obstacles (circles + diamonds) in BSP leaves.
+ * Chunks catch on these for the intended "mayhem" feel. Clearance rules:
+ *  - ≥ obstacle_r + 30px from any wall center-line
+ *  - ≥ obstacle_r + 80px from any slot (weapon needs firing room)
+ *  - ≥ (r1 + r2 + 40) from other obstacles (both treated as bounding circles)
+ * Up to 12 retries per obstacle; graceful skip on failure.
+ */
+function placeObstacles(
+  leaves: readonly Rect[],
+  walls: readonly WallSegment[],
+  slots: readonly SlotDef[],
+  rng: SeededRng,
+  floorY: number,
+): ArenaObstacle[] {
+  const obstacles: ArenaObstacle[] = [];
+  if (leaves.length === 0) return obstacles;
+  const target = OBSTACLE_COUNT_MIN + rng.nextInt(OBSTACLE_COUNT_MAX - OBSTACLE_COUNT_MIN + 1);
+
+  // Cumulative area distribution for weighted leaf selection.
+  const areas = leaves.map((l) => l.w * l.h);
+  const totalArea = areas.reduce((a, b) => a + b, 0);
+  const pickLeaf = (): Rect => {
+    let roll = rng.next() * totalArea;
+    for (let i = 0; i < leaves.length; i++) {
+      roll -= areas[i];
+      if (roll <= 0) return leaves[i];
+    }
+    return leaves[leaves.length - 1];
+  };
+
+  for (let i = 0; i < target; i++) {
+    for (let attempt = 0; attempt < 12; attempt++) {
+      const isCircle = rng.next() < 0.5;
+      const half = isCircle
+        ? OBSTACLE_CIRCLE_R_MIN + rng.next() * (OBSTACLE_CIRCLE_R_MAX - OBSTACLE_CIRCLE_R_MIN)
+        : OBSTACLE_DIAMOND_HALF_MIN + rng.next() * (OBSTACLE_DIAMOND_HALF_MAX - OBSTACLE_DIAMOND_HALF_MIN);
+      const leaf = pickLeaf();
+      const margin = half + 20;
+      if (leaf.w < margin * 2 || leaf.h < margin * 2) continue;
+      const x = leaf.x + margin + rng.next() * (leaf.w - margin * 2);
+      const y = leaf.y + margin + rng.next() * (leaf.h - margin * 2);
+      if (y > floorY - half) continue;
+      if (tooCloseToAnyWall(x, y, walls, half + 30)) continue;
+      if (tooCloseToAnySlot(x, y, slots, half + 80)) continue;
+      if (tooCloseToAnyObstacle(x, y, half, obstacles, 40)) continue;
+      obstacles.push(isCircle
+        ? { kind: 'circle', x, y, r: half }
+        : { kind: 'diamond', x, y, half });
+      break;
+    }
+  }
+  return obstacles;
+}
+
+function tooCloseToAnySlot(x: number, y: number, slots: readonly SlotDef[], minD: number): boolean {
+  const minSq = minD * minD;
+  for (const s of slots) {
+    const dx = s.x - x;
+    const dy = s.y - y;
+    if (dx * dx + dy * dy < minSq) return true;
+  }
+  return false;
+}
+
+function tooCloseToAnyObstacle(
+  x: number, y: number, r: number,
+  obstacles: readonly ArenaObstacle[],
+  buffer: number,
+): boolean {
+  for (const o of obstacles) {
+    const otherR = o.kind === 'diamond' ? o.half : o.r;
+    const minD = r + otherR + buffer;
+    const dx = o.x - x;
+    const dy = o.y - y;
+    if (dx * dx + dy * dy < minD * minD) return true;
+  }
+  return false;
 }
 
 function tooCloseToExisting(x: number, y: number, slots: readonly SlotDef[], minD: number): boolean {
