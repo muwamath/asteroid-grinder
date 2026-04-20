@@ -321,7 +321,15 @@ export class UIScene extends Phaser.Scene {
         else this.openOptions();
       });
       this.fullscreenKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.F);
-      this.fullscreenKey.on('down', () => this.doToggleFullscreen());
+      this.fullscreenKey.on('down', () => {
+        // Don't steal the keystroke when the user is typing in an input
+        // (e.g. the Run Config seed field). `document.activeElement` is
+        // INPUT/TEXTAREA/contenteditable when focus is in a text field.
+        const a = document.activeElement;
+        if (a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' ||
+                  (a as HTMLElement).isContentEditable)) return;
+        this.doToggleFullscreen();
+      });
     }
 
     // Keep a handle in case we need to re-layout later.

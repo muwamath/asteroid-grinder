@@ -35,3 +35,8 @@ export const SPAWN_MARGIN = 32;
 // Slot placement must clear the grinder row at the floor by this much so
 // clicks on slots don't get intercepted by grinder blade hit boxes.
 export const MIN_SLOT_FLOOR_CLEARANCE = 160;
+
+// Minimum distance from any wall-segment center-line to a slot position.
+// Wall collider half-thickness is 20, weapon sprite radius is ~40, so 80
+// is the minimum "no-overlap" clearance. A bit more for breathing room.
+export const MIN_SLOT_WALL_CLEARANCE = 100;

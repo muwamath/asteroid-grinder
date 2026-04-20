@@ -10,6 +10,7 @@ import {
   MAX_RETRIES,
   FLOOR_BAND_HEIGHT,
   MIN_SLOT_FLOOR_CLEARANCE,
+  MIN_SLOT_WALL_CLEARANCE,
 } from './arenaConstants';
 import type { ArenaLayout, ArenaSeedParams, SlotDef, WallSegment } from './arenaTypes';
 
@@ -48,7 +49,7 @@ function tryGenerate(seed: number, params: ArenaSeedParams): ArenaLayout {
     walls[i] = clampToPlayfield(ensureSlant(walls[i], rng), params.width, floorY);
   }
 
-  const slots = placeSlots(leaves, rng, params, floorY);
+  const slots = placeSlots(leaves, rng, params, floorY, walls);
 
   return {
     seed,
@@ -144,26 +145,37 @@ function placeSlots(
   rng: SeededRng,
   params: ArenaSeedParams,
   floorY: number,
+  walls: readonly WallSegment[],
 ): SlotDef[] {
   const slots: SlotDef[] = [];
   let next = 0;
   const maxSlotY = floorY - MIN_SLOT_FLOOR_CLEARANCE;
   const sorted = [...leaves].sort((a, b) => b.w * b.h - a.w * a.h);
+  const tryPlace = (cx: number, cy: number, spacing: number): boolean => {
+    if (tooCloseToExisting(cx, cy, slots, spacing)) return false;
+    if (tooCloseToAnyWall(cx, cy, walls, MIN_SLOT_WALL_CLEARANCE)) return false;
+    return true;
+  };
   for (const leaf of sorted) {
     const count = 1 + rng.nextInt(2);
     for (let i = 0; i < count; i++) {
       if (slots.length >= params.maxSlots) break;
-      const cx = leaf.x + leaf.w * (0.25 + rng.next() * 0.5);
-      const rawCy = leaf.y + leaf.h * (0.3 + rng.next() * 0.5);
-      const cy = Math.min(rawCy, maxSlotY);
-      if (tooCloseToExisting(cx, cy, slots, SLOT_SPACING)) continue;
-      slots.push({
-        id: `s${next++}`,
-        x: cx,
-        y: cy,
-        normalAngleRad: rng.next() * Math.PI * 2,
-        leafId: leaf.id,
-      });
+      // Up to 8 tries per slot candidate — lets us reject wall overlaps
+      // while still guaranteeing placement in crowded leaves.
+      for (let attempt = 0; attempt < 8; attempt++) {
+        const cx = leaf.x + leaf.w * (0.25 + rng.next() * 0.5);
+        const rawCy = leaf.y + leaf.h * (0.3 + rng.next() * 0.5);
+        const cy = Math.min(rawCy, maxSlotY);
+        if (!tryPlace(cx, cy, SLOT_SPACING)) continue;
+        slots.push({
+          id: `s${next++}`,
+          x: cx,
+          y: cy,
+          normalAngleRad: rng.next() * Math.PI * 2,
+          leafId: leaf.id,
+        });
+        break;
+      }
     }
     if (slots.length >= params.maxSlots) break;
   }
@@ -177,7 +189,7 @@ function placeSlots(
     const cx = leaf.x + leaf.w * (0.3 + rng.next() * 0.4);
     const rawCy = leaf.y + leaf.h * (0.3 + rng.next() * 0.4);
     const cy = Math.min(rawCy, maxSlotY);
-    if (tooCloseToExisting(cx, cy, slots, topUpSpacing)) continue;
+    if (!tryPlace(cx, cy, topUpSpacing)) continue;
     slots.push({
       id: `s${next++}`,
       x: cx,
@@ -196,6 +208,32 @@ function tooCloseToExisting(x: number, y: number, slots: readonly SlotDef[], min
     if (dx * dx + dy * dy < minD * minD) return true;
   }
   return false;
+}
+
+function tooCloseToAnyWall(x: number, y: number, walls: readonly WallSegment[], minD: number): boolean {
+  const minSq = minD * minD;
+  for (const w of walls) {
+    if (pointToSegmentSq(x, y, w.x1, w.y1, w.x2, w.y2) < minSq) return true;
+  }
+  return false;
+}
+
+function pointToSegmentSq(px: number, py: number, x1: number, y1: number, x2: number, y2: number): number {
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const lenSq = dx * dx + dy * dy;
+  if (lenSq === 0) {
+    const rx = px - x1;
+    const ry = py - y1;
+    return rx * rx + ry * ry;
+  }
+  let t = ((px - x1) * dx + (py - y1) * dy) / lenSq;
+  t = Math.max(0, Math.min(1, t));
+  const qx = x1 + t * dx;
+  const qy = y1 + t * dy;
+  const rx = px - qx;
+  const ry = py - qy;
+  return rx * rx + ry * ry;
 }
 
 function fallbackChute(params: ArenaSeedParams): ArenaLayout {
