@@ -16,6 +16,10 @@ import {
   OBSTACLE_CIRCLE_R_MAX,
   OBSTACLE_DIAMOND_HALF_MIN,
   OBSTACLE_DIAMOND_HALF_MAX,
+  PEG_COUNT_MIN,
+  PEG_COUNT_MAX,
+  PEG_R_MIN,
+  PEG_R_MAX,
 } from './arenaConstants';
 import type { ArenaLayout, ArenaObstacle, ArenaSeedParams, SlotDef, WallSegment } from './arenaTypes';
 
@@ -56,12 +60,14 @@ function tryGenerate(seed: number, params: ArenaSeedParams): ArenaLayout {
 
   const slots = placeSlots(leaves, rng, params, floorY, walls);
   const obstacles = placeObstacles(leaves, walls, slots, rng, floorY);
+  const pegs = placePegs(walls, slots, obstacles, rng, params.width, floorY);
+  const allObstacles: ArenaObstacle[] = [...obstacles, ...pegs];
 
   return {
     seed,
     walls,
     slots,
-    obstacles,
+    obstacles: allObstacles,
     floorY,
     playfield: { width: params.width, height: params.height },
   };
@@ -248,6 +254,38 @@ function placeObstacles(
     }
   }
   return obstacles;
+}
+
+/**
+ * Place 4–12 small pachinko pegs uniformly in the playfield, respecting
+ * clearance from walls, slots, obstacles, and each other. Pegs are flavour:
+ * chunks deflect but mostly slide past. Not considered in isPlayable.
+ */
+function placePegs(
+  walls: readonly WallSegment[],
+  slots: readonly SlotDef[],
+  obstacles: readonly ArenaObstacle[],
+  rng: SeededRng,
+  playWidth: number,
+  floorY: number,
+): ArenaObstacle[] {
+  const pegs: ArenaObstacle[] = [];
+  const target = PEG_COUNT_MIN + rng.nextInt(PEG_COUNT_MAX - PEG_COUNT_MIN + 1);
+  for (let i = 0; i < target; i++) {
+    for (let attempt = 0; attempt < 20; attempt++) {
+      const r = PEG_R_MIN + rng.next() * (PEG_R_MAX - PEG_R_MIN);
+      const margin = r + 20;
+      const x = margin + rng.next() * (playWidth - margin * 2);
+      const y = margin + rng.next() * (floorY - margin * 2);
+      if (tooCloseToAnyWall(x, y, walls, r + 20)) continue;
+      if (tooCloseToAnySlot(x, y, slots, r + 40)) continue;
+      if (tooCloseToAnyObstacle(x, y, r, obstacles, 30)) continue;
+      if (tooCloseToAnyObstacle(x, y, r, pegs, 20)) continue;
+      pegs.push({ kind: 'peg', x, y, r });
+      break;
+    }
+  }
+  return pegs;
 }
 
 function tooCloseToAnySlot(x: number, y: number, slots: readonly SlotDef[], minD: number): boolean {
