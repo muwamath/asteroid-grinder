@@ -49,7 +49,9 @@ export const BASE_PARAMS: EffectiveGameplayParams = {
   sawDamage: 1,
   bladeCount: 1,
   spawnIntervalMs: 1800,
-  spawnAmplitudeMultiplier: 1,
+  // L0 = 0.5 (half the arena width); upgrade widens toward 1.0 at L10 cap.
+  // Scene clamps to maxAmplitude so asteroids stay inside the arena.
+  spawnAmplitudeMultiplier: 0.5,
   maxHpPerChunk: 1,
   minChunks: 4,
   maxChunks: 4,
@@ -92,7 +94,7 @@ const SAW_DAMAGE_PER_LEVEL = 1;
 const BLADE_COUNT_PER_LEVEL = 1;
 const DROP_RATE_MS_PER_LEVEL = 130;
 const DROP_RATE_MIN_MS = 300;
-const SPAWN_AMPLITUDE_PER_LEVEL = 0.1;
+const SPAWN_AMPLITUDE_PER_LEVEL = 0.05;
 const CHUNK_HP_PER_LEVEL = 1;
 const ASTEROID_SIZE_PER_LEVEL = 2;
 const BLADE_SPIN_SPEED_PER_LEVEL = 0.005;

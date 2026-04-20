@@ -4,7 +4,7 @@ import { computeChunkReward } from '../game/rewardFormula';
 import { AsteroidSpawner } from '../game/asteroidSpawner';
 import { gameplayState } from '../game/gameplayState';
 import { BASE_PARAMS, applyUpgrades, type EffectiveGameplayParams } from '../game/upgradeApplier';
-import { WEAPON_TYPES } from '../game/weaponCatalog';
+import { WEAPON_TYPES, weaponBuyCost } from '../game/weaponCatalog';
 import { CashRateTracker } from '../game/cashRate';
 import { saveToLocalStorage, clearSave, loadFromLocalStorage, type SaveStateV3 } from '../game/saveState';
 import { type WeaponBehavior, createBehavior, allBehaviorPrototypes } from '../game/weapons';
@@ -975,9 +975,10 @@ export class GameScene extends Phaser.Scene {
 
   private installWeaponAtSlot(slotId: string, typeId: string, x: number, y: number): void {
     if (gameplayState.installedAt(slotId)) return;
-    const bought = gameplayState.instancesBoughtThisRun(typeId);
-    const freeSlots = prestigeState.shopLevels()[`free.${typeId}`] ?? 0;
-    const cost = bought < freeSlots ? 0 : 1; // Placeholder — §4 rebalance tunes.
+    const typeBought = gameplayState.instancesBoughtThisRun(typeId);
+    const globalBought = gameplayState.totalInstancesBoughtThisRun();
+    const freeSlotsForType = prestigeState.shopLevels()[`free.${typeId}`] ?? 0;
+    const cost = weaponBuyCost({ globalBought, typeBought, freeSlotsForType });
     if (cost > 0 && !gameplayState.trySpend(cost)) return;
     const inst = this.spawnWeaponInstance(typeId, x, y);
     if (!inst) return;
@@ -987,7 +988,10 @@ export class GameScene extends Phaser.Scene {
 
   private nextOscillatingSpawnX(): number {
     const w = this.scale.width;
-    const amplitude = Math.max(0, w / 2 - this.maxAsteroidRadius - SPAWN_MARGIN);
+    const maxAmplitude = Math.max(0, w / 2 - this.maxAsteroidRadius - SPAWN_MARGIN);
+    // `spawn.amplitude` upgrade scales the sweep from L0=0.5 → L10=1.0.
+    // Clamp in case prestige/future upgrades push multiplier past 1.0.
+    const amplitude = maxAmplitude * Math.min(1, this.effectiveParams.spawnAmplitudeMultiplier);
     const x = w / 2 + amplitude * Math.sin(this.spawnPhase);
     this.spawnPhase += PHASE_STEP_RAD;
     return x;

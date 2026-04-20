@@ -38,10 +38,10 @@ describe('applyUpgrades', () => {
     expect(applyUpgrades({ 'spawn.rate': 99 }).spawnIntervalMs).toBe(300);
   });
 
-  it('scales spawnAmplitudeMultiplier per spawn.amplitude level (+10% per level)', () => {
-    expect(applyUpgrades({}).spawnAmplitudeMultiplier).toBe(1);
-    expect(applyUpgrades({ 'spawn.amplitude': 5 }).spawnAmplitudeMultiplier).toBeCloseTo(1.5);
-    expect(applyUpgrades({ 'spawn.amplitude': 10 }).spawnAmplitudeMultiplier).toBeCloseTo(2.0);
+  it('scales spawnAmplitudeMultiplier per spawn.amplitude level (L0=0.5 → L10=1.0)', () => {
+    expect(applyUpgrades({}).spawnAmplitudeMultiplier).toBeCloseTo(0.5);
+    expect(applyUpgrades({ 'spawn.amplitude': 5 }).spawnAmplitudeMultiplier).toBeCloseTo(0.75);
+    expect(applyUpgrades({ 'spawn.amplitude': 10 }).spawnAmplitudeMultiplier).toBeCloseTo(1.0);
   });
 
   it('raises chunk HP per level', () => {
