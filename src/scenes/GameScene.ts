@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { CompoundAsteroid, CHUNK_PIXEL_SIZE, type WeaponKillSource } from '../game/compoundAsteroid';
+import { computeChunkReward } from '../game/rewardFormula';
 import { AsteroidSpawner } from '../game/asteroidSpawner';
 import { gameplayState } from '../game/gameplayState';
 import { BASE_PARAMS, applyUpgrades, type EffectiveGameplayParams } from '../game/upgradeApplier';
@@ -575,8 +576,12 @@ export class GameScene extends Phaser.Scene {
   private collectDeadAtDeathLine(chunk: Phaser.Physics.Matter.Image): void {
     const tier = (chunk.getData('tier') as number | undefined) ?? 1;
     const killerType = (chunk.getData('killerType') as WeaponKillSource | undefined) ?? 'saw';
-    const baseReward = killerType === 'grinder' ? 1 : tier;
-    const reward = Math.max(1, Math.floor(baseReward * this.effectiveParams.cashMultiplier));
+    const reward = computeChunkReward({
+      tier,
+      hpMultiplier: this.effectiveParams.maxHpPerChunk,
+      killerType,
+      cashMultiplier: this.effectiveParams.cashMultiplier,
+    });
     gameplayState.addCash(reward);
     if (killerType === 'grinder') {
       this.cashFromLine += reward;
