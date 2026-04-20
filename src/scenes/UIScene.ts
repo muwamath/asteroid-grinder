@@ -157,6 +157,17 @@ export class UIScene extends Phaser.Scene {
       this.showWipeToast(wipedReason, 5000);
       this.game.registry.set('saveWipedReason', null);
     }
+
+    // Fresh boot / restart: open the Run Config overlay so the player lands
+    // on the map-picker screen first. Consumed once — subsequent scene
+    // restarts (post-prestige etc.) open it via their own flow.
+    const openRunConfig = this.game.registry.get('openRunConfigOnBoot') as boolean | undefined;
+    if (openRunConfig) {
+      this.game.registry.set('openRunConfigOnBoot', false);
+      // Defer one frame so all bottom-bar / weapon-bar wiring is in place
+      // before the modal paints on top.
+      this.time.delayedCall(0, () => this.openRunConfig());
+    }
   }
 
   private showWipeToast(message: string, durationMs: number): void {

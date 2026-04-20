@@ -91,6 +91,10 @@ game.registry.set('saveWipedReason', saveWipedReason);
 // ?restart=1 playtest bonus: seed $10k so you can exercise the economy
 // without grinding. Consumed once by GameScene on create.
 game.registry.set('forceRestartCash', forceRestart ? 10000 : 0);
+// Fresh boot or explicit restart → open Run Config overlay on start so the
+// player can pick a seed before the arena settles. Prestige flow already
+// opens Run Config as its final step; this covers first-time play + restart.
+game.registry.set('openRunConfigOnBoot', !snapshot || forceRestart);
 
 const w = window as unknown as {
   __GAME__: unknown;
