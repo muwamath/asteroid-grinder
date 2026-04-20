@@ -636,18 +636,14 @@ export class GameScene extends Phaser.Scene {
 
     if (behavior instanceof SawBehavior) this.wireSawDoubleClick(sprite, behavior);
 
-    // Left-click a weapon → open that weapon type's upgrade subpanel.
-    // Right-click a weapon → open the sell-confirm dialog.
-    sprite.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
-      if (pointer.rightButtonDown()) {
-        this.scene.get('ui').events.emit('open-sell-confirm', {
-          slotId: this.slotIdForInstance(instance.id),
-          typeId,
-          instanceId: instance.id,
-        });
-        return;
-      }
-      this.scene.get('ui').events.emit('open-weapon-panel', typeId);
+    // Click a weapon → open the sell-confirm dialog.
+    // Upgrades are accessible from the weapon-type icon on the left side bar.
+    sprite.on('pointerdown', () => {
+      this.scene.get('ui').events.emit('open-sell-confirm', {
+        slotId: this.slotIdForInstance(instance.id),
+        typeId,
+        instanceId: instance.id,
+      });
     });
 
     behavior.init(this, sprite, this.effectiveParams);
