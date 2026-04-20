@@ -1,4 +1,18 @@
+import { WEAPON_TYPES } from './weaponCatalog';
+
 type Listener<A extends unknown[]> = (...args: A) => void;
+
+/**
+ * Count of non-grinder weapons the player starts a run already owning, from
+ * each weapon type's `startCount`. Added to the global-N curve so the
+ * pre-installed missile (etc.) counts as "weapon #1" — the next purchase is #2.
+ * Excludes grinder (singleton, not subject to the curve).
+ */
+function preInstalledNonGrinderBaseline(): number {
+  return WEAPON_TYPES
+    .filter((w) => w.id !== 'grinder')
+    .reduce((sum, w) => sum + w.startCount, 0);
+}
 
 interface Events {
   cashChanged: [cash: number, delta: number];
@@ -87,12 +101,20 @@ class GameplayState {
   }
 
   /**
-   * Sum of non-grinder weapon instances purchased this run. Grinder is
-   * excluded because it's a singleton (starts at 1, not purchasable).
-   * Used by `weaponBuyCost` to price the global Nth-weapon curve.
+   * Global-N counter for the weapon-buy curve. Sums:
+   *   1. Pre-installed non-grinder weapons (from each type's `startCount`)
+   *   2. Non-grinder purchases made this run
+   *
+   * The pre-install baseline ensures pre-placed weapons (e.g. the starting
+   * missile) count as "weapon #1" — so the next purchase is #2, not another
+   * #1 freebie. Grinder is excluded (singleton, not subject to the curve).
+   *
+   * Per-type `instancesBoughtThisRun(id)` is NOT affected by the baseline,
+   * so prestige `free.<type>` free-slot credits still apply to the first
+   * player-initiated purchase of that type.
    */
   totalInstancesBoughtThisRun(): number {
-    let total = 0;
+    let total = preInstalledNonGrinderBaseline();
     for (const [typeId, n] of this._instancesBoughtThisRun) {
       if (typeId === 'grinder') continue;
       total += n;
