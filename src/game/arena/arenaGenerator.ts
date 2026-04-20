@@ -3,8 +3,7 @@ import { isPlayable } from './arenaValidate';
 import {
   MAX_DEPTH,
   SPLIT_P_DECAY,
-  VERTICAL_AXIS_WEIGHT,
-  MIN_WALL_SLANT_DEG,
+  MAX_WALL_SLANT_DEG,
   MIN_LEAF_DIM,
   SLOT_SPACING,
   MAX_RETRIES,
@@ -46,7 +45,7 @@ function tryGenerate(seed: number, params: ArenaSeedParams): ArenaLayout {
   splitRect(root, 0, rng, leaves, walls);
 
   for (let i = 0; i < walls.length; i++) {
-    walls[i] = clampToPlayfield(ensureSlant(walls[i], rng), params.width, floorY);
+    walls[i] = clampToPlayfield(applySlant(walls[i], rng), params.width, floorY);
   }
 
   const slots = placeSlots(leaves, rng, params, floorY, walls);
@@ -75,49 +74,36 @@ function splitRect(
     return;
   }
 
-  const axisRoll = rng.next() * (VERTICAL_AXIS_WEIGHT + 1);
-  const vertical = axisRoll < VERTICAL_AXIS_WEIGHT;
-
-  if (vertical) {
-    const sx = r.x + r.w * (0.4 + rng.next() * 0.2);
-    const partialStart = r.y + r.h * (rng.next() * 0.35);
-    const partialEnd = r.y + r.h * (0.65 + rng.next() * 0.35);
-    wallsOut.push({ x1: sx, y1: partialStart, x2: sx, y2: partialEnd });
-    const left: Rect = { x: r.x, y: r.y, w: sx - r.x, h: r.h, id: r.id + 'L' };
-    const right: Rect = { x: sx, y: r.y, w: r.x + r.w - sx, h: r.h, id: r.id + 'R' };
-    splitRect(left, depth + 1, rng, leavesOut, wallsOut);
-    splitRect(right, depth + 1, rng, leavesOut, wallsOut);
-  } else {
-    const sy = r.y + r.h * (0.4 + rng.next() * 0.2);
-    const partialStart = r.x + r.w * (rng.next() * 0.35);
-    const partialEnd = r.x + r.w * (0.65 + rng.next() * 0.35);
-    wallsOut.push({ x1: partialStart, y1: sy, x2: partialEnd, y2: sy });
-    const top: Rect = { x: r.x, y: r.y, w: r.w, h: sy - r.y, id: r.id + 'T' };
-    const bot: Rect = { x: r.x, y: sy, w: r.w, h: r.y + r.h - sy, id: r.id + 'B' };
-    splitRect(top, depth + 1, rng, leavesOut, wallsOut);
-    splitRect(bot, depth + 1, rng, leavesOut, wallsOut);
-  }
+  // Always horizontal — vertical walls removed 2026-04-19 (user said they
+  // "made no sense"). Variety now comes from applySlant rotating each wall
+  // uniformly in [-45°, +45°] after BSP produces the base horizontal segment.
+  // Split Y sampled wider (30–70%) and wall span tightened (0.15–0.40 start,
+  // 0.60–0.85 end) for "lots more, smaller walls" feel.
+  const sy = r.y + r.h * (0.3 + rng.next() * 0.4);
+  const partialStart = r.x + r.w * (0.15 + rng.next() * 0.25);
+  const partialEnd = r.x + r.w * (0.60 + rng.next() * 0.25);
+  wallsOut.push({ x1: partialStart, y1: sy, x2: partialEnd, y2: sy });
+  const top: Rect = { x: r.x, y: r.y, w: r.w, h: sy - r.y, id: r.id + 'T' };
+  const bot: Rect = { x: r.x, y: sy, w: r.w, h: r.y + r.h - sy, id: r.id + 'B' };
+  splitRect(top, depth + 1, rng, leavesOut, wallsOut);
+  splitRect(bot, depth + 1, rng, leavesOut, wallsOut);
 }
 
-// Target slant is sampled from [MIN_WALL_SLANT_DEG + 2, MIN_WALL_SLANT_DEG + 20]
-// so rotated walls don't all settle at the same 10° angle — each map varies.
-const SLANT_SAMPLE_RANGE_DEG = 18;
-
-function ensureSlant(w: WallSegment, rng: SeededRng): WallSegment {
+/**
+ * Rotate a (BSP-horizontal) wall segment around its midpoint by a uniform
+ * random angle in [-MAX_WALL_SLANT_DEG, +MAX_WALL_SLANT_DEG]. Every wall
+ * lands somewhere in `/` to `\` per user spec (2026-04-19 variety pass).
+ */
+function applySlant(w: WallSegment, rng: SeededRng): WallSegment {
   const dx = w.x2 - w.x1;
   const dy = w.y2 - w.y1;
-  const deg = Math.abs((Math.atan2(dy, dx) * 180) / Math.PI);
-  const offHorizontal = Math.min(deg, 180 - deg);
-  if (offHorizontal >= MIN_WALL_SLANT_DEG) return w;
-
   const length = Math.hypot(dx, dy) || 1;
   const cx = (w.x1 + w.x2) / 2;
   const cy = (w.y1 + w.y2) / 2;
-  const dirSign = rng.next() < 0.5 ? 1 : -1;
-  const slantDeg = MIN_WALL_SLANT_DEG + 2 + rng.next() * SLANT_SAMPLE_RANGE_DEG;
-  const targetRad = (dirSign * slantDeg * Math.PI) / 180;
-  const ux = Math.cos(targetRad);
-  const uy = Math.sin(targetRad);
+  const slantDeg = (rng.next() * 2 - 1) * MAX_WALL_SLANT_DEG;
+  const rad = (slantDeg * Math.PI) / 180;
+  const ux = Math.cos(rad);
+  const uy = Math.sin(rad);
   const half = length / 2;
   return {
     x1: cx - ux * half,

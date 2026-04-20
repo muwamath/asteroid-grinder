@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { generateArena } from './arenaGenerator';
 import { isPlayable, minWallSlantDeg } from './arenaValidate';
-import { MIN_SLOTS, MAX_SLOTS, MIN_WALL_SLANT_DEG, SLOT_SPACING } from './arenaConstants';
+import { MIN_SLOTS, MAX_SLOTS, MAX_WALL_SLANT_DEG, SLOT_SPACING } from './arenaConstants';
 
 const PARAMS = { width: 2560, height: 1440, minSlots: MIN_SLOTS, maxSlots: MAX_SLOTS };
 
@@ -26,12 +26,21 @@ describe('generateArena', () => {
     }
   });
 
-  it('horizontal walls carry the minimum slant', () => {
+  it('walls land within ±MAX_WALL_SLANT_DEG of horizontal', () => {
     for (let seed = 1; seed <= 50; seed++) {
       const { walls } = generateArena(seed, PARAMS);
-      const slant = minWallSlantDeg(walls);
-      expect(slant === Infinity || slant >= MIN_WALL_SLANT_DEG - 0.01).toBe(true);
+      for (const w of walls) {
+        const deg = Math.abs((Math.atan2(w.y2 - w.y1, w.x2 - w.x1) * 180) / Math.PI);
+        const offHorizontal = Math.min(deg, 180 - deg);
+        expect(offHorizontal).toBeLessThanOrEqual(MAX_WALL_SLANT_DEG + 0.01);
+      }
     }
+  });
+
+  it('minWallSlantDeg still reports something sensible for non-empty maps', () => {
+    const { walls } = generateArena(42, PARAMS);
+    const slant = minWallSlantDeg(walls);
+    expect(slant === Infinity || slant >= 0).toBe(true);
   });
 
   it('generated layouts pass isPlayable', () => {

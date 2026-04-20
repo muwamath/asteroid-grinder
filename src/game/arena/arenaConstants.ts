@@ -11,17 +11,16 @@ export const BASE_STARTING_SLOTS = MAX_SLOTS;
 export const UNLOCK_BASE = 50;
 export const UNLOCK_GROWTH = 2.5;
 
-export const MAX_DEPTH = 4;
+// Bumped 4 → 5 (2026-04-19) so BSP produces roughly 2× more leaves
+// (and therefore roughly 2× more walls) per map. Pairs with tighter wall
+// spans to give "lots more, smaller walls" feel.
+export const MAX_DEPTH = 5;
 // Higher = deeper tree → more walls per map. 0.8 keeps depth-3 splits at
-// ~51% likely (vs 22% at 0.6), lifting avg wall count ~3→~5 and avg slants
-// ~1.9→~3 when paired with the horizontal-axis bias below.
+// ~51% likely (vs 22% at 0.6).
 export const SPLIT_P_DECAY = 0.8;
-// Horizontal-axis bias: P(vertical) = WEIGHT / (WEIGHT + 1). At 0.5 → 33%
-// vertical, 67% horizontal. With ~4.5 total splits per map that yields ~3
-// slanted walls on average — busier, more "cascading ledges" feel than
-// the original vertical-dominant layouts.
-export const VERTICAL_AXIS_WEIGHT = 0.5;
-export const MIN_WALL_SLANT_DEG = 8;
+// Every wall's rotation is uniform in [-MAX_WALL_SLANT_DEG, +MAX_WALL_SLANT_DEG]
+// applied to its BSP-horizontal base. ±45° gives the full `/` to `\` range.
+export const MAX_WALL_SLANT_DEG = 45;
 export const MIN_LEAF_DIM = 220;
 export const SLOT_SPACING = 180;
 export const MAX_RETRIES = 8;
