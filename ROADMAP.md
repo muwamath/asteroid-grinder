@@ -18,6 +18,7 @@ Backlog below is open work only, ranked P1–P4. Tactical todos (currently scope
   - Run Config map preview: add a comment documenting its dependency on `scale.width/height` matching arena generation dimensions.
   - Re-roll button double-fires on desktop (`pointerdown` + `click` both invoke `rerollFn`) — remove one listener.
 - **"Larger sooner" Asteroid Size curve.** Current linear +2/level feels under-powered early. Swap for non-linear / Fibonacci-ish so runs feel meaty fast. (Max level already raised 8→20 during the audit.)
+- **Pacing & balance tuning pass.** Playtest 2026-04-19 after real-gravity + ×1/10 weapon cost shipped: run takes ~2× the desired duration, cores feel over-tuned (too rewarding / too tanky for current DPS curves), starting asteroid HP outpaces starting weapon DPS (or weapons under-tuned at L0), and `asteroids.chunkHp` upgrade is underpriced — nothing stops the player from scaling HP faster than damage. Retune the right lever (spawn rate / grinder DPS / vault `vaultHpMultiplier` / chunk-HP base+growth / weapon L0 DPS). Easier to diagnose once the P2 DPS-estimate + avg-HP HUD lands — do that first.
 
 ## P2 — content & mechanics
 
