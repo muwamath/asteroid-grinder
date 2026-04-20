@@ -64,4 +64,16 @@ describe('applyPrestigeEffects', () => {
     expect(out.freeSlotCount.missile).toBe(0);
     expect(out.freeSlotCount.blackhole).toBe(3);
   });
+
+  it('prestige.shardMultiplier: +5% per level (L20 = 2.0×)', () => {
+    expect(applyPrestigeEffects(BASE_PARAMS, {}).shardYieldMultiplier).toBe(1);
+    expect(applyPrestigeEffects(BASE_PARAMS, { 'prestige.shardMultiplier': 4 }).shardYieldMultiplier).toBeCloseTo(1.2);
+    expect(applyPrestigeEffects(BASE_PARAMS, { 'prestige.shardMultiplier': 20 }).shardYieldMultiplier).toBeCloseTo(2.0);
+  });
+
+  it('offline.rate: +15% per level (L6 = 1.9×)', () => {
+    expect(applyPrestigeEffects(BASE_PARAMS, {}).offlineRateMultiplier).toBe(1);
+    expect(applyPrestigeEffects(BASE_PARAMS, { 'offline.rate': 2 }).offlineRateMultiplier).toBeCloseTo(1.3);
+    expect(applyPrestigeEffects(BASE_PARAMS, { 'offline.rate': 6 }).offlineRateMultiplier).toBeCloseTo(1.9);
+  });
 });

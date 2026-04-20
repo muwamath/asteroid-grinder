@@ -38,6 +38,8 @@ export interface EffectiveGameplayParams {
   readonly fillerFraction: number;
   readonly offlineCapMs: number;
   readonly shardYieldBonus: number;
+  readonly shardYieldMultiplier: number;
+  readonly offlineRateMultiplier: number;
   readonly freeSlotCount: Readonly<Record<string, number>>;
   readonly startingCash: number;
 }
@@ -79,6 +81,8 @@ export const BASE_PARAMS: EffectiveGameplayParams = {
   fillerFraction: 0.8,
   offlineCapMs: 8 * 60 * 60 * 1000,
   shardYieldBonus: 0,
+  shardYieldMultiplier: 1,
+  offlineRateMultiplier: 1,
   freeSlotCount: { saw: 0, laser: 0, missile: 0, blackhole: 0 },
   startingCash: 0,
 };
@@ -165,6 +169,8 @@ export function applyUpgrades(
     fillerFraction: BASE_PARAMS.fillerFraction,
     offlineCapMs: BASE_PARAMS.offlineCapMs,
     shardYieldBonus: BASE_PARAMS.shardYieldBonus,
+    shardYieldMultiplier: BASE_PARAMS.shardYieldMultiplier,
+    offlineRateMultiplier: BASE_PARAMS.offlineRateMultiplier,
     freeSlotCount: BASE_PARAMS.freeSlotCount,
     startingCash: BASE_PARAMS.startingCash,
   };

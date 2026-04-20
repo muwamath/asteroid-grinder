@@ -30,6 +30,8 @@ export function applyPrestigeEffects(
     fillerFraction: Math.max(0.5, 0.8 - 0.05 * lv('refinement')),
     offlineCapMs: OFFLINE_CAP_TIERS[offlineIdx],
     shardYieldBonus: lv('shard.yield'),
+    shardYieldMultiplier: 1 + 0.05 * lv('prestige.shardMultiplier'),
+    offlineRateMultiplier: 1 + 0.15 * lv('offline.rate'),
     freeSlotCount: {
       saw: lv('free.saw'),
       laser: lv('free.laser'),
