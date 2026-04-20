@@ -282,16 +282,17 @@ describe('gameplayState', () => {
     expect(events).toEqual([['saw', 2]]);
   });
 
-  it('totalInstancesBoughtThisRun includes pre-install baseline + purchases', () => {
+  it('totalInstancesBoughtThisRun tracks live non-grinder inventory (buy + sell)', () => {
     gameplayState.reset();
-    gameplayState.initWeaponCounts({ grinder: 1 });
-    // Baseline = sum of non-grinder startCount across WEAPON_TYPES (missile=1).
-    const baseline = gameplayState.totalInstancesBoughtThisRun();
-    expect(baseline).toBeGreaterThanOrEqual(1);
+    gameplayState.initWeaponCounts({ grinder: 1, missile: 1 });
+    expect(gameplayState.totalInstancesBoughtThisRun()).toBe(1); // pre-installed missile
     gameplayState.buyWeapon('saw');
     gameplayState.buyWeapon('laser');
-    gameplayState.buyWeapon('laser');
-    expect(gameplayState.totalInstancesBoughtThisRun()).toBe(baseline + 3);
+    expect(gameplayState.totalInstancesBoughtThisRun()).toBe(3);
+    gameplayState.sellWeapon('laser');
+    gameplayState.sellWeapon('saw');
+    gameplayState.sellWeapon('missile');
+    expect(gameplayState.totalInstancesBoughtThisRun()).toBe(0);
   });
 
   it('sellWeapon decrements count down to zero and refuses below', () => {

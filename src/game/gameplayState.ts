@@ -1,18 +1,4 @@
-import { WEAPON_TYPES } from './weaponCatalog';
-
 type Listener<A extends unknown[]> = (...args: A) => void;
-
-/**
- * Count of non-grinder weapons the player starts a run already owning, from
- * each weapon type's `startCount`. Added to the global-N curve so the
- * pre-installed missile (etc.) counts as "weapon #1" — the next purchase is #2.
- * Excludes grinder (singleton, not subject to the curve).
- */
-function preInstalledNonGrinderBaseline(): number {
-  return WEAPON_TYPES
-    .filter((w) => w.id !== 'grinder')
-    .reduce((sum, w) => sum + w.startCount, 0);
-}
 
 interface Events {
   cashChanged: [cash: number, delta: number];
@@ -101,21 +87,20 @@ class GameplayState {
   }
 
   /**
-   * Global-N counter for the weapon-buy curve. Sums:
-   *   1. Pre-installed non-grinder weapons (from each type's `startCount`)
-   *   2. Non-grinder purchases made this run
+   * Global-N counter for the weapon-buy curve: total non-grinder weapons
+   * CURRENTLY INSTALLED (not cumulative purchases). Selling a weapon drops
+   * the count, so after selling to zero the next purchase lands on N=1 and
+   * is free again. Pre-installed weapons (missile.startCount=1) are already
+   * in weaponCounts at run start, so they count as "weapon #1" naturally.
+   * Grinder excluded (singleton, not subject to the curve).
    *
-   * The pre-install baseline ensures pre-placed weapons (e.g. the starting
-   * missile) count as "weapon #1" — so the next purchase is #2, not another
-   * #1 freebie. Grinder is excluded (singleton, not subject to the curve).
-   *
-   * Per-type `instancesBoughtThisRun(id)` is NOT affected by the baseline,
-   * so prestige `free.<type>` free-slot credits still apply to the first
-   * player-initiated purchase of that type.
+   * Per-type `instancesBoughtThisRun(id)` remains cumulative — prestige
+   * `free.<type>` credits consume on first player-initiated purchase of a
+   * type and do not refund on sell.
    */
   totalInstancesBoughtThisRun(): number {
-    let total = preInstalledNonGrinderBaseline();
-    for (const [typeId, n] of this._instancesBoughtThisRun) {
+    let total = 0;
+    for (const [typeId, n] of this._weaponCounts) {
       if (typeId === 'grinder') continue;
       total += n;
     }
