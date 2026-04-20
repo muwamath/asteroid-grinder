@@ -10,7 +10,7 @@ describe('applyPrestigeEffects', () => {
     expect(out.upgradeCostMultiplier).toBe(1);
     expect(out.fillerFraction).toBe(0.8);
     expect(out.shardYieldBonus).toBe(0);
-    expect(out.startingCash).toBe(0);
+    expect(out.startingCash).toBe(50);
     expect(out.freeSlotCount.saw).toBe(0);
   });
 
@@ -51,8 +51,9 @@ describe('applyPrestigeEffects', () => {
     expect(applyPrestigeEffects(BASE_PARAMS, { 'shard.yield': 4 }).shardYieldBonus).toBe(4);
   });
 
-  it('start.cash: +$50 per level', () => {
-    expect(applyPrestigeEffects(BASE_PARAMS, { 'start.cash': 3 }).startingCash).toBe(150);
+  it('start.cash: +$50 per level, stacking on $50 base', () => {
+    expect(applyPrestigeEffects(BASE_PARAMS, { 'start.cash': 0 }).startingCash).toBe(50);
+    expect(applyPrestigeEffects(BASE_PARAMS, { 'start.cash': 3 }).startingCash).toBe(200);
   });
 
   it('free.saw / free.laser / free.missile / free.blackhole → freeSlotCount map', () => {

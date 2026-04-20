@@ -86,7 +86,7 @@ export const BASE_PARAMS: EffectiveGameplayParams = {
   shardYieldMultiplier: 1,
   offlineRateMultiplier: 1,
   freeSlotCount: { saw: 0, laser: 0, missile: 0, blackhole: 0 },
-  startingCash: 0,
+  startingCash: 50,
 };
 
 // Per-level deltas. Tuning scaffolding — adjust after playtesting.

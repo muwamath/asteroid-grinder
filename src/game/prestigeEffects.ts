@@ -38,6 +38,6 @@ export function applyPrestigeEffects(
       missile: lv('free.missile'),
       blackhole: lv('free.blackhole'),
     },
-    startingCash: 50 * lv('start.cash'),
+    startingCash: params.startingCash + 50 * lv('start.cash'),
   };
 }
