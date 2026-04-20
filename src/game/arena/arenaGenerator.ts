@@ -97,6 +97,10 @@ function splitRect(
   }
 }
 
+// Target slant is sampled from [MIN_WALL_SLANT_DEG + 2, MIN_WALL_SLANT_DEG + 20]
+// so rotated walls don't all settle at the same 10° angle — each map varies.
+const SLANT_SAMPLE_RANGE_DEG = 18;
+
 function ensureSlant(w: WallSegment, rng: SeededRng): WallSegment {
   const dx = w.x2 - w.x1;
   const dy = w.y2 - w.y1;
@@ -108,7 +112,8 @@ function ensureSlant(w: WallSegment, rng: SeededRng): WallSegment {
   const cx = (w.x1 + w.x2) / 2;
   const cy = (w.y1 + w.y2) / 2;
   const dirSign = rng.next() < 0.5 ? 1 : -1;
-  const targetRad = (dirSign * (MIN_WALL_SLANT_DEG + 2) * Math.PI) / 180;
+  const slantDeg = MIN_WALL_SLANT_DEG + 2 + rng.next() * SLANT_SAMPLE_RANGE_DEG;
+  const targetRad = (dirSign * slantDeg * Math.PI) / 180;
   const ux = Math.cos(targetRad);
   const uy = Math.sin(targetRad);
   const half = length / 2;
