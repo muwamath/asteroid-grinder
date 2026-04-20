@@ -86,7 +86,7 @@ export class CompoundAsteroid {
         const part = matterBodies.rectangle(
           localX, localY, CHUNK_PIXEL_SIZE, CHUNK_PIXEL_SIZE,
           {
-            friction: 0.1, frictionAir: 0, restitution: 0,
+            friction: 0.05, frictionAir: 0, restitution: 0,
             mass: 0.25, slop: 0.005,
           },
         );
@@ -358,7 +358,7 @@ export class CompoundAsteroid {
       const part = matterBodies.rectangle(
         localX, localY, CHUNK_PIXEL_SIZE, CHUNK_PIXEL_SIZE,
         {
-          friction: 0.1, frictionAir: 0, restitution: 0,
+          friction: 0.05, frictionAir: 0, restitution: 0,
           mass: 0.25, slop: 0.005,
         },
       );
