@@ -269,15 +269,6 @@ export const CATEGORY_DEFS: readonly CategoryDef[] = [
     icon: 'asteroids',
     upgrades: [
       {
-        id: 'asteroids.dropRate',
-        name: 'Drop Rate',
-        description: 'Asteroids spawn faster',
-        category: 'asteroids',
-        baseCost: 1,
-        growthRate: 1,
-        maxLevel: 10,
-      },
-      {
         id: 'asteroids.chunkHp',
         name: 'Chunk HP',
         description: 'HP multiplier per chunk (higher tiers gain more)',
@@ -312,6 +303,31 @@ export const CATEGORY_DEFS: readonly CategoryDef[] = [
         baseCost: 1,
         growthRate: 1,
         maxLevel: 9,
+      },
+    ],
+  },
+  {
+    id: 'spawn',
+    name: 'Spawner',
+    icon: 'spawner',
+    upgrades: [
+      {
+        id: 'spawn.rate',
+        name: 'Spawn Rate',
+        description: 'Asteroids spawn faster',
+        category: 'spawn',
+        baseCost: 1,
+        growthRate: 1,
+        maxLevel: 12,
+      },
+      {
+        id: 'spawn.amplitude',
+        name: 'Spawn Amplitude',
+        description: 'Spawner sweeps a wider arc',
+        category: 'spawn',
+        baseCost: 1,
+        growthRate: 1,
+        maxLevel: 10,
       },
     ],
   },

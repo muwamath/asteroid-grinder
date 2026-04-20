@@ -33,9 +33,15 @@ describe('applyUpgrades', () => {
     expect(applyUpgrades({ 'saw.bladeCount': 4 }).bladeCount).toBe(BASE_PARAMS.bladeCount + 4);
   });
 
-  it('shortens spawn interval per drop-rate level but clamps at 300ms', () => {
-    expect(applyUpgrades({ 'asteroids.dropRate': 2 }).spawnIntervalMs).toBe(1800 - 260);
-    expect(applyUpgrades({ 'asteroids.dropRate': 99 }).spawnIntervalMs).toBe(300);
+  it('shortens spawn interval per spawn.rate level but clamps at 300ms', () => {
+    expect(applyUpgrades({ 'spawn.rate': 2 }).spawnIntervalMs).toBe(1800 - 260);
+    expect(applyUpgrades({ 'spawn.rate': 99 }).spawnIntervalMs).toBe(300);
+  });
+
+  it('scales spawnAmplitudeMultiplier per spawn.amplitude level (+10% per level)', () => {
+    expect(applyUpgrades({}).spawnAmplitudeMultiplier).toBe(1);
+    expect(applyUpgrades({ 'spawn.amplitude': 5 }).spawnAmplitudeMultiplier).toBeCloseTo(1.5);
+    expect(applyUpgrades({ 'spawn.amplitude': 10 }).spawnAmplitudeMultiplier).toBeCloseTo(2.0);
   });
 
   it('raises chunk HP per level', () => {
@@ -177,11 +183,12 @@ describe('weaponCatalog + upgradeCatalog', () => {
         'blackhole.coreSize',
         'blackhole.coreDamage',
         'blackhole.maxTargets',
-        'asteroids.dropRate',
         'asteroids.chunkHp',
         'asteroids.asteroidSize',
         'asteroids.quality',
         'asteroids.fallSpeed',
+        'spawn.rate',
+        'spawn.amplitude',
       ]),
     );
   });

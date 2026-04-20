@@ -4,6 +4,7 @@ export interface EffectiveGameplayParams {
   readonly sawDamage: number;
   readonly bladeCount: number;
   readonly spawnIntervalMs: number;
+  readonly spawnAmplitudeMultiplier: number;
   readonly maxHpPerChunk: number;
   readonly minChunks: number;
   readonly maxChunks: number;
@@ -46,6 +47,7 @@ export const BASE_PARAMS: EffectiveGameplayParams = {
   sawDamage: 1,
   bladeCount: 1,
   spawnIntervalMs: 1800,
+  spawnAmplitudeMultiplier: 1,
   maxHpPerChunk: 1,
   minChunks: 4,
   maxChunks: 4,
@@ -86,6 +88,7 @@ const SAW_DAMAGE_PER_LEVEL = 1;
 const BLADE_COUNT_PER_LEVEL = 1;
 const DROP_RATE_MS_PER_LEVEL = 130;
 const DROP_RATE_MIN_MS = 300;
+const SPAWN_AMPLITUDE_PER_LEVEL = 0.1;
 const CHUNK_HP_PER_LEVEL = 1;
 const ASTEROID_SIZE_PER_LEVEL = 2;
 const BLADE_SPIN_SPEED_PER_LEVEL = 0.005;
@@ -121,8 +124,10 @@ export function applyUpgrades(
     bladeCount: BASE_PARAMS.bladeCount + lv('saw.bladeCount') * BLADE_COUNT_PER_LEVEL,
     spawnIntervalMs: Math.max(
       DROP_RATE_MIN_MS,
-      BASE_PARAMS.spawnIntervalMs - lv('asteroids.dropRate') * DROP_RATE_MS_PER_LEVEL,
+      BASE_PARAMS.spawnIntervalMs - lv('spawn.rate') * DROP_RATE_MS_PER_LEVEL,
     ),
+    spawnAmplitudeMultiplier:
+      BASE_PARAMS.spawnAmplitudeMultiplier + lv('spawn.amplitude') * SPAWN_AMPLITUDE_PER_LEVEL,
     maxHpPerChunk: BASE_PARAMS.maxHpPerChunk + lv('asteroids.chunkHp') * CHUNK_HP_PER_LEVEL,
     minChunks: BASE_PARAMS.minChunks + lv('asteroids.asteroidSize') * ASTEROID_SIZE_PER_LEVEL,
     maxChunks: BASE_PARAMS.maxChunks + lv('asteroids.asteroidSize') * ASTEROID_SIZE_PER_LEVEL,

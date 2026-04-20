@@ -24,9 +24,9 @@ describe('weaponCatalog', () => {
     expect(findWeaponType('blackhole')?.locked).toBe(false);
   });
 
-  it('defines the asteroids category (chute category removed with channelWidth upgrade)', () => {
+  it('defines the asteroids and spawn categories', () => {
     const ids = CATEGORY_DEFS.map((c) => c.id);
-    expect(ids).toEqual(['asteroids']);
+    expect(ids).toEqual(['asteroids', 'spawn']);
   });
 
   it('grinder and missile start at 1; other weapons start at 0', () => {
